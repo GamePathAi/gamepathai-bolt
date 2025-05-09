@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown } from 'lucide-react';
+import { DetectionMonitor } from '../components/GameDetection/DetectionMonitor';
+import { useGameStore } from '../stores/gameStore';
+import { useDetectionStore } from '../lib/gameDetection';
 
 export const GamesLibrary: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -127,6 +130,9 @@ export const GamesLibrary: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Add Detection Monitor */}
+      <DetectionMonitor />
       
       {/* Games Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
