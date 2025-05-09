@@ -22,8 +22,16 @@ export const Login: React.FC = () => {
     try {
       await signIn(email, password);
       navigate(from, { replace: true });
-    } catch (err) {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      // Handle specific Supabase error codes
+      const errorCode = err?.message;
+      if (errorCode === 'invalid_credentials') {
+        setError('Incorrect email or password. Please try again.');
+      } else if (errorCode === 'email_not_confirmed') {
+        setError('Please verify your email address before logging in. Check your inbox for the verification link.');
+      } else {
+        setError('An error occurred while signing in. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
