@@ -9,6 +9,7 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   setUser: (user: User | null) => void;
+  resendConfirmationEmail: (email: string) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -34,4 +35,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user: null });
   },
   setUser: (user) => set({ user, loading: false }),
+  resendConfirmationEmail: async (email: string) => {
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email,
+    });
+    if (error) throw error;
+  },
 }));

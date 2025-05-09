@@ -1,22 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { Shield } from 'lucide-react';
+import { Shield, AlertTriangle, Mail } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const signIn = useAuthStore((state) => state.signIn);
+  const { signIn, resendConfirmationEmail } = useAuthStore((state) => ({
+    signIn: state.signIn,
+    resendConfirmationEmail: state.resendConfirmationEmail,
+  }));
 
   const from = location.state?.from?.pathname || '/app';
+
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    try {
+      await resendConfirmationEmail(email);
+      setError('Verification email sent! Please check your inbox and spam folder.');
+      setShowResendButton(false);
+    } catch (err) {
+      setError('Failed to resend verification email. Please try again.');
+    } finally {
+      setResendingEmail(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setShowResendButton(false);
     setLoading(true);
 
     try {
@@ -28,7 +47,8 @@ export const Login: React.FC = () => {
       if (errorCode === 'invalid_credentials') {
         setError('Incorrect email or password. Please try again.');
       } else if (errorCode === 'email_not_confirmed') {
-        setError('Email address not yet verified. Please check your inbox/spam folder for the verification link and follow the instructions to verify your email.');
+        setError('Your email address has not been verified.');
+        setShowResendButton(true);
       } else {
         setError('An error occurred while signing in. Please try again.');
       }
@@ -48,8 +68,30 @@ export const Login: React.FC = () => {
 
         <div className="bg-gray-800 rounded-lg p-8 shadow-xl border border-gray-700">
           {error && (
-            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6">
-              <p className="text-red-400 text-sm">{error}</p>
+            <div className={`rounded-lg p-4 mb-6 flex items-start ${
+              showResendButton 
+                ? 'bg-yellow-500/10 border border-yellow-500/50' 
+                : 'bg-red-500/10 border border-red-500/50'
+            }`}>
+              <AlertTriangle 
+                className={showResendButton ? 'text-yellow-400' : 'text-red-400'} 
+                size={20} 
+              />
+              <div className="ml-3 flex-1">
+                <p className={`text-sm ${showResendButton ? 'text-yellow-400' : 'text-red-400'}`}>
+                  {error}
+                </p>
+                {showResendButton && (
+                  <button
+                    onClick={handleResendEmail}
+                    disabled={resendingEmail}
+                    className="mt-2 flex items-center text-sm text-yellow-400 hover:text-yellow-300 transition-colors duration-150"
+                  >
+                    <Mail size={16} className="mr-1" />
+                    {resendingEmail ? 'Sending...' : 'Resend verification email'}
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
