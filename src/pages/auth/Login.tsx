@@ -28,7 +28,7 @@ export const Login: React.FC = () => {
       if (errorCode === 'invalid_credentials') {
         setError('Incorrect email or password. Please try again.');
       } else if (errorCode === 'email_not_confirmed') {
-        setError('Please verify your email address before logging in. Check your inbox for the verification link.');
+        setError('Email address not yet verified. Please check your inbox/spam folder for the verification link and follow the instructions to verify your email.');
       } else {
         setError('An error occurred while signing in. Please try again.');
       }
