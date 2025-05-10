@@ -21,17 +21,15 @@ i18n
   .init({
     backend: {
       loadPath: '/locales/{{lng}}/{{ns}}.json',
-      requestOptions: {
-        // Ensure proper headers are set
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      }
+      addPath: '/locales/add/{{lng}}/{{ns}}',
+      allowMultiLoading: false,
+      crossDomain: false,
     },
     fallbackLng: 'en',
     supportedLngs: Object.keys(LANGUAGES),
     ns: ['common', 'auth', 'settings', 'dashboard'],
     defaultNS: 'common',
+    fallbackNS: 'common',
     interpolation: {
       escapeValue: false,
     },
@@ -39,6 +37,9 @@ i18n
       order: ['localStorage', 'navigator'],
       caches: ['localStorage'],
     },
+    react: {
+      useSuspense: false
+    }
   });
 
 // Cache management
@@ -52,27 +53,18 @@ export const cacheLanguageResources = async (lng: string) => {
         const response = await fetch(`/locales/${lng}/${ns}.json`);
         
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          console.warn(`Failed to fetch ${ns} namespace for ${lng}`);
+          continue;
         }
 
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          console.warn(`Warning: Expected JSON but got ${contentType} for ${ns} namespace`);
-          // Try to parse as JSON anyway - some servers might send wrong content type
-          const text = await response.text();
-          try {
-            resources[ns] = JSON.parse(text);
-            continue;
-          } catch (e) {
-            throw new Error(`Invalid content type for ${ns} namespace: ${contentType}`);
-          }
-        }
-
-        resources[ns] = await response.json();
+        const data = await response.json();
+        resources[ns] = data;
+        
+        // Cache individual namespace
+        await set(`i18n_${lng}_${ns}`, data);
       } catch (error) {
-        console.error(`Failed to fetch ${ns} namespace:`, error);
-        // Don't throw here - continue with other namespaces
-        // Use any cached version if available
+        console.warn(`Error caching ${ns} namespace for ${lng}:`, error);
+        // Try to get from existing cache
         const cached = await get(`i18n_${lng}_${ns}`);
         if (cached) {
           resources[ns] = cached;
@@ -80,13 +72,15 @@ export const cacheLanguageResources = async (lng: string) => {
       }
     }
 
-    // Only cache if we have at least some resources
+    // Cache complete language resources
     if (Object.keys(resources).length > 0) {
       await set(`i18n_${lng}`, resources);
     }
+
+    return resources;
   } catch (error) {
     console.error(`Failed to cache language resources for ${lng}:`, error);
-    // Don't throw - we can still use i18next's built-in loading
+    return null;
   }
 };
 
@@ -97,10 +91,12 @@ export const loadCachedLanguageResources = async (lng: string) => {
       Object.entries(cached).forEach(([ns, resources]) => {
         i18n.addResourceBundle(lng, ns, resources, true, true);
       });
+      return true;
     }
+    return false;
   } catch (error) {
     console.error(`Failed to load cached language resources for ${lng}:`, error);
-    // Don't throw - i18next will load resources from the backend
+    return false;
   }
 };
 
