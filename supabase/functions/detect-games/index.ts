@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
@@ -7,21 +6,30 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': '*',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+
+    if (!supabaseUrl || !supabaseAnonKey) {
+      throw new Error('Missing Supabase environment variables');
+    }
+
     // Initialize Supabase client
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { auth: { persistSession: false } }
+      supabaseUrl,
+      supabaseAnonKey,
+      { 
+        auth: { persistSession: false },
+        db: { schema: 'public' }
+      }
     );
 
     // Mock game detection logic
-    // In a real implementation, this would scan the system
     const detectedGames = [
       {
         name: 'Cyberpunk 2077',
@@ -52,21 +60,39 @@ serve(async (req) => {
       }
     ];
 
-    // Insert detected games into the database
-    const { error } = await supabaseClient
-      .from('games')
-      .upsert(
-        detectedGames.map(game => ({
-          ...game,
-          updated_at: new Date().toISOString()
-        })),
+    try {
+      // Insert detected games into the database
+      const { error: upsertError } = await supabaseClient
+        .from('games')
+        .upsert(
+          detectedGames.map(game => ({
+            ...game,
+            updated_at: new Date().toISOString()
+          })),
+          {
+            onConflict: 'name,platform',
+            ignoreDuplicates: false
+          }
+        );
+
+      if (upsertError) {
+        console.error('Database upsert error:', upsertError);
+        throw upsertError;
+      }
+    } catch (dbError) {
+      console.error('Database operation failed:', dbError);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          games: [],
+          errors: ['Failed to update game database']
+        }),
         {
-          onConflict: 'name,platform',
-          ignoreDuplicates: false
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 500,
         }
       );
-
-    if (error) throw error;
+    }
 
     // Return the detected games
     return new Response(
@@ -82,11 +108,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error in detect-games function:', error);
+    
+    // Return a more detailed error message
     return new Response(
       JSON.stringify({ 
         success: false,
         games: [],
-        errors: [error instanceof Error ? error.message : 'Unknown error occurred']
+        errors: [error instanceof Error ? error.message : 'Internal server error occurred']
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
