@@ -82,12 +82,10 @@ class AuthService {
     metadata: Record<string, any> = {}
   ): Promise<void> {
     try {
-      const { data: clientIp } = await supabase.functions.invoke('get-client-ip');
-      
       const { error } = await supabase.from('security_logs').insert({
         user_id: userId,
         event_type: eventType,
-        ip_address: clientIp?.ip || 'unknown',
+        ip_address: 'unknown',
         user_agent: navigator.userAgent,
         metadata
       });
@@ -100,11 +98,13 @@ class AuthService {
   }
 
   private encryptSensitiveData(data: string): string {
-    return AES.encrypt(data, import.meta.env.VITE_ENCRYPTION_KEY || '').toString();
+    const key = import.meta.env.VITE_ENCRYPTION_KEY || '';
+    return AES.encrypt(data, key).toString();
   }
 
   private decryptSensitiveData(encryptedData: string): string {
-    const bytes = AES.decrypt(encryptedData, import.meta.env.VITE_ENCRYPTION_KEY || '');
+    const key = import.meta.env.VITE_ENCRYPTION_KEY || '';
+    const bytes = AES.decrypt(encryptedData, key);
     return bytes.toString(enc.Utf8);
   }
 
