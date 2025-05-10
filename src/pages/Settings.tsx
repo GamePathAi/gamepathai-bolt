@@ -1,5 +1,9 @@
 import React, { useState } from 'react';
 import { Settings as SettingsIcon, Bell, Globe, Moon, Monitor, Shield } from 'lucide-react';
+import { UpdateModal } from '../components/modals/UpdateModal';
+import { BugReportModal } from '../components/modals/BugReportModal';
+import { ChatWidget } from '../components/chat/ChatWidget';
+import { createCheckoutSession } from '../lib/stripe';
 
 export const Settings: React.FC = () => {
   const [settings, setSettings] = useState({
@@ -17,6 +21,10 @@ export const Settings: React.FC = () => {
       telemetry: false,
     }
   });
+
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
+  const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
   
   const handleToggleSetting = (key: string) => {
     setSettings({
@@ -33,6 +41,32 @@ export const Settings: React.FC = () => {
         [key]: !(settings[category as keyof typeof settings] as any)[key],
       }
     });
+  };
+
+  const handleUpgradeToPro = async () => {
+    try {
+      const checkoutUrl = await createCheckoutSession(
+        'price_1RMWKnH2pA9wm7hmLpmpGkn5', // Co-op plan price ID
+        'subscription'
+      );
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
+      }
+    } catch (error) {
+      console.error('Failed to create checkout session:', error);
+    }
+  };
+
+  const handleCheckForUpdates = async () => {
+    setIsCheckingForUpdates(true);
+    // Simulate checking for updates
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setIsCheckingForUpdates(false);
+    setIsUpdateModalOpen(true);
+  };
+
+  const handleKnowledgeBase = () => {
+    window.open('https://docs.gamepathai.com', '_blank');
   };
   
   return (
@@ -156,145 +190,6 @@ export const Settings: React.FC = () => {
               </div>
             </div>
           </div>
-          
-          {/* Notification Settings */}
-          <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg overflow-hidden p-4">
-            <h2 className="text-lg font-medium mb-4 flex items-center">
-              <span className="w-2 h-4 bg-cyan-500 rounded-sm mr-2"></span>
-              Notifications
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
-                      <path d="M18 8C18 6.4087 17.3679 4.88258 16.2426 3.75736C15.1174 2.63214 13.5913 2 12 2C10.4087 2 8.88258 2.63214 7.75736 3.75736C6.63214 4.88258 6 6.4087 6 8C6 15 3 17 3 17H21C21 17 18 15 18 8Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M13.73 21C13.5542 21.3031 13.3019 21.5547 12.9982 21.7295C12.6946 21.9044 12.3504 21.9965 12 21.9965C11.6496 21.9965 11.3054 21.9044 11.0018 21.7295C10.6982 21.5547 10.4458 21.3031 10.27 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">Software Updates</h3>
-                    <p className="text-xs text-gray-400">Get notified about application updates</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.notifications.updates}
-                    onChange={() => handleToggleNestedSetting('notifications', 'updates')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
-                      <path d="M13 2L3 14H12L11 22L21 10H12L13 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">Optimization Alerts</h3>
-                    <p className="text-xs text-gray-400">Notify when optimization is needed</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.notifications.optimizationAlerts}
-                    onChange={() => handleToggleNestedSetting('notifications', 'optimizationAlerts')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <Shield className="text-gray-400" size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">Connection Alerts</h3>
-                    <p className="text-xs text-gray-400">Notify about VPN connection changes</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.notifications.connectionAlerts}
-                    onChange={() => handleToggleNestedSetting('notifications', 'connectionAlerts')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-            </div>
-          </div>
-          
-          {/* Privacy Settings */}
-          <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg overflow-hidden p-4">
-            <h2 className="text-lg font-medium mb-4 flex items-center">
-              <span className="w-2 h-4 bg-purple-500 rounded-sm mr-2"></span>
-              Privacy
-            </h2>
-            
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
-                      <path d="M10 3H3V10H10V3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M21 3H14V10H21V3Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M21 14H14V21H21V14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M10 14H3V21H10V14Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">Share Analytics</h3>
-                    <p className="text-xs text-gray-400">Help improve the app by sharing usage data</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.privacy.shareAnalytics}
-                    onChange={() => handleToggleNestedSetting('privacy', 'shareAnalytics')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="text-gray-400">
-                      <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M12 16V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      <path d="M12 8H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">Telemetry</h3>
-                    <p className="text-xs text-gray-400">Collect performance and diagnostic data</p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.privacy.telemetry}
-                    onChange={() => handleToggleNestedSetting('privacy', 'telemetry')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-            </div>
-          </div>
         </div>
         
         {/* Account & Version Info */}
@@ -328,7 +223,10 @@ export const Settings: React.FC = () => {
                 </div>
               </div>
               
-              <button className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white">
+              <button
+                onClick={handleUpgradeToPro}
+                className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white"
+              >
                 Upgrade to Pro
               </button>
             </div>
@@ -355,8 +253,19 @@ export const Settings: React.FC = () => {
               </div>
               
               <div className="pt-3 border-t border-gray-700 mt-3">
-                <button className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white">
-                  Check for Updates
+                <button
+                  onClick={handleCheckForUpdates}
+                  disabled={isCheckingForUpdates}
+                  className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+                >
+                  {isCheckingForUpdates ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Checking...
+                    </>
+                  ) : (
+                    'Check for Updates'
+                  )}
                 </button>
               </div>
             </div>
@@ -369,7 +278,10 @@ export const Settings: React.FC = () => {
             </h2>
             
             <div className="space-y-3">
-              <button className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center">
+              <button
+                onClick={handleKnowledgeBase}
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M9.09 9.00008C9.3251 8.33175 9.78915 7.76819 10.4 7.40921C11.0108 7.05024 11.7289 6.91902 12.4272 7.03879C13.1255 7.15857 13.7588 7.52161 14.2151 8.06361C14.6713 8.60561 14.9211 9.2916 14.92 10.0001C14.92 12.0001 11.92 13.0001 11.92 13.0001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -378,14 +290,20 @@ export const Settings: React.FC = () => {
                 Knowledge Base
               </button>
               
-              <button className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center">
+              <button
+                onClick={() => {}} // Chat widget handles this
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 Live Chat
               </button>
               
-              <button className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center">
+              <button
+                onClick={() => setIsBugReportModalOpen(true)}
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+              >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M14 9L9 4L4 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M20 20H13C11.9391 20 10.9217 19.5786 10.1716 18.8284C9.42143 18.0783 9 17.0609 9 16V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -396,6 +314,23 @@ export const Settings: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      <UpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => setIsUpdateModalOpen(false)}
+        currentVersion="1.0.0"
+        newVersion="1.1.0"
+        isUpToDate={false}
+      />
+
+      <BugReportModal
+        isOpen={isBugReportModalOpen}
+        onClose={() => setIsBugReportModalOpen(false)}
+      />
+
+      {/* Chat Widget */}
+      <ChatWidget />
     </div>
   );
 };
