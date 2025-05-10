@@ -93,7 +93,6 @@ class AuthService {
       if (error) throw error;
     } catch (error) {
       console.error('Error logging security event:', error);
-      // Don't throw error to avoid disrupting the auth flow
     }
   }
 
@@ -109,18 +108,23 @@ class AuthService {
   }
 
   private async createUserProfile(userId: string): Promise<void> {
-    const { error } = await supabase.from('user_profiles').insert({
-      user_id: userId,
-      display_name: null,
-      avatar_url: null,
-      preferences: {},
-      last_login: new Date().toISOString(),
-      login_count: 1
-    });
+    try {
+      const { error } = await supabase.from('user_profiles').insert({
+        user_id: userId,
+        display_name: null,
+        avatar_url: null,
+        preferences: {},
+        last_login: new Date().toISOString(),
+        login_count: 1
+      });
 
-    if (error) {
-      console.error('Error creating user profile:', error);
-      throw new Error('Failed to create user profile');
+      if (error) {
+        console.error('Error creating user profile:', error);
+        throw new Error('Failed to create user profile');
+      }
+    } catch (error) {
+      console.error('Error in createUserProfile:', error);
+      throw error;
     }
   }
 
@@ -148,8 +152,7 @@ class AuthService {
             { email: this.encryptSensitiveData(email) }
           );
         } catch (profileError) {
-          // If profile creation fails, delete the auth user to maintain consistency
-          await supabase.auth.admin.deleteUser(data.user.id);
+          console.error('Error during profile creation:', profileError);
           throw new Error('Failed to complete user registration');
         }
       }
