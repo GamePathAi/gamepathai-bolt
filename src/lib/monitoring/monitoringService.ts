@@ -6,6 +6,7 @@ class MonitoringService {
   private static instance: MonitoringService;
   private worker: Comlink.Remote<MonitoringWorker> | null = null;
   private listeners: Set<(metrics: SystemMetrics) => void> = new Set();
+  private cleanup: (() => void) | null = null;
 
   private constructor() {
     this.initializeWorker();
@@ -19,15 +20,28 @@ class MonitoringService {
   }
 
   private initializeWorker() {
+    if (this.worker) {
+      this.cleanup?.();
+    }
+
     const workerUrl = new URL('./monitoringWorker', import.meta.url);
     const worker = new Worker(workerUrl, { type: 'module' });
     this.worker = Comlink.wrap<MonitoringWorker>(worker);
 
-    worker.addEventListener('message', (event) => {
+    const messageHandler = (event: MessageEvent) => {
       if (event.data.type === 'metrics') {
         this.notifyListeners(event.data.data);
       }
-    });
+    };
+
+    worker.addEventListener('message', messageHandler);
+
+    this.cleanup = () => {
+      worker.removeEventListener('message', messageHandler);
+      worker.terminate();
+      this.worker = null;
+      this.listeners.clear();
+    };
   }
 
   public startMonitoring() {
@@ -40,7 +54,9 @@ class MonitoringService {
 
   public subscribe(callback: (metrics: SystemMetrics) => void) {
     this.listeners.add(callback);
-    return () => this.listeners.delete(callback);
+    return () => {
+      this.listeners.delete(callback);
+    };
   }
 
   private notifyListeners(metrics: SystemMetrics) {
@@ -50,6 +66,10 @@ class MonitoringService {
   public async getMetrics(): Promise<SystemMetrics | null> {
     if (!this.worker) return null;
     return await this.worker.getMetrics();
+  }
+
+  public destroy() {
+    this.cleanup?.();
   }
 }
 
