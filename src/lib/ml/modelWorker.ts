@@ -2,7 +2,6 @@ import * as Comlink from 'comlink';
 import * as tf from '@tensorflow/tfjs';
 import type { WasmModule } from './wasmModule';
 
-// Create a worker for model inference
 const modelWorker = {
   model: null as tf.LayersModel | null,
   wasmModule: null as any,
@@ -45,7 +44,6 @@ const modelWorker = {
   }
 };
 
-// Export using Comlink
 Comlink.expose(modelWorker);
 
 export type ModelWorker = typeof modelWorker;

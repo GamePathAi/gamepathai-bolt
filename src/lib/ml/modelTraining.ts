@@ -1,3 +1,6 @@
+import { create } from 'zustand';
+import * as tf from '@tensorflow/tfjs';
+import * as tfWasm from '@tensorflow/tfjs-backend-wasm';
 import { supabase } from '../supabase';
 import type { GameMetrics } from './dataCollection';
 
@@ -28,13 +31,28 @@ interface ModelArtifact {
   timestamp: number;
 }
 
+interface TrainingState {
+  isTraining: boolean;
+  progress: number;
+  currentMetrics: TrainingMetrics | null;
+  error: string | null;
+}
+
+export const useTrainingStore = create<TrainingState>(() => ({
+  isTraining: false,
+  progress: 0,
+  currentMetrics: null,
+  error: null,
+}));
+
 class ModelTrainer {
   private static instance: ModelTrainer;
-  private isTraining: boolean = false;
-  private currentModel: ModelArtifact | null = null;
-  private trainingMetrics: TrainingMetrics[] = [];
-  
-  private constructor() {}
+  private model: tf.LayersModel | null = null;
+  private wasmReady: boolean = false;
+
+  private constructor() {
+    this.initializeWasm();
+  }
 
   public static getInstance(): ModelTrainer {
     if (!ModelTrainer.instance) {
@@ -43,257 +61,238 @@ class ModelTrainer {
     return ModelTrainer.instance;
   }
 
-  public async trainModel(config: ModelConfig): Promise<void> {
-    if (this.isTraining) {
-      throw new Error('Training is already in progress');
-    }
-
-    this.isTraining = true;
-    this.trainingMetrics = [];
-
-    try {
-      // Load training data
-      const trainingData = await this.loadTrainingData();
-      
-      // Preprocess data
-      const processedData = this.preprocessData(trainingData);
-      
-      // Initialize model
-      const model = this.initializeModel(config);
-      
-      // Train model
-      await this.train(model, processedData, config);
-      
-      // Save model artifacts
-      await this.saveModel(model, config);
-      
-      this.currentModel = model;
-    } catch (error) {
-      console.error('Error during model training:', error);
-      throw error;
-    } finally {
-      this.isTraining = false;
+  private async initializeWasm() {
+    if (!this.wasmReady) {
+      await tf.setBackend('wasm');
+      await tfWasm.setWasmPaths('/');
+      this.wasmReady = true;
     }
   }
 
-  private async loadTrainingData(): Promise<GameMetrics[]> {
+  private async buildModel(config: ModelConfig): Promise<tf.LayersModel> {
+    const { layers } = config.hyperparameters;
+    
+    const model = tf.sequential();
+    
+    // Input layer
+    model.add(tf.layers.dense({
+      units: layers[0],
+      inputShape: [50], // Adjust based on input features
+      activation: 'relu'
+    }));
+
+    // Hidden layers
+    for (let i = 1; i < layers.length - 1; i++) {
+      model.add(tf.layers.dense({
+        units: layers[i],
+        activation: 'relu'
+      }));
+      
+      // Add dropout for regularization
+      model.add(tf.layers.dropout({ rate: 0.2 }));
+    }
+
+    // Output layer
+    model.add(tf.layers.dense({
+      units: layers[layers.length - 1],
+      activation: 'sigmoid'
+    }));
+
+    model.compile({
+      optimizer: tf.train.adam(config.hyperparameters.learningRate),
+      loss: 'binaryCrossentropy',
+      metrics: ['accuracy']
+    });
+
+    return model;
+  }
+
+  private async preprocessData(data: GameMetrics[]): Promise<{
+    trainData: tf.Tensor,
+    trainLabels: tf.Tensor,
+    valData: tf.Tensor,
+    valLabels: tf.Tensor
+  }> {
+    // Extract features and normalize
+    const features = data.map(metrics => [
+      ...this.normalizePerformanceMetrics(metrics.metrics.performance),
+      ...this.normalizeNetworkMetrics(metrics.metrics.network),
+      ...this.normalizeSystemMetrics(metrics)
+    ]);
+
+    const labels = data.map(metrics => 
+      this.generateLabel(metrics.metrics.performance)
+    );
+
+    // Split into training and validation sets (80/20)
+    const splitIndex = Math.floor(features.length * 0.8);
+    
+    return {
+      trainData: tf.tensor2d(features.slice(0, splitIndex)),
+      trainLabels: tf.tensor2d(labels.slice(0, splitIndex)),
+      valData: tf.tensor2d(features.slice(splitIndex)),
+      valLabels: tf.tensor2d(labels.slice(splitIndex))
+    };
+  }
+
+  private normalizePerformanceMetrics(metrics: any): number[] {
+    return [
+      metrics.fps / 144, // Normalize FPS
+      metrics.frameTime / 16.67, // Normalize frame time (60 FPS baseline)
+      metrics.cpuUsage / 100,
+      metrics.memoryUsage / 16384, // Normalize to 16GB
+      metrics.gpuUsage / 100
+    ];
+  }
+
+  private normalizeNetworkMetrics(metrics: any): number[] {
+    return [
+      metrics.latency / 100, // Normalize to 100ms baseline
+      metrics.packetLoss,
+      metrics.bandwidth / 1000, // Normalize to 1000 Mbps
+      metrics.jitter / 20 // Normalize to 20ms baseline
+    ];
+  }
+
+  private normalizeSystemMetrics(metrics: GameMetrics): number[] {
+    // Extract and normalize system-level metrics
+    return [
+      metrics.timestamp / Date.now(), // Normalize timestamp
+      // Add other system metrics as needed
+    ];
+  }
+
+  private generateLabel(metrics: any): number[] {
+    // Generate binary classification label based on performance thresholds
+    return [Number(
+      metrics.fps > 60 &&
+      metrics.frameTime < 16.67 &&
+      metrics.cpuUsage < 80
+    )];
+  }
+
+  public async trainModel(config: ModelConfig): Promise<void> {
+    const store = useTrainingStore.getState();
+    if (store.isTraining) {
+      throw new Error('Training is already in progress');
+    }
+
+    useTrainingStore.setState({ 
+      isTraining: true, 
+      progress: 0,
+      error: null 
+    });
+
     try {
+      await this.initializeWasm();
+
+      // Load training data
       const { data, error } = await supabase
         .from('game_metrics')
         .select('*')
         .order('timestamp', { ascending: true });
 
       if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error loading training data:', error);
-      throw error;
-    }
-  }
+      if (!data || data.length === 0) {
+        throw new Error('No training data available');
+      }
 
-  private preprocessData(data: GameMetrics[]): any {
-    // Implement data preprocessing
-    const processedData = data.map(metrics => ({
-      features: this.extractFeatures(metrics),
-      labels: this.extractLabels(metrics)
-    }));
+      // Preprocess data
+      const {
+        trainData,
+        trainLabels,
+        valData,
+        valLabels
+      } = await this.preprocessData(data);
 
-    return {
-      train: processedData.slice(0, Math.floor(processedData.length * 0.8)),
-      validation: processedData.slice(Math.floor(processedData.length * 0.8))
-    };
-  }
+      // Build and compile model
+      this.model = await this.buildModel(config);
 
-  private extractFeatures(metrics: GameMetrics): number[] {
-    // Extract relevant features from metrics
-    const features = [
-      ...this.processMouseMetrics(metrics.metrics.mouse),
-      ...this.processKeyboardMetrics(metrics.metrics.keyboard),
-      ...this.processPerformanceMetrics(metrics.metrics.performance),
-      ...this.processNetworkMetrics(metrics.metrics.network)
-    ];
+      // Train model
+      await this.model.fit(trainData, trainLabels, {
+        epochs: config.hyperparameters.epochs,
+        batchSize: config.hyperparameters.batchSize,
+        validationData: [valData, valLabels],
+        callbacks: {
+          onEpochEnd: async (epoch, logs) => {
+            const metrics: TrainingMetrics = {
+              epoch,
+              loss: logs?.loss || 0,
+              accuracy: logs?.accuracy || 0,
+              validationLoss: logs?.val_loss || 0,
+              validationAccuracy: logs?.val_accuracy || 0,
+              timestamp: Date.now()
+            };
 
-    return this.normalizeFeatures(features);
-  }
+            const progress = ((epoch + 1) / config.hyperparameters.epochs) * 100;
 
-  private extractLabels(metrics: GameMetrics): number[] {
-    // Generate labels based on known patterns
-    return [0]; // Placeholder
-  }
+            useTrainingStore.setState({
+              progress,
+              currentMetrics: metrics
+            });
 
-  private processMouseMetrics(mouseMetrics: any): number[] {
-    const features = [];
-    
-    // Process mouse movements
-    if (mouseMetrics.movements.length > 0) {
-      const velocities = mouseMetrics.movements.map((m: any) => m.velocity);
-      const accelerations = mouseMetrics.movements.map((m: any) => m.acceleration);
-      
-      features.push(
-        this.calculateMean(velocities),
-        this.calculateStd(velocities),
-        this.calculateMean(accelerations),
-        this.calculateStd(accelerations)
-      );
-    }
-    
-    // Process clicks
-    if (mouseMetrics.clicks.length > 0) {
-      const clickIntervals = this.calculateClickIntervals(mouseMetrics.clicks);
-      features.push(
-        this.calculateMean(clickIntervals),
-        this.calculateStd(clickIntervals)
-      );
-    }
-    
-    return features;
-  }
-
-  private processKeyboardMetrics(keyboardMetrics: any): number[] {
-    const features = [];
-    
-    if (keyboardMetrics.keyPresses.length > 0) {
-      const intervals = this.calculateKeyPressIntervals(keyboardMetrics.keyPresses);
-      const durations = keyboardMetrics.keyPresses.map((k: any) => k.duration);
-      
-      features.push(
-        this.calculateMean(intervals),
-        this.calculateStd(intervals),
-        this.calculateMean(durations),
-        this.calculateStd(durations)
-      );
-    }
-    
-    return features;
-  }
-
-  private processPerformanceMetrics(performanceMetrics: any): number[] {
-    return [
-      performanceMetrics.fps,
-      performanceMetrics.frameTime,
-      performanceMetrics.cpuUsage,
-      performanceMetrics.memoryUsage,
-      performanceMetrics.gpuUsage
-    ];
-  }
-
-  private processNetworkMetrics(networkMetrics: any): number[] {
-    return [
-      networkMetrics.latency,
-      networkMetrics.packetLoss,
-      networkMetrics.bandwidth,
-      networkMetrics.jitter
-    ];
-  }
-
-  private normalizeFeatures(features: number[]): number[] {
-    // Implement feature normalization
-    return features.map(f => (f - this.featureMean) / this.featureStd);
-  }
-
-  private initializeModel(config: ModelConfig): ModelArtifact {
-    // Initialize model architecture
-    return {
-      weights: [],
-      config,
-      metrics: [],
-      timestamp: Date.now()
-    };
-  }
-
-  private async train(model: ModelArtifact, data: any, config: ModelConfig): Promise<void> {
-    const { epochs, batchSize } = config.hyperparameters;
-    
-    for (let epoch = 0; epoch < epochs; epoch++) {
-      const metrics = await this.trainEpoch(model, data.train, batchSize);
-      const validationMetrics = await this.validate(model, data.validation);
-      
-      this.trainingMetrics.push({
-        epoch,
-        ...metrics,
-        ...validationMetrics,
-        timestamp: Date.now()
+            // Store training metrics
+            await this.storeTrainingMetrics(metrics);
+          }
+        }
       });
-      
-      // Log progress
-      this.logTrainingProgress(epoch, metrics, validationMetrics);
+
+      // Save model artifacts
+      await this.saveModelArtifacts();
+
+    } catch (error) {
+      useTrainingStore.setState({ 
+        error: error instanceof Error ? error.message : 'Training failed' 
+      });
+      throw error;
+    } finally {
+      useTrainingStore.setState({ isTraining: false });
     }
   }
 
-  private async trainEpoch(model: ModelArtifact, data: any, batchSize: number): Promise<any> {
-    // Implement single epoch training
-    return {
-      loss: 0,
-      accuracy: 0
-    };
-  }
-
-  private async validate(model: ModelArtifact, data: any): Promise<any> {
-    // Implement validation
-    return {
-      validationLoss: 0,
-      validationAccuracy: 0
-    };
-  }
-
-  private async saveModel(model: ModelArtifact, config: ModelConfig): Promise<void> {
+  private async storeTrainingMetrics(metrics: TrainingMetrics): Promise<void> {
     try {
       const { error } = await supabase
-        .from('model_artifacts')
-        .insert({
-          version: config.version,
-          weights: model.weights,
-          config: config,
-          metrics: this.trainingMetrics,
-          timestamp: Date.now()
-        });
+        .from('training_metrics')
+        .insert([metrics]);
 
       if (error) throw error;
     } catch (error) {
-      console.error('Error saving model:', error);
+      console.error('Error storing training metrics:', error);
+    }
+  }
+
+  private async saveModelArtifacts(): Promise<void> {
+    if (!this.model) return;
+
+    try {
+      const weights = await this.model.getWeights();
+      const weightData = weights.map(w => new Float32Array(w.dataSync()));
+
+      const { error } = await supabase
+        .from('model_artifacts')
+        .insert([{
+          version: '1.0.0',
+          weights: weightData,
+          timestamp: Date.now()
+        }]);
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error saving model artifacts:', error);
       throw error;
     }
   }
 
-  private logTrainingProgress(epoch: number, metrics: any, validationMetrics: any): void {
-    console.log(
-      `Epoch ${epoch + 1}: loss=${metrics.loss.toFixed(4)}, ` +
-      `accuracy=${metrics.accuracy.toFixed(4)}, ` +
-      `val_loss=${validationMetrics.validationLoss.toFixed(4)}, ` +
-      `val_accuracy=${validationMetrics.validationAccuracy.toFixed(4)}`
-    );
-  }
-
-  // Utility functions
-  private calculateMean(values: number[]): number {
-    return values.reduce((sum, val) => sum + val, 0) / values.length;
-  }
-
-  private calculateStd(values: number[]): number {
-    const mean = this.calculateMean(values);
-    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
-    return Math.sqrt(this.calculateMean(squaredDiffs));
-  }
-
-  private calculateClickIntervals(clicks: any[]): number[] {
-    const intervals = [];
-    for (let i = 1; i < clicks.length; i++) {
-      intervals.push(clicks[i].timestamp - clicks[i - 1].timestamp);
+  public async predict(input: number[]): Promise<number[]> {
+    if (!this.model) {
+      throw new Error('Model not initialized');
     }
-    return intervals;
-  }
 
-  private calculateKeyPressIntervals(keyPresses: any[]): number[] {
-    const intervals = [];
-    for (let i = 1; i < keyPresses.length; i++) {
-      intervals.push(keyPresses[i].timestamp - keyPresses[i - 1].timestamp);
-    }
-    return intervals;
+    const inputTensor = tf.tensor2d([input]);
+    const prediction = this.model.predict(inputTensor) as tf.Tensor;
+    return Array.from(prediction.dataSync());
   }
-
-  // Feature statistics
-  private featureMean = 0;
-  private featureStd = 1;
 }
 
 export const modelTrainer = ModelTrainer.getInstance();

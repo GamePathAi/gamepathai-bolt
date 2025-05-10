@@ -1,10 +1,8 @@
 import * as tf from '@tensorflow/tfjs';
 import * as Comlink from 'comlink';
 
-// WebAssembly module for optimized computations
 const wasmModule = {
   async init() {
-    // Initialize WASM backend
     await tf.setBackend('wasm');
     await tf.ready();
     
@@ -36,12 +34,48 @@ const wasmModule = {
         const tensor = tf.tensor(input);
         const result = tf.sigmoid(tensor);
         return new Float32Array(result.dataSync());
+      },
+
+      // Performance optimization functions
+      async optimizeComputation(data: Float32Array, operations: string[]): Promise<Float32Array> {
+        let result = tf.tensor(data);
+        
+        for (const op of operations) {
+          switch (op) {
+            case 'relu':
+              result = tf.relu(result);
+              break;
+            case 'sigmoid':
+              result = tf.sigmoid(result);
+              break;
+            case 'tanh':
+              result = tf.tanh(result);
+              break;
+            default:
+              break;
+          }
+        }
+        
+        return new Float32Array(result.dataSync());
+      },
+
+      // Batch processing optimization
+      async processBatch(batch: Float32Array[], batchSize: number): Promise<Float32Array[]> {
+        const results: Float32Array[] = [];
+        
+        for (let i = 0; i < batch.length; i += batchSize) {
+          const currentBatch = batch.slice(i, i + batchSize);
+          const tensors = currentBatch.map(data => tf.tensor(data));
+          const processed = await Promise.all(tensors.map(t => t.data()));
+          results.push(...processed.map(d => new Float32Array(d)));
+        }
+        
+        return results;
       }
     };
   }
 };
 
-// Export using Comlink for Web Worker communication
 Comlink.expose(wasmModule);
 
 export type WasmModule = typeof wasmModule;
