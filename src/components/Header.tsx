@@ -1,5 +1,6 @@
 import React from 'react';
 import { Menu, Bell, ChevronDown } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -15,9 +16,12 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         >
           <Menu size={20} />
         </button>
-        <div className="ml-4 lg:ml-0">
-          <h1 className="text-lg font-bold text-gray-100">Dashboard</h1>
-          <p className="text-xs text-gray-400">Optimize your gaming experience</p>
+        <div className="ml-4 lg:ml-0 flex items-center gap-3">
+          <Logo size={24} variant="color" className="hidden sm:block" />
+          <div>
+            <h1 className="text-lg font-bold text-gray-100">Dashboard</h1>
+            <p className="text-xs text-gray-400">Optimize your gaming experience</p>
+          </div>
         </div>
       </div>
       
