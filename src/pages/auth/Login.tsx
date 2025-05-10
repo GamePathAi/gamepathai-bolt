@@ -12,25 +12,9 @@ export const Login: React.FC = () => {
   const [showResendButton, setShowResendButton] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, resendConfirmationEmail } = useAuthStore((state) => ({
-    signIn: state.signIn,
-    resendConfirmationEmail: state.resendConfirmationEmail,
-  }));
+  const { signIn } = useAuthStore();
 
   const from = location.state?.from?.pathname || '/app';
-
-  const handleResendEmail = async () => {
-    setResendingEmail(true);
-    try {
-      await resendConfirmationEmail(email);
-      setError('Verification email sent! Please check your inbox and spam folder.');
-      setShowResendButton(false);
-    } catch (err) {
-      setError('Failed to resend verification email. Please try again.');
-    } finally {
-      setResendingEmail(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,18 +26,29 @@ export const Login: React.FC = () => {
       await signIn(email, password);
       navigate(from, { replace: true });
     } catch (err: any) {
-      // Handle specific Supabase error codes
-      const errorCode = err?.message;
-      if (errorCode === 'invalid_credentials') {
-        setError('Incorrect email or password. Please try again.');
-      } else if (errorCode === 'email_not_confirmed') {
-        setError('Your email address has not been verified.');
+      if (err.message === 'Email not confirmed') {
+        setError('Please verify your email address before signing in.');
         setShowResendButton(true);
+      } else if (err.message.includes('Invalid login credentials')) {
+        setError('Incorrect email or password. Please try again.');
       } else {
         setError('An error occurred while signing in. Please try again.');
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    try {
+      // TODO: Implement resend confirmation email functionality
+      setError('Verification email sent! Please check your inbox and spam folder.');
+      setShowResendButton(false);
+    } catch (err) {
+      setError('Failed to resend verification email. Please try again.');
+    } finally {
+      setResendingEmail(false);
     }
   };
 
