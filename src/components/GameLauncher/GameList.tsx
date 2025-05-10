@@ -1,9 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
 import { gameScanner } from '../../lib/gameDetection/gameScanner';
 import type { GameInfo } from '../../lib/gameDetection/gameScanner';
-import { searchPaths, gameSignatures } from '../../lib/gameDetection/config';
-import { Platform } from '../../lib/gameDetection/types';
 
 export const GameList: React.FC = () => {
   const [games, setGames] = useState<GameInfo[]>([]);
@@ -24,10 +22,6 @@ export const GameList: React.FC = () => {
       setIsScanning(false);
     }
   };
-
-  useEffect(() => {
-    scanForGames();
-  }, []);
 
   const handleLaunchGame = async (gameId: string) => {
     try {
@@ -119,80 +113,75 @@ export const GameList: React.FC = () => {
         </div>
       )}
 
-      {/* Games Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredGames.map((game) => (
-          <div 
-            key={game.id}
-            className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 hover:border-cyan-500/40 rounded-lg overflow-hidden transition-all duration-200 group"
-          >
-            <div className="h-40 relative overflow-hidden">
-              {game.icon_url ? (
-                <img 
-                  src={game.icon_url} 
-                  alt={game.name} 
-                  className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
-                />
-              ) : (
-                <div className="w-full h-full bg-gray-900 flex items-center justify-center">
-                  <Gamepad2 size={48} className="text-gray-700" />
-                </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
-              <div className="absolute bottom-0 left-0 right-0 p-4">
-                <h3 className="text-lg font-bold text-white">{game.name}</h3>
-                <div className="flex items-center mt-1">
-                  <span className="text-xs text-gray-400">{game.platform}</span>
-                  {game.size && (
-                    <>
-                      <span className="mx-2 text-gray-600">•</span>
-                      <span className="text-xs text-gray-400">{Math.round(game.size / 1024)} GB</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-            
-            <div className="p-4 border-t border-gray-700">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-xs text-gray-400">
-                  Last played: {game.last_played ? new Date(game.last_played).toLocaleDateString() : 'Never'}
-                </div>
-                {game.optimized && (
-                  <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">
-                    Optimized
-                  </span>
-                )}
-              </div>
-              
-              <button
-                onClick={() => handleLaunchGame(game.id!)}
-                className="w-full py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150"
-              >
-                Launch Game
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
       {/* Empty State */}
-      {filteredGames.length === 0 && (
+      {games.length === 0 && (
         <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg p-8 flex flex-col items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mb-4">
             <Gamepad2 size={32} className="text-gray-500" />
           </div>
           <h3 className="text-lg font-medium text-white">No games found</h3>
           <p className="text-gray-400 text-center mt-2 max-w-md">
-            We couldn't find any games matching your search criteria. Try adjusting your filters or scan for new games.
+            Click the "Scan for Games" button to detect installed games on your system.
           </p>
-          <button
-            onClick={scanForGames}
-            disabled={isScanning}
-            className="mt-4 px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150"
-          >
-            Scan for Games
-          </button>
+        </div>
+      )}
+
+      {/* Games Grid */}
+      {games.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredGames.map((game) => (
+            <div 
+              key={game.id}
+              className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 hover:border-cyan-500/40 rounded-lg overflow-hidden transition-all duration-200 group"
+            >
+              <div className="h-40 relative overflow-hidden">
+                {game.icon_url ? (
+                  <img 
+                    src={game.icon_url} 
+                    alt={game.name} 
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                    <Gamepad2 size={48} className="text-gray-700" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-lg font-bold text-white">{game.name}</h3>
+                  <div className="flex items-center mt-1">
+                    <span className="text-xs text-gray-400">{game.platform}</span>
+                    {game.size && (
+                      <>
+                        <span className="mx-2 text-gray-600">•</span>
+                        <span className="text-xs text-gray-400">{Math.round(game.size / 1024)} GB</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-gray-400">
+                    Last played: {game.last_played ? new Date(game.last_played).toLocaleDateString() : 'Never'}
+                  </div>
+                  {game.optimized && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">
+                      Optimized
+                    </span>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => handleLaunchGame(game.id!)}
+                  className="w-full py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150"
+                >
+                  Launch Game
+                </button>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
