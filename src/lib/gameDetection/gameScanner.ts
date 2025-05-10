@@ -19,6 +19,18 @@ class GameScanner {
     return GameScanner.instance;
   }
 
+  public async getInstalledGames() {
+    try {
+      return await supabase
+        .from('games')
+        .select('*')
+        .order('name', { ascending: true });
+    } catch (error) {
+      console.error('Error fetching installed games:', error);
+      throw error;
+    }
+  }
+
   public async scanForGames(): Promise<ScanResult> {
     try {
       // Call the detect-games edge function with game signatures and search paths

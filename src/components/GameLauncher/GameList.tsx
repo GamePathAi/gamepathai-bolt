@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
 import { gameScanner } from '../../lib/gameDetection/gameScanner';
-import type { GameInfo } from '../../lib/gameDetection/gameScanner';
+import type { GameInfo } from '../../lib/gameDetection/types';
 
 export const GameList: React.FC = () => {
   const [games, setGames] = useState<GameInfo[]>([]);
@@ -10,12 +10,31 @@ export const GameList: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
 
+  // Load games on mount
+  useEffect(() => {
+    loadGames();
+  }, []);
+
+  const loadGames = async () => {
+    try {
+      const { data, error } = await gameScanner.getInstalledGames();
+      if (error) throw error;
+      setGames(data || []);
+    } catch (error) {
+      setErrors([error instanceof Error ? error.message : 'Failed to load games']);
+    }
+  };
+
   const scanForGames = async () => {
     setIsScanning(true);
+    setErrors([]);
+    
     try {
       const result = await gameScanner.scanForGames();
-      setGames(result.games);
-      setErrors(result.errors);
+      if (result.errors.length > 0) {
+        setErrors(result.errors);
+      }
+      await loadGames(); // Reload games after scan
     } catch (error) {
       setErrors([error instanceof Error ? error.message : 'Failed to scan for games']);
     } finally {
