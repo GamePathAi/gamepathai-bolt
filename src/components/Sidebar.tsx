@@ -1,6 +1,7 @@
 import React from 'react';
 import { X } from 'lucide-react';
 import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart } from 'lucide-react';
+import { Logo } from './Logo';
 
 interface SidebarProps {
   activeTab: string;
@@ -45,10 +46,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* Logo */}
           <div className="p-4 border-b border-cyan-500/20">
             <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="w-8 h-8 bg-cyan-500 rounded-md flex items-center justify-center text-black font-bold mr-2">
-                  GP
-                </div>
+              <div className="flex items-center gap-3">
+                <Logo size={32} variant="color" />
                 <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-purple-500">
                   GamePath AI
                 </span>

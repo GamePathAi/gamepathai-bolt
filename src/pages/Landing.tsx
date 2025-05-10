@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Shield, Gamepad2, Download, Apple, Cuboid as Android } from 'lucide-react';
+import { Logo } from '../components/Logo';
 
 export const Landing: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
@@ -32,9 +33,12 @@ export const Landing: React.FC = () => {
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-24">
           <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500 mb-6">
-              GamePath AI
-            </h1>
+            <div className="flex items-center justify-center gap-4 mb-6">
+              <Logo size={64} variant="color" />
+              <h1 className="text-4xl md:text-6xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">
+                GamePath AI
+              </h1>
+            </div>
             <p className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto">
               Advanced AI-powered game optimization for the ultimate gaming experience
             </p>
