@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Zap, Shield, Gamepad2, Download, Apple, Cuboid as Android } from 'lucide-react';
 import { Logo } from '../components/Logo';
+import { downloadApp } from '../lib/downloads';
 
 export const Landing: React.FC = () => {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'quarterly' | 'annual'>('monthly');
@@ -21,6 +22,15 @@ export const Landing: React.FC = () => {
       monthly: { price: 34.99, period: 'mo' },
       quarterly: { price: 94.99, period: '3 months', savings: '10%' },
       annual: { price: 314.99, period: 'year', savings: '25%' }
+    }
+  };
+
+  const handleDownload = async (platform: 'windows' | 'mac' | 'ios' | 'android') => {
+    try {
+      await downloadApp(platform);
+    } catch (error) {
+      console.error('Download failed:', error);
+      // You could show an error toast here
     }
   };
 
@@ -44,16 +54,25 @@ export const Landing: React.FC = () => {
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <button className="px-8 py-4 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold flex items-center hover:from-cyan-400 hover:to-cyan-300 transition-all duration-200">
+              <button 
+                onClick={() => handleDownload('windows')}
+                className="px-8 py-4 rounded-lg bg-gradient-to-r from-cyan-500 to-cyan-400 text-black font-bold flex items-center hover:from-cyan-400 hover:to-cyan-300 transition-all duration-200"
+              >
                 <Download className="mr-2" size={20} />
                 Download for Windows
               </button>
               <div className="flex gap-4">
-                <button className="px-6 py-4 rounded-lg bg-gray-800 text-white font-medium flex items-center hover:bg-gray-700 transition-all duration-200">
+                <button 
+                  onClick={() => handleDownload('ios')}
+                  className="px-6 py-4 rounded-lg bg-gray-800 text-white font-medium flex items-center hover:bg-gray-700 transition-all duration-200"
+                >
                   <Apple className="mr-2" size={20} />
                   iOS App
                 </button>
-                <button className="px-6 py-4 rounded-lg bg-gray-800 text-white font-medium flex items-center hover:bg-gray-700 transition-all duration-200">
+                <button 
+                  onClick={() => handleDownload('android')}
+                  className="px-6 py-4 rounded-lg bg-gray-800 text-white font-medium flex items-center hover:bg-gray-700 transition-all duration-200"
+                >
                   <Android className="mr-2" size={20} />
                   Android App
                 </button>
