@@ -17,7 +17,7 @@ serve(async (req) => {
 
     // In a real implementation, this would use Deno.run or similar to launch the game
     // For now, we'll just simulate the launch
-    console.log('Launching game from path:', path);
+    console.log("Launching game from path:", path);
 
     return new Response(
       JSON.stringify({ success: true }),
