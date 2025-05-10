@@ -1,4 +1,5 @@
 import React from 'react';
+import { xssProtection } from '../../lib/security/xssProtection';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label?: string;
@@ -7,12 +8,18 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, label, error, icon, ...props }, ref) => {
+  ({ className, label, error, icon, onChange, ...props }, ref) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const sanitizedValue = xssProtection.validateUserInput(e.target.value);
+      e.target.value = sanitizedValue;
+      onChange?.(e);
+    };
+
     return (
       <div className="space-y-2">
         {label && (
           <label className="block text-sm font-medium text-gray-300">
-            {label}
+            {xssProtection.sanitize(label)}
           </label>
         )}
         <div className="relative">
@@ -23,6 +30,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           )}
           <input
             ref={ref}
+            onChange={handleChange}
             className={`
               w-full px-4 py-2 bg-gray-700 border rounded-lg focus:outline-none focus:ring-2 transition-colors
               ${icon ? 'pl-10' : ''}
@@ -36,7 +44,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           />
         </div>
         {error && (
-          <p className="text-sm text-red-400">{error}</p>
+          <p className="text-sm text-red-400">{xssProtection.sanitize(error)}</p>
         )}
       </div>
     );
