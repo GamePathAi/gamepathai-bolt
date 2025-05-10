@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
                       install_path: gamePath,
                       size,
                       optimized: false,
-                      icon_url: null, // Will be populated by the frontend
+                      icon_url: null,
                       updated_at: new Date().toISOString()
                     });
                   }
