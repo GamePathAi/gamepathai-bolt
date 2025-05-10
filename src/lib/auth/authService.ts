@@ -82,30 +82,35 @@ class AuthService {
     metadata: Record<string, any> = {}
   ): Promise<void> {
     try {
+      const { data: clientIp } = await supabase.functions.invoke('get-client-ip');
+      
       const { error } = await supabase.from('security_logs').insert({
-        user_id: userId || null, // Explicitly set to null if undefined
+        user_id: userId,
         event_type: eventType,
-        ip_address: 'unknown',
+        ip_address: clientIp?.ip || 'unknown',
         user_agent: navigator.userAgent,
-        metadata
+        metadata: {
+          ...metadata,
+          timestamp: new Date().toISOString()
+        }
       });
 
       if (error) {
         console.error('Error logging security event:', error);
+        // Don't throw error to avoid disrupting the auth flow
       }
     } catch (error) {
       console.error('Error logging security event:', error);
+      // Don't throw error to avoid disrupting the auth flow
     }
   }
 
   private encryptSensitiveData(data: string): string {
-    const key = import.meta.env.VITE_ENCRYPTION_KEY || '';
-    return AES.encrypt(data, key).toString();
+    return AES.encrypt(data, import.meta.env.VITE_ENCRYPTION_KEY || '').toString();
   }
 
   private decryptSensitiveData(encryptedData: string): string {
-    const key = import.meta.env.VITE_ENCRYPTION_KEY || '';
-    const bytes = AES.decrypt(encryptedData, key);
+    const bytes = AES.decrypt(encryptedData, import.meta.env.VITE_ENCRYPTION_KEY || '');
     return bytes.toString(enc.Utf8);
   }
 
@@ -124,10 +129,9 @@ class AuthService {
 
       if (error) throw error;
 
-      // Log the signup attempt, even if user is not yet confirmed
       await this.logSecurityEvent(
         data.user?.id,
-        'signup_attempt',
+        'signup',
         { email: this.encryptSensitiveData(email) }
       );
     } catch (error) {
@@ -192,6 +196,12 @@ class AuthService {
       });
 
       if (error) throw error;
+
+      await this.logSecurityEvent(
+        undefined,
+        'password_reset_request',
+        { email: this.encryptSensitiveData(email) }
+      );
     } catch (error) {
       throw this.handleAuthError(error);
     }
@@ -210,6 +220,12 @@ class AuthService {
       });
 
       if (error) throw error;
+
+      await this.logSecurityEvent(
+        undefined,
+        'confirmation_email_resent',
+        { email: this.encryptSensitiveData(email) }
+      );
     } catch (error) {
       throw this.handleAuthError(error);
     }
@@ -276,14 +292,11 @@ class AuthService {
       'auth/email-already-in-use': 'Email already in use',
       'auth/weak-password': 'Password is too weak',
       'auth/invalid-login-credentials': 'Invalid email or password',
-      'Email not confirmed': 'Please verify your email address before signing in.',
-      'Failed to complete user registration': 'Unable to complete registration. Please try again later.',
-      'unexpected_failure': 'An unexpected error occurred. Please try again later.'
+      'Email not confirmed': 'Please verify your email address before signing in.'
     };
 
-    const message = errorMap[error.code] || error.message || 'An error occurred';
     return {
-      message,
+      message: errorMap[error.code] || error.message || 'An error occurred',
       code: error.code
     };
   }
