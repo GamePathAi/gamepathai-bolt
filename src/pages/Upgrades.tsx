@@ -1,85 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Zap, Cpu, Network, Shield, Lock } from 'lucide-react';
+import { useGameStore } from '../stores/gameStore';
+import type { Upgrade } from '../stores/gameStore';
 
-interface Upgrade {
-  id: string;
-  name: string;
-  description: string;
-  baseCost: number;
-  level: number;
-  maxLevel: number;
-  effect: number;
-  category: 'performance' | 'network' | 'security' | 'optimization';
-  icon: React.ElementType;
-  unlockLevel?: number;
-  isPro?: boolean;
-}
+const iconMap = {
+  Cpu,
+  Network,
+  Zap,
+  Shield
+};
 
 export const Upgrades: React.FC = () => {
-  const [credits, setCredits] = useState(() => {
-    const saved = localStorage.getItem('gamePathAI_credits');
-    return saved ? parseInt(saved, 10) : 1000;
-  });
-
-  const [upgrades, setUpgrades] = useState<Upgrade[]>(() => {
-    const saved = localStorage.getItem('gamePathAI_upgrades');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'cpu_optimization',
-        name: 'CPU Optimization',
-        description: 'Improves overall system performance and reduces latency',
-        baseCost: 100,
-        level: 0,
-        maxLevel: 10,
-        effect: 0.05, // 5% improvement per level
-        category: 'performance',
-        icon: Cpu
-      },
-      {
-        id: 'network_routing',
-        name: 'Smart Network Routing',
-        description: 'Optimizes network paths for better connection stability',
-        baseCost: 150,
-        level: 0,
-        maxLevel: 8,
-        effect: 0.08, // 8% improvement per level
-        category: 'network',
-        icon: Network
-      },
-      {
-        id: 'memory_boost',
-        name: 'Memory Boost',
-        description: 'Enhances memory management and reduces stuttering',
-        baseCost: 200,
-        level: 0,
-        maxLevel: 5,
-        effect: 0.1, // 10% improvement per level
-        category: 'performance',
-        icon: Zap,
-        unlockLevel: 2
-      },
-      {
-        id: 'ddos_protection',
-        name: 'DDoS Protection',
-        description: 'Advanced security against network attacks',
-        baseCost: 500,
-        level: 0,
-        maxLevel: 3,
-        effect: 0.15, // 15% improvement per level
-        category: 'security',
-        icon: Shield,
-        isPro: true
-      }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('gamePathAI_upgrades', JSON.stringify(upgrades));
-  }, [upgrades]);
-
-  useEffect(() => {
-    localStorage.setItem('gamePathAI_credits', credits.toString());
-  }, [credits]);
+  const { 
+    credits, 
+    upgrades, 
+    purchaseUpgrade, 
+    getPlayerLevel 
+  } = useGameStore();
 
   const calculateUpgradeCost = (upgrade: Upgrade): number => {
     return Math.floor(upgrade.baseCost * Math.pow(1.5, upgrade.level));
@@ -94,24 +31,6 @@ export const Upgrades: React.FC = () => {
     if (upgrade.level >= upgrade.maxLevel) return false;
     if (upgrade.unlockLevel && getPlayerLevel() < upgrade.unlockLevel) return false;
     return calculateUpgradeCost(upgrade) <= credits;
-  };
-
-  const getPlayerLevel = (): number => {
-    return Math.floor(upgrades.reduce((sum, upgrade) => sum + upgrade.level, 0) / 3);
-  };
-
-  const purchaseUpgrade = (upgradeId: string) => {
-    setUpgrades(prevUpgrades => {
-      const newUpgrades = prevUpgrades.map(upgrade => {
-        if (upgrade.id === upgradeId && canPurchaseUpgrade(upgrade)) {
-          const cost = calculateUpgradeCost(upgrade);
-          setCredits(prev => prev - cost);
-          return { ...upgrade, level: upgrade.level + 1 };
-        }
-        return upgrade;
-      });
-      return newUpgrades;
-    });
   };
 
   return (
@@ -150,7 +69,7 @@ export const Upgrades: React.FC = () => {
           const cost = calculateUpgradeCost(upgrade);
           const effect = calculateTotalEffect(upgrade);
           const canPurchase = canPurchaseUpgrade(upgrade);
-          const Icon = upgrade.icon;
+          const Icon = iconMap[upgrade.icon as keyof typeof iconMap];
           
           return (
             <div 
