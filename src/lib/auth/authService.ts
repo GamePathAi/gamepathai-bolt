@@ -1,6 +1,6 @@
+import { supabase } from '../supabase';
 import { AES, enc } from 'crypto-js';
 import { z } from 'zod';
-import { supabase } from '../supabase';
 
 // Validation schemas
 const emailSchema = z.string().email('Invalid email format');
@@ -77,32 +77,25 @@ class AuthService {
   }
 
   private async logSecurityEvent(
-    userId: string,
+    userId: string | undefined,
     eventType: string,
     metadata: Record<string, any> = {}
   ): Promise<void> {
     try {
-      const { error } = await supabase.rpc('log_security_event', {
-        p_user_id: userId,
-        p_event_type: eventType,
-        p_ip_address: await this.getClientIP(),
-        p_user_agent: navigator.userAgent,
-        p_metadata: metadata
+      const { data: clientIp } = await supabase.functions.invoke('get-client-ip');
+      
+      const { error } = await supabase.from('security_logs').insert({
+        user_id: userId,
+        event_type: eventType,
+        ip_address: clientIp?.ip || 'unknown',
+        user_agent: navigator.userAgent,
+        metadata
       });
 
       if (error) throw error;
     } catch (error) {
       console.error('Error logging security event:', error);
-    }
-  }
-
-  private async getClientIP(): Promise<string> {
-    try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
-    } catch (error) {
-      return 'unknown';
+      // Don't throw error to avoid disrupting the auth flow
     }
   }
 
@@ -176,8 +169,14 @@ class AuthService {
 
   public async signOut(): Promise<void> {
     try {
+      const user = await this.getCurrentUser();
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      if (user) {
+        await this.logSecurityEvent(user.id, 'logout');
+      }
+      
       localStorage.removeItem(this.SESSION_KEY);
     } catch (error) {
       throw this.handleAuthError(error);
