@@ -1,9 +1,8 @@
 import React from 'react';
 import { SystemMonitor } from '../components/dashboard/SystemMonitor';
 import { OptimizeButton } from '../components/dashboard/OptimizeButton';
-import { MetricsCard } from '../components/dashboard/MetricsCard';
+import { NetworkMetricsGrid } from '../components/dashboard/NetworkMetricsGrid';
 import { GamesList } from '../components/dashboard/GamesList';
-import { Network, Zap, Cpu, Globe } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
   return (
@@ -25,47 +24,13 @@ export const Dashboard: React.FC = () => {
             </p>
             <OptimizeButton />
           </div>
-          {/* Decorative elements */}
           <div className="absolute bottom-0 left-0 w-full h-24 bg-gradient-to-t from-purple-500/10 to-transparent"></div>
           <div className="absolute -bottom-4 -right-4 w-32 h-32 rounded-full bg-cyan-500/10 blur-xl"></div>
           <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-purple-500/10 blur-xl"></div>
         </div>
 
-        {/* Metrics Cards Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <MetricsCard 
-            title="Network Latency" 
-            value="24 ms" 
-            trend="-12%" 
-            trendPositive={true} 
-            icon={Network} 
-            color="cyan"
-          />
-          <MetricsCard 
-            title="FPS Boost" 
-            value="+27%" 
-            trend="+5%" 
-            trendPositive={true} 
-            icon={Zap} 
-            color="purple"
-          />
-          <MetricsCard 
-            title="CPU Usage" 
-            value="42%" 
-            trend="-8%" 
-            trendPositive={true} 
-            icon={Cpu} 
-            color="red"
-          />
-          <MetricsCard 
-            title="Packet Loss" 
-            value="0.2%" 
-            trend="-0.5%" 
-            trendPositive={true} 
-            icon={Globe} 
-            color="green"
-          />
-        </div>
+        {/* Metrics Grid */}
+        <NetworkMetricsGrid />
 
         {/* System Monitor */}
         <SystemMonitor />
