@@ -220,15 +220,75 @@ async function getEpicGames() {
   }
 }
 
-function getXboxGames() {
-  const xboxPath = Registry.getValue(
-    Registry.HKEY.LOCAL_MACHINE,
-    'SOFTWARE\\Microsoft\\Xbox',
-    'InstallPath'
-  );
+async function getXboxGames() {
+  try {
+    // Check Windows Gaming registry keys
+    const gamingPath = Registry.getValue(
+      Registry.HKEY.LOCAL_MACHINE,
+      'SOFTWARE\\Microsoft\\GamingServices',
+      'GamingInstallPath'
+    );
 
-  // Implementation for Xbox games detection
-  return [];
+    if (!gamingPath) {
+      console.log('Xbox Gaming Services not found');
+      return [];
+    }
+
+    // Xbox games are typically installed in the WindowsApps directory
+    const windowsAppsPath = path.join(process.env.ProgramFiles, 'WindowsApps');
+    const games = [];
+
+    try {
+      const entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
+      
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name.includes('Microsoft.Xbox')) {
+          try {
+            const gamePath = path.join(windowsAppsPath, entry.name);
+            const manifestPath = path.join(gamePath, 'AppxManifest.xml');
+            
+            // Read and parse the AppxManifest.xml file
+            const manifestContent = await fs.readFile(manifestPath, 'utf8');
+            
+            // Extract game information from manifest
+            const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
+            const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
+            
+            if (nameMatch && executableMatch) {
+              const name = nameMatch[1];
+              const executableName = executableMatch[1];
+              
+              // Get game size
+              const stats = await fs.stat(gamePath);
+              const sizeInGB = Math.round(stats.size / (1024 * 1024 * 1024));
+              
+              // Generate a unique ID from the directory name
+              const id = entry.name.split('_')[0];
+              
+              games.push({
+                id,
+                name,
+                platform: 'Xbox',
+                installPath: gamePath,
+                executablePath: path.join(gamePath, executableName),
+                size: sizeInGB,
+                iconUrl: null // Xbox games don't have a consistent CDN for images
+              });
+            }
+          } catch (error) {
+            console.error(`Error processing Xbox game ${entry.name}:`, error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error reading WindowsApps directory:', error);
+    }
+
+    return games;
+  } catch (error) {
+    console.error('Error scanning Xbox games:', error);
+    return [];
+  }
 }
 
 // System monitoring functions
