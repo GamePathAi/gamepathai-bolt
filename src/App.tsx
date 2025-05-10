@@ -1,5 +1,11 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { 
+  RouterProvider,
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  Navigate
+} from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { NetworkOptimizer } from './pages/NetworkOptimizer';
@@ -19,67 +25,145 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { PerformanceReport } from './components/analysis/PerformanceReport';
 
-function App() {
+const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'network':
-        return <NetworkOptimizer />;
-      case 'fps':
-        return <FpsBooster />;
-      case 'games':
-        return <GamesLibrary />;
-      case 'vpn':
-        return <VpnManager />;
-      case 'settings':
-        return <Settings />;
-      case 'performance':
-        return <PerformanceReport />;
-      default:
-        return <Dashboard />;
-    }
-  };
-
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<Landing />} />
-        <Route path="/pricing" element={<Pricing />} />
-        <Route path="/auth/login" element={<Login />} />
-        <Route path="/auth/register" element={<Register />} />
-        <Route path="/auth/confirm" element={<EmailConfirmation />} />
-        <Route path="/checkout/success" element={<CheckoutSuccess />} />
-        <Route path="/checkout/cancel" element={<CheckoutCancel />} />
-        <Route path="/app/*" element={
-          <AuthGuard>
-            <div className="flex h-screen overflow-hidden bg-gray-900 text-gray-100">
-              <Sidebar 
-                activeTab={activeTab} 
-                setActiveTab={setActiveTab} 
-                isOpen={isDesktop || sidebarOpen}
-                setIsOpen={setSidebarOpen}
-              />
-              <div className="flex-1 flex flex-col overflow-hidden relative bg-gradient-to-br from-gray-900 to-gray-800">
-                <div className="absolute inset-0 z-0 grid-bg opacity-10"></div>
-                <div className="absolute inset-0 z-0 cyberpunk-circuit opacity-5"></div>
-                
-                <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
-                <main className="flex-1 overflow-y-auto p-4">
-                  {renderContent()}
-                </main>
-              </div>
-            </div>
-          </AuthGuard>
-        } />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Router>
+    <div className="flex h-screen overflow-hidden bg-gray-900 text-gray-100">
+      <Sidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isOpen={isDesktop || sidebarOpen}
+        setIsOpen={setSidebarOpen}
+      />
+      <div className="flex-1 flex flex-col overflow-hidden relative bg-gradient-to-br from-gray-900 to-gray-800">
+        <div className="absolute inset-0 z-0 grid-bg opacity-10"></div>
+        <div className="absolute inset-0 z-0 cyberpunk-circuit opacity-5"></div>
+        
+        <Header toggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+        <main className="flex-1 overflow-y-auto p-4">
+          {children}
+        </main>
+      </div>
+    </div>
   );
+};
+
+const router = createBrowserRouter(
+  createRoutesFromElements(
+    <Route>
+      <Route path="/" element={<Landing />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/auth">
+        <Route path="login" element={<Login />} />
+        <Route path="register" element={<Register />} />
+        <Route path="confirm" element={<EmailConfirmation />} />
+      </Route>
+      <Route path="/checkout">
+        <Route path="success" element={<CheckoutSuccess />} />
+        <Route path="cancel" element={<CheckoutCancel />} />
+      </Route>
+      <Route
+        path="/app"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <Dashboard />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/network"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <NetworkOptimizer />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/fps"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <FpsBooster />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/games"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <GamesLibrary />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/vpn"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <VpnManager />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/performance"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <PerformanceReport />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
+        path="/app/settings"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <Settings />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Route>
+  ),
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }
+  }
+);
+
+function App() {
+  useEffect(() => {
+    // Register service worker
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker
+          .register('/service-worker.js')
+          .then(registration => {
+            console.log('ServiceWorker registration successful');
+          })
+          .catch(err => {
+            console.error('ServiceWorker registration failed:', err);
+          });
+      });
+    }
+  }, []);
+
+  return <RouterProvider router={router} />;
 }
 
 export default App;
