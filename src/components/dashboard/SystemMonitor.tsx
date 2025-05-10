@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cpu, Memory, Fan, Network } from 'lucide-react';
+import { Cpu, MemoryStick as Memory, Fan, Network } from 'lucide-react';
 
 export const SystemMonitor: React.FC = () => {
   const [metrics, setMetrics] = useState({
