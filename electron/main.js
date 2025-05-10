@@ -153,15 +153,71 @@ async function getSteamGames() {
   }
 }
 
-function getEpicGames() {
-  const epicPath = Registry.getValue(
-    Registry.HKEY.LOCAL_MACHINE,
-    'SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher',
-    'AppDataPath'
-  );
+async function getEpicGames() {
+  try {
+    // Get Epic Games installation path from registry
+    const epicManifestPath = path.join(
+      process.env.LOCALAPPDATA,
+      'EpicGamesLauncher',
+      'Saved',
+      'Config',
+      'Windows',
+      'GameInstallation.json'
+    );
 
-  // Implementation for Epic games detection
-  return [];
+    // Read the installation manifest
+    let manifestContent;
+    try {
+      manifestContent = await fs.readFile(epicManifestPath, 'utf8');
+    } catch (error) {
+      console.error('Error reading Epic Games manifest:', error);
+      return [];
+    }
+
+    const manifest = JSON.parse(manifestContent);
+    const games = [];
+
+    // Process each installed game
+    for (const installation of manifest.InstallationList) {
+      try {
+        const manifestPath = path.join(
+          installation.InstallLocation,
+          '.egstore',
+          `${installation.AppName}.manifest`
+        );
+
+        const gameManifestContent = await fs.readFile(manifestPath, 'utf8');
+        const gameManifest = JSON.parse(gameManifestContent);
+
+        // Get game size
+        const stats = await fs.stat(installation.InstallLocation);
+        const sizeInGB = Math.round(stats.size / (1024 * 1024 * 1024));
+
+        // Find the main game executable
+        const executablePath = path.join(
+          installation.InstallLocation,
+          installation.LaunchExecutable
+        );
+
+        games.push({
+          id: installation.AppName,
+          name: installation.DisplayName,
+          platform: 'Epic',
+          installPath: installation.InstallLocation,
+          executablePath,
+          size: sizeInGB,
+          iconUrl: null // Epic doesn't provide a consistent CDN for game images
+        });
+      } catch (error) {
+        console.error(`Error processing Epic game ${installation.DisplayName}:`, error);
+      }
+    }
+
+    return games;
+  } catch (error) {
+    console.error('Error scanning Epic games:', error);
+    return [];
+  }
 }
 
 function getXboxGames() {
