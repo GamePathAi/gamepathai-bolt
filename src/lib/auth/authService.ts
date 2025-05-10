@@ -203,10 +203,25 @@ class AuthService {
   public async getCurrentUser() {
     try {
       const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
+      
+      // If there's no error but also no user, return null instead of throwing
+      if (!error && !user) {
+        return null;
+      }
+      
+      if (error) {
+        // Only throw if it's not a missing session error
+        if (error.message !== 'Auth session missing!') {
+          throw error;
+        }
+        return null;
+      }
+      
       return user;
     } catch (error) {
-      throw this.handleAuthError(error);
+      // Handle other unexpected errors
+      console.error('Error getting current user:', error);
+      return null;
     }
   }
 

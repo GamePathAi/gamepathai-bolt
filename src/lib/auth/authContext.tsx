@@ -24,8 +24,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
+        // No need to throw error if currentUser is null - it's a valid state
         setUser(currentUser);
+        setError(null);
       } catch (err) {
+        console.error('Auth initialization error:', err);
         setError(err instanceof Error ? err.message : 'Authentication error');
       } finally {
         setLoading(false);
