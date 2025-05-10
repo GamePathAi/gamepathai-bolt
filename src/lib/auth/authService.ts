@@ -23,13 +23,30 @@ class AuthService {
   private readonly LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
   private loginAttempts: Map<string, { count: number; timestamp: number }> = new Map();
 
-  private constructor() {}
+  private constructor() {
+    // Initialize session check
+    this.initializeSession();
+  }
 
   public static getInstance(): AuthService {
     if (!AuthService.instance) {
       AuthService.instance = new AuthService();
     }
     return AuthService.instance;
+  }
+
+  private async initializeSession() {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      // Set up session refresh
+      supabase.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_OUT') {
+          localStorage.removeItem(this.SESSION_KEY);
+        } else if (session) {
+          localStorage.setItem(this.SESSION_KEY, JSON.stringify(session));
+        }
+      });
+    }
   }
 
   private validateEmail(email: string): void {
@@ -147,6 +164,7 @@ class AuthService {
 
       if (data.user) {
         this.loginAttempts.delete(email);
+        localStorage.setItem(this.SESSION_KEY, JSON.stringify(data.session));
         await this.logSecurityEvent(
           data.user.id,
           'login_success',
@@ -162,6 +180,7 @@ class AuthService {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      localStorage.removeItem(this.SESSION_KEY);
     } catch (error) {
       throw this.handleAuthError(error);
     }
@@ -202,24 +221,31 @@ class AuthService {
 
   public async getCurrentUser() {
     try {
+      // First check local session
+      const sessionStr = localStorage.getItem(this.SESSION_KEY);
+      if (sessionStr) {
+        try {
+          const session = JSON.parse(sessionStr);
+          if (session?.user) {
+            return session.user;
+          }
+        } catch (e) {
+          localStorage.removeItem(this.SESSION_KEY);
+        }
+      }
+
+      // If no local session, check with Supabase
       const { data: { user }, error } = await supabase.auth.getUser();
       
-      // If there's no error but also no user, return null instead of throwing
-      if (!error && !user) {
-        return null;
-      }
-      
       if (error) {
-        // Only throw if it's not a missing session error
-        if (error.message !== 'Auth session missing!') {
-          throw error;
+        if (error.message === 'Auth session missing!') {
+          return null;
         }
-        return null;
+        throw error;
       }
       
       return user;
     } catch (error) {
-      // Handle other unexpected errors
       console.error('Error getting current user:', error);
       return null;
     }
