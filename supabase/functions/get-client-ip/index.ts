@@ -3,10 +3,12 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  "Access-Control-Allow-Headers": "*",
+  "Access-Control-Max-Age": "86400",
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 204,
