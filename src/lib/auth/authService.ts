@@ -108,6 +108,22 @@ class AuthService {
     return bytes.toString(enc.Utf8);
   }
 
+  private async createUserProfile(userId: string): Promise<void> {
+    const { error } = await supabase.from('user_profiles').insert({
+      user_id: userId,
+      display_name: null,
+      avatar_url: null,
+      preferences: {},
+      last_login: new Date().toISOString(),
+      login_count: 1
+    });
+
+    if (error) {
+      console.error('Error creating user profile:', error);
+      throw new Error('Failed to create user profile');
+    }
+  }
+
   public async signUp(email: string, password: string): Promise<void> {
     try {
       this.validateEmail(email);
@@ -124,11 +140,18 @@ class AuthService {
       if (error) throw error;
 
       if (data.user) {
-        await this.logSecurityEvent(
-          data.user.id,
-          'signup',
-          { email: this.encryptSensitiveData(email) }
-        );
+        try {
+          await this.createUserProfile(data.user.id);
+          await this.logSecurityEvent(
+            data.user.id,
+            'signup',
+            { email: this.encryptSensitiveData(email) }
+          );
+        } catch (profileError) {
+          // If profile creation fails, delete the auth user to maintain consistency
+          await supabase.auth.admin.deleteUser(data.user.id);
+          throw new Error('Failed to complete user registration');
+        }
       }
     } catch (error) {
       throw this.handleAuthError(error);
@@ -276,11 +299,14 @@ class AuthService {
       'auth/email-already-in-use': 'Email already in use',
       'auth/weak-password': 'Password is too weak',
       'auth/invalid-login-credentials': 'Invalid email or password',
-      'Email not confirmed': 'Please verify your email address before signing in.'
+      'Email not confirmed': 'Please verify your email address before signing in.',
+      'Failed to complete user registration': 'Unable to complete registration. Please try again later.',
+      'unexpected_failure': 'An unexpected error occurred. Please try again later.'
     };
 
+    const message = errorMap[error.code] || error.message || 'An error occurred';
     return {
-      message: errorMap[error.code] || error.message || 'An error occurred',
+      message,
       code: error.code
     };
   }
