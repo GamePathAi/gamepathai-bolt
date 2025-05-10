@@ -1,5 +1,5 @@
 import React from 'react';
-import { SystemStatus } from '../components/dashboard/SystemStatus';
+import { SystemMonitor } from '../components/dashboard/SystemMonitor';
 import { OptimizeButton } from '../components/dashboard/OptimizeButton';
 import { MetricsCard } from '../components/dashboard/MetricsCard';
 import { GamesList } from '../components/dashboard/GamesList';
@@ -67,8 +67,8 @@ export const Dashboard: React.FC = () => {
           />
         </div>
 
-        {/* System Status */}
-        <SystemStatus />
+        {/* System Monitor */}
+        <SystemMonitor />
       </div>
 
       {/* Sidebar section */}
