@@ -6,45 +6,30 @@ import { ChatWidget } from '../components/chat/ChatWidget';
 import { createCheckoutSession } from '../lib/stripe';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../hooks/useLanguage';
+import { useSettings } from '../hooks/useSettings';
 
 export const Settings: React.FC = () => {
   const { t } = useTranslation(['settings', 'common']);
   const { currentLanguage, changeLanguage, languages } = useLanguage();
+  const { settings, updateSettings } = useSettings();
   
-  const [settings, setSettings] = useState({
-    startWithWindows: true,
-    minimizeToTray: true,
-    darkMode: true,
-    notifications: {
-      updates: true,
-      optimizationAlerts: true,
-      connectionAlerts: false,
-    },
-    privacy: {
-      shareAnalytics: false,
-      telemetry: false,
-    }
-  });
-
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
-  
-  const handleToggleSetting = (key: string) => {
-    setSettings({
-      ...settings,
-      [key]: !settings[key as keyof typeof settings],
-    });
+
+  const handleToggleSetting = async (key: string) => {
+    try {
+      await updateSettings({
+        [key]: !settings[key as keyof typeof settings]
+      });
+    } catch (error) {
+      console.error(`Failed to update ${key}:`, error);
+    }
   };
-  
-  const handleToggleNestedSetting = (category: string, key: string) => {
-    setSettings({
-      ...settings,
-      [category]: {
-        ...settings[category as keyof typeof settings],
-        [key]: !(settings[category as keyof typeof settings] as any)[key],
-      }
-    });
+
+  const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLanguage = e.target.value;
+    await changeLanguage(newLanguage);
   };
 
   const handleUpgradeToPro = async () => {
@@ -73,11 +58,6 @@ export const Settings: React.FC = () => {
     window.open('https://docs.gamepathai.com', '_blank');
   };
 
-  const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newLanguage = e.target.value;
-    await changeLanguage(newLanguage);
-  };
-  
   return (
     <div className="space-y-6">
       {/* Header */}
