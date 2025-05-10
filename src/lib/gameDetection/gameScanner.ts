@@ -50,15 +50,22 @@ class GameScanner {
     console.log('Scanning for games...');
     
     try {
-      // Call the Supabase Edge Function to perform the scan
       const { data, error } = await supabase.functions.invoke('detect-games', {
         body: { paths: this.commonPaths }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Edge Function error:', error);
+        throw new Error(`Failed to scan for games: ${error.message}`);
+      }
+
+      if (!data || !data.success) {
+        const errorMessage = data?.errors?.[0] || 'Unknown error occurred';
+        throw new Error(`Game scanning failed: ${errorMessage}`);
+      }
 
       return {
-        games: data.games,
+        games: data.games || [],
         errors: data.errors || []
       };
     } catch (error) {
@@ -119,9 +126,11 @@ class GameScanner {
       });
 
       // Launch the game through the edge function
-      await supabase.functions.invoke('launch-game', {
+      const { error: launchError } = await supabase.functions.invoke('launch-game', {
         body: { path: game.install_path }
       });
+
+      if (launchError) throw launchError;
     } catch (error) {
       console.error('Error launching game:', error);
       throw error;
@@ -130,11 +139,12 @@ class GameScanner {
 
   public async validateGameFiles(gameId: string): Promise<boolean> {
     try {
-      const { data } = await supabase.functions.invoke('validate-game', {
+      const { data, error } = await supabase.functions.invoke('validate-game', {
         body: { gameId }
       });
 
-      return data.valid;
+      if (error) throw error;
+      return data?.valid ?? false;
     } catch (error) {
       console.error('Error validating game files:', error);
       return false;
