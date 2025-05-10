@@ -1,4 +1,3 @@
-```typescript
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
 
@@ -18,7 +17,7 @@ serve(async (req) => {
 
     // In a real implementation, this would use Deno.run or similar to launch the game
     // For now, we'll just simulate the launch
-    console.log(`Launching game from path: ${path}`);
+    console.log('Launching game from path:', path);
 
     return new Response(
       JSON.stringify({ success: true }),
@@ -37,4 +36,3 @@ serve(async (req) => {
     );
   }
 });
-```
