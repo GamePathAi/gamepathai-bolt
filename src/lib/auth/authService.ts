@@ -100,11 +100,11 @@ class AuthService {
   }
 
   private encryptSensitiveData(data: string): string {
-    return AES.encrypt(data, process.env.VITE_ENCRYPTION_KEY || '').toString();
+    return AES.encrypt(data, import.meta.env.VITE_ENCRYPTION_KEY || '').toString();
   }
 
   private decryptSensitiveData(encryptedData: string): string {
-    const bytes = AES.decrypt(encryptedData, process.env.VITE_ENCRYPTION_KEY || '');
+    const bytes = AES.decrypt(encryptedData, import.meta.env.VITE_ENCRYPTION_KEY || '');
     return bytes.toString(enc.Utf8);
   }
 
