@@ -33,6 +33,12 @@
       "version": "Version",
       "build": "Build",
       "license": "License"
+    },
+    "support": {
+      "title": "Support",
+      "knowledgeBase": "Knowledge Base",
+      "liveChat": "Live Chat",
+      "bugReport": "Send Bug Report"
     }
   }
 }

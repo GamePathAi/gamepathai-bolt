@@ -1,0 +1,44 @@
+{
+  "title": "Configuración",
+  "subtitle": "Configura tu experiencia GamePath AI",
+  "sections": {
+    "general": {
+      "title": "General",
+      "startWithWindows": {
+        "label": "Iniciar con Windows",
+        "description": "Ejecutar la aplicación al iniciar el sistema"
+      },
+      "minimizeToTray": {
+        "label": "Minimizar a la bandeja",
+        "description": "Mantener en ejecución en la bandeja del sistema al cerrar"
+      },
+      "darkMode": {
+        "label": "Modo oscuro",
+        "description": "Usar tema oscuro para la aplicación"
+      },
+      "language": {
+        "label": "Idioma",
+        "description": "Selecciona tu idioma preferido"
+      }
+    },
+    "account": {
+      "title": "Cuenta",
+      "planDetails": "Detalles del plan",
+      "status": "Estado",
+      "plan": "Plan",
+      "limits": "Límites"
+    },
+    "about": {
+      "title": "Acerca de",
+      "version": "Versión",
+      "build": "Compilación",
+      "license": "Licencia"
+    },
+    "support": {
+      "title": "Soporte",
+      "knowledgeBase": "Base de conocimientos",
+      "liveChat": "Chat en vivo",
+      "bugReport": "Reportar error"
+    }
+  }
+}
