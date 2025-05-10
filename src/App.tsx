@@ -15,7 +15,6 @@ import { Header } from './components/Header';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { PerformanceReport } from './components/analysis/PerformanceReport';
-import { Upgrades } from './pages/Upgrades';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -38,8 +37,6 @@ function App() {
         return <Settings />;
       case 'performance':
         return <PerformanceReport />;
-      case 'upgrades':
-        return <Upgrades />;
       default:
         return <Dashboard />;
     }
