@@ -21,19 +21,77 @@ class GameScanner {
   private static instance: GameScanner;
   private readonly commonPaths = {
     steam: {
-      windows: 'C:\\Program Files (x86)\\Steam\\steamapps\\common',
-      linux: '~/.local/share/Steam/steamapps/common',
-      mac: '~/Library/Application Support/Steam/steamapps/common'
+      windows: [
+        'C:\\Program Files (x86)\\Steam\\steamapps\\common',
+        'C:\\Program Files\\Steam\\steamapps\\common',
+        'D:\\Steam\\steamapps\\common'
+      ],
+      linux: [
+        '~/.local/share/Steam/steamapps/common',
+        '~/.steam/steam/steamapps/common'
+      ],
+      mac: ['~/Library/Application Support/Steam/steamapps/common']
     },
     epic: {
-      windows: 'C:\\Program Files\\Epic Games',
-      linux: '~/.local/share/Epic',
-      mac: '~/Library/Application Support/Epic'
+      windows: [
+        'C:\\Program Files\\Epic Games',
+        'C:\\Program Files (x86)\\Epic Games',
+        'D:\\Epic Games'
+      ],
+      linux: ['~/.local/share/Epic'],
+      mac: ['~/Library/Application Support/Epic']
+    },
+    origin: {
+      windows: [
+        'C:\\Program Files\\Origin Games',
+        'C:\\Program Files (x86)\\Origin Games'
+      ]
+    },
+    battlenet: {
+      windows: [
+        'C:\\Program Files\\Battle.net\\Games',
+        'C:\\Program Files (x86)\\Battle.net\\Games'
+      ]
+    },
+    riot: {
+      windows: [
+        'C:\\Riot Games',
+        'C:\\Program Files\\Riot Games',
+        'D:\\Riot Games'
+      ]
     },
     gog: {
-      windows: 'C:\\Program Files (x86)\\GOG Galaxy\\Games',
-      linux: '~/.local/share/GOG',
-      mac: '~/Library/Application Support/GOG.com'
+      windows: [
+        'C:\\Program Files\\GOG Galaxy\\Games',
+        'C:\\Program Files (x86)\\GOG Galaxy\\Games'
+      ]
+    }
+  };
+
+  private readonly gameSignatures = {
+    'League of Legends': {
+      files: ['LeagueClient.exe', 'Game/League of Legends.exe'],
+      platform: 'Riot'
+    },
+    'Valorant': {
+      files: ['VALORANT.exe', 'ShooterGame/Binaries/Win64/VALORANT-Win64-Shipping.exe'],
+      platform: 'Riot'
+    },
+    'Cyberpunk 2077': {
+      files: ['bin/x64/Cyberpunk2077.exe'],
+      platform: 'Steam'
+    },
+    'Red Dead Redemption 2': {
+      files: ['RDR2.exe'],
+      platform: 'Steam'
+    },
+    'Counter-Strike 2': {
+      files: ['game/csgo/bin/win64/cs2.exe'],
+      platform: 'Steam'
+    },
+    'Fortnite': {
+      files: ['FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe'],
+      platform: 'Epic'
     }
   };
 
@@ -51,7 +109,10 @@ class GameScanner {
     
     try {
       const { data, error } = await supabase.functions.invoke('detect-games', {
-        body: { paths: this.commonPaths }
+        body: { 
+          paths: this.commonPaths,
+          signatures: this.gameSignatures
+        }
       });
 
       if (error) {

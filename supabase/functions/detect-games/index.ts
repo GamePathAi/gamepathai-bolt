@@ -1,4 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.39.3';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -7,67 +9,88 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const { paths, signatures } = await req.json();
+    const detectedGames = [];
+    const errors = [];
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing environment variables');
+    // Helper function to check if a file exists
+    const fileExists = async (filePath: string) => {
+      try {
+        await Deno.stat(filePath);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    // Helper function to get file size
+    const getFileSize = async (filePath: string) => {
+      try {
+        const stat = await Deno.stat(filePath);
+        return stat.size;
+      } catch {
+        return 0;
+      }
+    };
+
+    // Scan each platform's paths
+    for (const [platform, platformPaths] of Object.entries(paths)) {
+      for (const basePath of platformPaths.windows) { // Start with Windows paths
+        try {
+          if (await fileExists(basePath)) {
+            const entries = await Deno.readDir(basePath);
+            for await (const entry of entries) {
+              if (entry.isDirectory) {
+                const gamePath = path.join(basePath, entry.name);
+                
+                // Check each game signature
+                for (const [gameName, signature] of Object.entries(signatures)) {
+                  const matchesSignature = await Promise.all(
+                    signature.files.map(file => 
+                      fileExists(path.join(gamePath, file))
+                    )
+                  );
+
+                  if (matchesSignature.every(exists => exists)) {
+                    const size = await getFileSize(gamePath);
+                    detectedGames.push({
+                      name: gameName,
+                      platform: signature.platform,
+                      process_name: path.basename(signature.files[0]),
+                      install_path: gamePath,
+                      size,
+                      optimized: false,
+                      icon_url: null, // Will be populated by the frontend
+                      updated_at: new Date().toISOString()
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          errors.push(`Error scanning ${basePath}: ${error.message}`);
+        }
+      }
     }
 
     // Initialize Supabase client
     const supabaseClient = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { 
         auth: { persistSession: false },
         db: { schema: 'public' }
       }
     );
 
-    // Mock game detection logic
-    const detectedGames = [
-      {
-        name: 'Cyberpunk 2077',
-        platform: 'Steam',
-        process_name: 'Cyberpunk2077.exe',
-        install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
-        icon_url: 'https://images.pexels.com/photos/2007647/pexels-photo-2007647.jpeg',
-        size: 102400, // 100GB in MB
-        optimized: true,
-        updated_at: new Date().toISOString()
-      },
-      {
-        name: 'League of Legends',
-        platform: 'Riot',
-        process_name: 'LeagueClient.exe',
-        install_path: 'C:\\Riot Games\\League of Legends',
-        icon_url: 'https://images.pexels.com/photos/7915578/pexels-photo-7915578.jpeg',
-        size: 15360, // 15GB in MB
-        optimized: true,
-        updated_at: new Date().toISOString()
-      },
-      {
-        name: 'Fortnite',
-        platform: 'Epic',
-        process_name: 'FortniteClient-Win64-Shipping.exe',
-        install_path: 'C:\\Program Files\\Epic Games\\Fortnite',
-        icon_url: 'https://images.pexels.com/photos/7915426/pexels-photo-7915426.jpeg',
-        size: 26624, // 26GB in MB
-        optimized: false,
-        updated_at: new Date().toISOString()
-      }
-    ];
-
-    // Insert games one by one to better handle errors
-    const errors: string[] = [];
+    // Update database with detected games
     const insertedGames = [];
-
     for (const game of detectedGames) {
       try {
         const { data, error: upsertError } = await supabaseClient
@@ -79,23 +102,20 @@ Deno.serve(async (req) => {
           .single();
 
         if (upsertError) {
-          console.error(`Error upserting game ${game.name}:`, upsertError);
           errors.push(`Failed to update ${game.name}: ${upsertError.message}`);
         } else if (data) {
           insertedGames.push(data);
         }
       } catch (error) {
-        console.error(`Error processing game ${game.name}:`, error);
         errors.push(`Failed to process ${game.name}: ${error.message}`);
       }
     }
 
-    // Return success even if some games failed, but include the errors
     return new Response(
       JSON.stringify({
         success: true,
         games: insertedGames,
-        errors: errors
+        errors
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -114,7 +134,7 @@ Deno.serve(async (req) => {
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 // Return 200 even for errors, but indicate failure in the response body
+        status: 200
       }
     );
   }
