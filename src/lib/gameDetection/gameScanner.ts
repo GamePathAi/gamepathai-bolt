@@ -1,4 +1,3 @@
-```typescript
 import { supabase } from '../supabase';
 
 export interface GameInfo {
@@ -144,4 +143,3 @@ class GameScanner {
 }
 
 export const gameScanner = GameScanner.getInstance();
-```
