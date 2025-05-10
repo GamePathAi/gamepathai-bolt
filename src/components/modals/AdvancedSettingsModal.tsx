@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { X, Sliders, Cpu, HardDrive, Fan, Clock } from 'lucide-react';
 
 interface AdvancedSettingsModalProps {
@@ -6,7 +6,61 @@ interface AdvancedSettingsModalProps {
   onClose: () => void;
 }
 
+interface Settings {
+  cpu: {
+    priority: number;
+    threadOptimization: number;
+  };
+  memory: {
+    cleanerInterval: number;
+    pageFileOptimization: number;
+  };
+  gpu: {
+    powerMode: number;
+    shaderCache: number;
+  };
+  input: {
+    processing: number;
+    pollingRate: number;
+  };
+}
+
 export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ isOpen, onClose }) => {
+  const [settings, setSettings] = useState<Settings>({
+    cpu: {
+      priority: 4,
+      threadOptimization: 1,
+    },
+    memory: {
+      cleanerInterval: 5,
+      pageFileOptimization: 1,
+    },
+    gpu: {
+      powerMode: 2,
+      shaderCache: 1,
+    },
+    input: {
+      processing: 3,
+      pollingRate: 3,
+    },
+  });
+
+  const handleSettingChange = (category: keyof Settings, setting: string, value: number) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category],
+        [setting]: value
+      }
+    }));
+  };
+
+  const handleApplyChanges = () => {
+    // Here you would typically save the settings to your state management system
+    console.log('Applying settings:', settings);
+    onClose();
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -40,26 +94,30 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Process Priority</span>
-                  <span className="text-purple-400">High</span>
+                  <span className="text-purple-400">
+                    {['Low', 'Medium-Low', 'Medium', 'High', 'Real-time'][settings.cpu.priority - 1]}
+                  </span>
                 </div>
                 <input 
                   type="range" 
                   min="1" 
                   max="5" 
-                  value="4"
+                  value={settings.cpu.priority}
+                  onChange={(e) => handleSettingChange('cpu', 'priority', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Thread Optimization</span>
-                  <span className="text-purple-400">Enabled</span>
+                  <span className="text-purple-400">{settings.cpu.threadOptimization ? 'Enabled' : 'Disabled'}</span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="1" 
-                  value="1"
+                  value={settings.cpu.threadOptimization}
+                  onChange={(e) => handleSettingChange('cpu', 'threadOptimization', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
@@ -76,26 +134,30 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Memory Cleaner Interval</span>
-                  <span className="text-purple-400">5 min</span>
+                  <span className="text-purple-400">{settings.memory.cleanerInterval} min</span>
                 </div>
                 <input 
                   type="range" 
                   min="1" 
                   max="10" 
-                  value="5"
+                  value={settings.memory.cleanerInterval}
+                  onChange={(e) => handleSettingChange('memory', 'cleanerInterval', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Page File Optimization</span>
-                  <span className="text-purple-400">Auto</span>
+                  <span className="text-purple-400">
+                    {['Manual', 'Auto', 'Dynamic'][settings.memory.pageFileOptimization]}
+                  </span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="2" 
-                  value="1"
+                  value={settings.memory.pageFileOptimization}
+                  onChange={(e) => handleSettingChange('memory', 'pageFileOptimization', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
@@ -112,26 +174,30 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Power Mode</span>
-                  <span className="text-purple-400">Performance</span>
+                  <span className="text-purple-400">
+                    {['Balanced', 'Power Saver', 'Performance'][settings.gpu.powerMode]}
+                  </span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="2" 
-                  value="2"
+                  value={settings.gpu.powerMode}
+                  onChange={(e) => handleSettingChange('gpu', 'powerMode', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Shader Cache</span>
-                  <span className="text-purple-400">Enabled</span>
+                  <span className="text-purple-400">{settings.gpu.shaderCache ? 'Enabled' : 'Disabled'}</span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="1" 
-                  value="1"
+                  value={settings.gpu.shaderCache}
+                  onChange={(e) => handleSettingChange('gpu', 'shaderCache', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
@@ -148,26 +214,32 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Input Processing</span>
-                  <span className="text-purple-400">Ultra</span>
+                  <span className="text-purple-400">
+                    {['Basic', 'Standard', 'High', 'Ultra'][settings.input.processing]}
+                  </span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="3" 
-                  value="3"
+                  value={settings.input.processing}
+                  onChange={(e) => handleSettingChange('input', 'processing', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
               <div>
                 <div className="flex justify-between text-sm mb-2">
                   <span className="text-gray-400">Polling Rate</span>
-                  <span className="text-purple-400">1000Hz</span>
+                  <span className="text-purple-400">
+                    {['125Hz', '250Hz', '500Hz', '1000Hz'][settings.input.pollingRate]}
+                  </span>
                 </div>
                 <input 
                   type="range" 
                   min="0" 
                   max="3" 
-                  value="3"
+                  value={settings.input.pollingRate}
+                  onChange={(e) => handleSettingChange('input', 'pollingRate', parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-700 rounded-full appearance-none cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-purple-500"
                 />
               </div>
@@ -183,7 +255,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
             Cancel
           </button>
           <button
-            onClick={onClose}
+            onClick={handleApplyChanges}
             className="px-4 py-2 rounded-lg bg-purple-500 text-white hover:bg-purple-400 transition-colors"
           >
             Apply Changes
