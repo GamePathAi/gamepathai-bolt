@@ -1,6 +1,7 @@
 import React from 'react';
 import { Menu, Bell, ChevronDown } from 'lucide-react';
 import { Logo } from './Logo';
+import { Link } from 'react-router-dom';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -33,10 +34,13 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         </button>
         
         {/* Pro Upgrade Button */}
-        <button className="hidden sm:flex items-center px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-xs font-medium text-white">
+        <Link 
+          to="/pricing"
+          className="hidden sm:flex items-center px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-xs font-medium text-white"
+        >
           <span>Upgrade to Pro</span>
           <ChevronDown size={14} className="ml-1" />
-        </button>
+        </Link>
       </div>
     </header>
   );
