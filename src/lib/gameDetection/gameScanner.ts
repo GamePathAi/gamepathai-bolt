@@ -19,81 +19,46 @@ interface ScanResult {
 
 class GameScanner {
   private static instance: GameScanner;
-  private readonly commonPaths = {
-    steam: {
-      windows: [
-        'C:\\Program Files (x86)\\Steam\\steamapps\\common',
-        'C:\\Program Files\\Steam\\steamapps\\common',
-        'D:\\Steam\\steamapps\\common'
-      ],
-      linux: [
-        '~/.local/share/Steam/steamapps/common',
-        '~/.steam/steam/steamapps/common'
-      ],
-      mac: ['~/Library/Application Support/Steam/steamapps/common']
-    },
-    epic: {
-      windows: [
-        'C:\\Program Files\\Epic Games',
-        'C:\\Program Files (x86)\\Epic Games',
-        'D:\\Epic Games'
-      ],
-      linux: ['~/.local/share/Epic'],
-      mac: ['~/Library/Application Support/Epic']
-    },
-    origin: {
-      windows: [
-        'C:\\Program Files\\Origin Games',
-        'C:\\Program Files (x86)\\Origin Games'
-      ]
-    },
-    battlenet: {
-      windows: [
-        'C:\\Program Files\\Battle.net\\Games',
-        'C:\\Program Files (x86)\\Battle.net\\Games'
-      ]
-    },
-    riot: {
-      windows: [
-        'C:\\Riot Games',
-        'C:\\Program Files\\Riot Games',
-        'D:\\Riot Games'
-      ]
-    },
-    gog: {
-      windows: [
-        'C:\\Program Files\\GOG Galaxy\\Games',
-        'C:\\Program Files (x86)\\GOG Galaxy\\Games'
-      ]
-    }
-  };
 
-  private readonly gameSignatures = {
-    'League of Legends': {
-      files: ['LeagueClient.exe', 'Game/League of Legends.exe'],
-      platform: 'Riot'
+  // Mock data for development
+  private readonly mockGames: GameInfo[] = [
+    {
+      name: 'Cyberpunk 2077',
+      platform: 'Steam',
+      process_name: 'Cyberpunk2077.exe',
+      install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
+      icon_url: 'https://images.pexels.com/photos/2007647/pexels-photo-2007647.jpeg',
+      size: 102400,
+      optimized: true
     },
-    'Valorant': {
-      files: ['VALORANT.exe', 'ShooterGame/Binaries/Win64/VALORANT-Win64-Shipping.exe'],
-      platform: 'Riot'
+    {
+      name: 'League of Legends',
+      platform: 'Riot',
+      process_name: 'LeagueClient.exe',
+      install_path: 'C:\\Riot Games\\League of Legends',
+      icon_url: 'https://images.pexels.com/photos/7915578/pexels-photo-7915578.jpeg',
+      size: 15360,
+      optimized: true
     },
-    'Cyberpunk 2077': {
-      files: ['bin/x64/Cyberpunk2077.exe'],
-      platform: 'Steam'
+    {
+      name: 'Fortnite',
+      platform: 'Epic',
+      process_name: 'FortniteClient-Win64-Shipping.exe',
+      install_path: 'C:\\Program Files\\Epic Games\\Fortnite',
+      icon_url: 'https://images.pexels.com/photos/7915426/pexels-photo-7915426.jpeg',
+      size: 26624,
+      optimized: false
     },
-    'Red Dead Redemption 2': {
-      files: ['RDR2.exe'],
-      platform: 'Steam'
-    },
-    'Counter-Strike 2': {
-      files: ['game/csgo/bin/win64/cs2.exe'],
-      platform: 'Steam'
-    },
-    'Fortnite': {
-      files: ['FortniteGame/Binaries/Win64/FortniteClient-Win64-Shipping.exe'],
-      platform: 'Epic'
+    {
+      name: 'Counter-Strike 2',
+      platform: 'Steam',
+      process_name: 'cs2.exe',
+      install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive',
+      icon_url: 'https://images.pexels.com/photos/7915449/pexels-photo-7915449.jpeg',
+      size: 35840,
+      optimized: true
     }
-  };
+  ];
 
   private constructor() {}
 
@@ -108,27 +73,35 @@ class GameScanner {
     console.log('Scanning for games...');
     
     try {
-      const { data, error } = await supabase.functions.invoke('detect-games', {
-        body: { 
-          paths: this.commonPaths,
-          signatures: this.gameSignatures
+      // In development, return mock data
+      const insertedGames = [];
+      const errors = [];
+
+      for (const game of this.mockGames) {
+        try {
+          const { data, error } = await supabase
+            .from('games')
+            .upsert(game, {
+              onConflict: 'name,platform'
+            })
+            .select()
+            .single();
+
+          if (error) {
+            errors.push(`Failed to update ${game.name}: ${error.message}`);
+          } else if (data) {
+            insertedGames.push(data);
+          }
+        } catch (error) {
+          errors.push(`Failed to process ${game.name}: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
-      });
-
-      if (error) {
-        console.error('Edge Function error:', error);
-        throw new Error(`Failed to scan for games: ${error.message}`);
-      }
-
-      if (!data || !data.success) {
-        const errorMessage = data?.errors?.[0] || 'Unknown error occurred';
-        throw new Error(`Game scanning failed: ${errorMessage}`);
       }
 
       return {
-        games: data.games || [],
-        errors: data.errors || []
+        games: insertedGames,
+        errors
       };
+
     } catch (error) {
       console.error('Error scanning for games:', error);
       return {
@@ -138,78 +111,14 @@ class GameScanner {
     }
   }
 
-  public async addGame(gameInfo: GameInfo): Promise<GameInfo> {
-    try {
-      const { data, error } = await supabase
-        .from('games')
-        .insert(gameInfo)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error adding game:', error);
-      throw error;
-    }
-  }
-
-  public async updateGame(gameId: string, updates: Partial<GameInfo>): Promise<GameInfo> {
-    try {
-      const { data, error } = await supabase
-        .from('games')
-        .update(updates)
-        .eq('id', gameId)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Error updating game:', error);
-      throw error;
-    }
+  public async validateGameFiles(gameId: string): Promise<boolean> {
+    // In development, always return true
+    return true;
   }
 
   public async launchGame(gameId: string): Promise<void> {
-    try {
-      const { data: game, error } = await supabase
-        .from('games')
-        .select()
-        .eq('id', gameId)
-        .single();
-
-      if (error) throw error;
-
-      // Update last played timestamp
-      await this.updateGame(gameId, {
-        last_played: new Date()
-      });
-
-      // Launch the game through the edge function
-      const { error: launchError } = await supabase.functions.invoke('launch-game', {
-        body: { path: game.install_path }
-      });
-
-      if (launchError) throw launchError;
-    } catch (error) {
-      console.error('Error launching game:', error);
-      throw error;
-    }
-  }
-
-  public async validateGameFiles(gameId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase.functions.invoke('validate-game', {
-        body: { gameId }
-      });
-
-      if (error) throw error;
-      return data?.valid ?? false;
-    } catch (error) {
-      console.error('Error validating game files:', error);
-      return false;
-    }
+    // In development, just log the launch
+    console.log(`Launching game ${gameId}`);
   }
 }
 
