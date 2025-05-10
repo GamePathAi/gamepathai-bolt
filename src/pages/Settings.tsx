@@ -70,7 +70,10 @@ export const Settings: React.FC = () => {
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <button className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors duration-150">
+            <button 
+              onClick={() => {}} // Reset settings handler
+              className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors duration-150"
+            >
               {t('common:actions.reset')}
             </button>
           </div>
@@ -207,7 +210,7 @@ export const Settings: React.FC = () => {
               
               <button
                 onClick={handleUpgradeToPro}
-                className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white"
+                className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white hover:from-purple-500 hover:to-cyan-500 transition-all duration-200"
               >
                 {t('common:actions.upgrade')}
               </button>
@@ -238,7 +241,7 @@ export const Settings: React.FC = () => {
                 <button
                   onClick={handleCheckForUpdates}
                   disabled={isCheckingForUpdates}
-                  className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+                  className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
                 >
                   {isCheckingForUpdates ? (
                     <>
@@ -262,7 +265,7 @@ export const Settings: React.FC = () => {
             <div className="space-y-3">
               <button
                 onClick={handleKnowledgeBase}
-                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -274,7 +277,7 @@ export const Settings: React.FC = () => {
               
               <button
                 onClick={() => {}} // Chat widget handles this
-                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -284,7 +287,7 @@ export const Settings: React.FC = () => {
               
               <button
                 onClick={() => setIsBugReportModalOpen(true)}
-                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center"
+                className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
                   <path d="M14 9L9 4L4 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
