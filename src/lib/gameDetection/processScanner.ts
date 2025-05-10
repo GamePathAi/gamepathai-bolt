@@ -19,9 +19,11 @@ export class ProcessScanner {
     ['Valorant', /VALORANT\.exe$/i],
     ['Counter-Strike 2', /cs2\.exe$/i],
   ]);
+  private initialized: boolean = false;
 
   private constructor() {
-    this.loadKnownProcesses();
+    // Don't load processes in constructor to avoid initialization issues
+    this.initialize();
   }
 
   public static getInstance(): ProcessScanner {
@@ -31,28 +33,48 @@ export class ProcessScanner {
     return ProcessScanner.instance;
   }
 
+  private async initialize(): Promise<void> {
+    if (!this.initialized) {
+      await this.loadKnownProcesses();
+      this.initialized = true;
+    }
+  }
+
   private async loadKnownProcesses(): Promise<void> {
+    if (!supabase) {
+      console.warn('Supabase client not initialized, using default game processes');
+      return;
+    }
+
     try {
       const { data, error } = await supabase
         .from('games')
         .select('process_name');
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error loading known processes:', error);
+        return;
+      }
 
-      data?.forEach(game => {
-        if (game.process_name) {
-          this.knownGameProcesses.set(
-            game.process_name,
-            new RegExp(game.process_name, 'i')
-          );
-        }
-      });
+      if (data) {
+        data.forEach(game => {
+          if (game.process_name) {
+            this.knownGameProcesses.set(
+              game.process_name,
+              new RegExp(game.process_name, 'i')
+            );
+          }
+        });
+      }
     } catch (error) {
       console.error('Error loading known processes:', error);
     }
   }
 
   public async scanForGames(): Promise<GameProcess[]> {
+    // Ensure initialization before scanning
+    await this.initialize();
+
     try {
       const processes = await si.processes();
       const gameProcesses: GameProcess[] = [];
@@ -87,6 +109,9 @@ export class ProcessScanner {
   }
 
   public async getGameDetails(process: GameProcess): Promise<any> {
+    // Ensure initialization before getting details
+    await this.initialize();
+
     try {
       const processInfo = await si.processLoad(process.pid);
       const usage = {
