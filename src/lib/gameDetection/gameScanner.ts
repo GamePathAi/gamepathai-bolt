@@ -10,6 +10,8 @@ export interface GameInfo {
   last_played?: Date;
   size?: number;
   optimized?: boolean;
+  status?: string;
+  version?: string;
 }
 
 interface ScanResult {
@@ -19,46 +21,6 @@ interface ScanResult {
 
 class GameScanner {
   private static instance: GameScanner;
-
-  // Mock data for development
-  private readonly mockGames: GameInfo[] = [
-    {
-      name: 'Cyberpunk 2077',
-      platform: 'Steam',
-      process_name: 'Cyberpunk2077.exe',
-      install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
-      icon_url: 'https://images.pexels.com/photos/2007647/pexels-photo-2007647.jpeg',
-      size: 102400,
-      optimized: true
-    },
-    {
-      name: 'League of Legends',
-      platform: 'Riot',
-      process_name: 'LeagueClient.exe',
-      install_path: 'C:\\Riot Games\\League of Legends',
-      icon_url: 'https://images.pexels.com/photos/7915578/pexels-photo-7915578.jpeg',
-      size: 15360,
-      optimized: true
-    },
-    {
-      name: 'Fortnite',
-      platform: 'Epic',
-      process_name: 'FortniteClient-Win64-Shipping.exe',
-      install_path: 'C:\\Program Files\\Epic Games\\Fortnite',
-      icon_url: 'https://images.pexels.com/photos/7915426/pexels-photo-7915426.jpeg',
-      size: 26624,
-      optimized: false
-    },
-    {
-      name: 'Counter-Strike 2',
-      platform: 'Steam',
-      process_name: 'cs2.exe',
-      install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive',
-      icon_url: 'https://images.pexels.com/photos/7915449/pexels-photo-7915449.jpeg',
-      size: 35840,
-      optimized: true
-    }
-  ];
 
   private constructor() {}
 
@@ -73,15 +35,32 @@ class GameScanner {
     console.log('Scanning for games...');
     
     try {
-      // In development, return mock data
+      // Get all installed games from database
+      const { data: existingGames, error: fetchError } = await supabase
+        .from('games')
+        .select('*')
+        .eq('status', 'installed');
+
+      if (fetchError) {
+        throw fetchError;
+      }
+
+      // Scan system for new games
+      const newGames = await this.scanSystem();
+      
+      // Update database with new games
       const insertedGames = [];
       const errors = [];
 
-      for (const game of this.mockGames) {
+      for (const game of newGames) {
         try {
           const { data, error } = await supabase
             .from('games')
-            .upsert(game, {
+            .upsert({
+              ...game,
+              status: 'installed',
+              updated_at: new Date().toISOString()
+            }, {
               onConflict: 'name,platform'
             })
             .select()
@@ -98,7 +77,7 @@ class GameScanner {
       }
 
       return {
-        games: insertedGames,
+        games: [...(existingGames || []), ...insertedGames],
         errors
       };
 
@@ -111,14 +90,56 @@ class GameScanner {
     }
   }
 
+  private async scanSystem(): Promise<GameInfo[]> {
+    // This would be replaced with actual system scanning logic
+    // For now, return empty array since actual scanning is handled by edge function
+    return [];
+  }
+
   public async validateGameFiles(gameId: string): Promise<boolean> {
-    // In development, always return true
-    return true;
+    try {
+      const { data: game, error } = await supabase
+        .from('games')
+        .select('*')
+        .eq('id', gameId)
+        .single();
+
+      if (error) throw error;
+      if (!game) return false;
+
+      // Validate game files
+      const { data: validation } = await supabase.functions.invoke('validate-game', {
+        body: { gameId }
+      });
+
+      return validation?.valid ?? false;
+    } catch (error) {
+      console.error('Error validating game files:', error);
+      return false;
+    }
   }
 
   public async launchGame(gameId: string): Promise<void> {
-    // In development, just log the launch
-    console.log(`Launching game ${gameId}`);
+    try {
+      // Update last_played timestamp
+      const { error: updateError } = await supabase
+        .from('games')
+        .update({ 
+          last_played: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', gameId);
+
+      if (updateError) throw updateError;
+
+      // Launch game through edge function
+      await supabase.functions.invoke('launch-game', {
+        body: { gameId }
+      });
+    } catch (error) {
+      console.error('Error launching game:', error);
+      throw error;
+    }
   }
 }
 
