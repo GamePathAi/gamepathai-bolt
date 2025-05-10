@@ -1,5 +1,5 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart } from 'lucide-react';
 import { Logo } from './Logo';
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/app' },
@@ -29,11 +30,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'settings', label: 'Settings', icon: Settings, path: '/app/settings' },
   ];
 
+  // Update active tab based on current path
+  React.useEffect(() => {
+    const currentPath = location.pathname;
+    const currentItem = navItems.find(item => item.path === currentPath);
+    if (currentItem && currentItem.id !== activeTab) {
+      setActiveTab(currentItem.id);
+    }
+  }, [location.pathname, activeTab, setActiveTab]);
+
   const handleNavigation = (item: typeof navItems[0]) => {
     setActiveTab(item.id);
     navigate(item.path);
-    if (!isOpen) setIsOpen(true);
+    if (!isDesktop) setIsOpen(false);
   };
+
+  const isDesktop = window.innerWidth >= 1024;
 
   return (
     <>
@@ -63,7 +75,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <button 
                 onClick={() => setIsOpen(false)}
-                className="lg:hidden p-1 rounded-md hover:bg-gray-700"
+                className="lg:hidden p-1 rounded-md hover:bg-gray-700 transition-colors"
               >
                 <X size={20} className="text-gray-400" />
               </button>
@@ -93,10 +105,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         <div className="absolute left-0 top-0 bottom-0 w-1 bg-cyan-400"></div>
                       )}
                       <Icon 
-                        className={`mr-3 ${isActive ? 'text-cyan-400' : ''}`} 
+                        className={`mr-3 transition-transform duration-200 ${
+                          isActive ? 'text-cyan-400 transform scale-110' : ''
+                        }`} 
                         size={18} 
                       />
-                      <span>{item.label}</span>
+                      <span className={`transition-colors duration-200 ${
+                        isActive ? 'font-medium' : ''
+                      }`}>{item.label}</span>
                       {isActive && (
                         <ChevronRight size={16} className="ml-auto text-cyan-400" />
                       )}
@@ -114,7 +130,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 U
               </div>
               <div className="ml-2">
-                <div className="text-sm font-medium">User</div>
+                <div className="text-sm font-medium text-white">User</div>
                 <div className="text-xs text-gray-400 flex items-center">
                   <span className="w-2 h-2 rounded-full bg-green-500 mr-1"></span>
                   Online
