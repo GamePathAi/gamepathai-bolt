@@ -11,6 +11,7 @@ import { Landing } from './pages/Landing';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { EmailConfirmation } from './pages/auth/EmailConfirmation';
+import { Pricing } from './pages/Pricing';
 import { Header } from './components/Header';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -46,6 +47,7 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Landing />} />
+        <Route path="/pricing" element={<Pricing />} />
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/register" element={<Register />} />
         <Route path="/auth/confirm" element={<EmailConfirmation />} />

@@ -24,6 +24,7 @@ export async function createCheckoutSession(priceId: string, mode: 'subscription
       success_url: `${window.location.origin}/checkout/success`,
       cancel_url: `${window.location.origin}/checkout/cancel`,
       mode: mode,
+      trial_period_days: 3, // Add 3-day trial period
     }),
   });
 
