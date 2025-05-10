@@ -5,6 +5,7 @@ import { Registry } from 'registry-js';
 import * as si from 'systeminformation';
 import Store from 'electron-store';
 import fs from 'fs/promises';
+import { spawn } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -306,6 +307,101 @@ async function getSystemInfo() {
   };
 }
 
+// Game launching functions
+async function launchGame(game) {
+  try {
+    switch (game.platform) {
+      case 'Steam':
+        return await launchSteamGame(game);
+      case 'Epic':
+        return await launchEpicGame(game);
+      case 'Xbox':
+        return await launchXboxGame(game);
+      default:
+        throw new Error(`Unsupported platform: ${game.platform}`);
+    }
+  } catch (error) {
+    console.error(`Error launching game ${game.name}:`, error);
+    throw error;
+  }
+}
+
+async function launchSteamGame(game) {
+  try {
+    // Get Steam installation path
+    const steamPath = Registry.getValue(
+      Registry.HKEY.LOCAL_MACHINE,
+      'SOFTWARE\\WOW6432Node\\Valve\\Steam',
+      'InstallPath'
+    );
+
+    if (!steamPath) {
+      throw new Error('Steam installation not found');
+    }
+
+    // Launch game using Steam protocol
+    const steamExe = path.join(steamPath, 'steam.exe');
+    const process = spawn(steamExe, [`steam://rungameid/${game.id}`], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    process.unref();
+    return true;
+  } catch (error) {
+    console.error(`Error launching Steam game ${game.name}:`, error);
+    throw error;
+  }
+}
+
+async function launchEpicGame(game) {
+  try {
+    // Get Epic Games Launcher path
+    const epicPath = Registry.getValue(
+      Registry.HKEY.LOCAL_MACHINE,
+      'SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher',
+      'AppPath'
+    );
+
+    if (!epicPath) {
+      throw new Error('Epic Games Launcher installation not found');
+    }
+
+    // Launch game using Epic protocol
+    const process = spawn(epicPath, [
+      '-com.epicgames.launcher://apps/',
+      game.id,
+      '?action=launch',
+      '&silent=true'
+    ], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    process.unref();
+    return true;
+  } catch (error) {
+    console.error(`Error launching Epic game ${game.name}:`, error);
+    throw error;
+  }
+}
+
+async function launchXboxGame(game) {
+  try {
+    // Xbox games use the Microsoft Store protocol
+    const process = spawn('explorer.exe', [`ms-xbox-game://${game.id}`], {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    process.unref();
+    return true;
+  } catch (error) {
+    console.error(`Error launching Xbox game ${game.name}:`, error);
+    throw error;
+  }
+}
+
 // IPC handlers for communication with renderer process
 import { ipcMain } from 'electron';
 
@@ -317,6 +413,15 @@ ipcMain.handle('get-system-info', async () => {
   return await getSystemInfo();
 });
 
-ipcMain.handle('launch-game', async (event, gamePath) => {
-  // Implementation for game launching
+ipcMain.handle('launch-game', async (event, game) => {
+  try {
+    const success = await launchGame(game);
+    return { success };
+  } catch (error) {
+    console.error('Error in launch-game handler:', error);
+    return { 
+      success: false, 
+      error: error.message 
+    };
+  }
 });
