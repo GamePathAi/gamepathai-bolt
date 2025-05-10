@@ -1,0 +1,44 @@
+{
+  "title": "Paramètres",
+  "subtitle": "Personnalisez votre expérience",
+  "sections": {
+    "general": {
+      "title": "Général",
+      "startWithWindows": {
+        "label": "Démarrer avec Windows",
+        "description": "Lancer automatiquement l'application au démarrage de Windows"
+      },
+      "minimizeToTray": {
+        "label": "Réduire dans la barre des tâches",
+        "description": "Garder l'application en arrière-plan lors de la fermeture"
+      },
+      "darkMode": {
+        "label": "Mode sombre",
+        "description": "Basculer entre les thèmes clair et sombre"
+      },
+      "language": {
+        "label": "Langue",
+        "description": "Choisir la langue de l'interface"
+      }
+    },
+    "account": {
+      "title": "Compte",
+      "planDetails": "Détails de l'abonnement",
+      "status": "Statut",
+      "plan": "Plan",
+      "limits": "Limites"
+    },
+    "about": {
+      "title": "À propos",
+      "version": "Version",
+      "build": "Build",
+      "license": "Licence"
+    },
+    "support": {
+      "title": "Support",
+      "knowledgeBase": "Base de connaissances",
+      "liveChat": "Chat en direct",
+      "bugReport": "Signaler un bug"
+    }
+  }
+}

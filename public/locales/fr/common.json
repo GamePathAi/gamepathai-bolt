@@ -1,0 +1,11 @@
+{
+  "status": {
+    "active": "Actif",
+    "loading": "Chargement..."
+  },
+  "actions": {
+    "reset": "Réinitialiser",
+    "upgrade": "Passer à la version Pro",
+    "checkUpdates": "Vérifier les mises à jour"
+  }
+}
