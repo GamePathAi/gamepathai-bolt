@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, BarChart4, Gauge, Cog, Cpu, HardDrive, Fan, Clock } from 'lucide-react';
+import { AdvancedSettingsModal } from '../components/modals/AdvancedSettingsModal';
 
 export const FpsBooster: React.FC = () => {
   const [optimizationLevel, setOptimizationLevel] = useState<'balanced' | 'performance' | 'extreme'>('performance');
@@ -10,6 +11,34 @@ export const FpsBooster: React.FC = () => {
     gpuOptimization: true,
     priorityBoost: false,
   });
+  const [isAdvancedSettingsOpen, setIsAdvancedSettingsOpen] = useState(false);
+  const [metrics, setMetrics] = useState({
+    fps: { before: 68, after: 86, boost: 27 },
+    cpuPriority: 12,
+    memoryLatency: -8,
+    gpuPerformance: 15,
+    inputLag: -5
+  });
+
+  useEffect(() => {
+    if (!isBoostEnabled) return;
+
+    const interval = setInterval(() => {
+      setMetrics(prev => ({
+        fps: {
+          before: prev.fps.before + Math.floor(Math.random() * 3) - 1,
+          after: prev.fps.after + Math.floor(Math.random() * 3) - 1,
+          boost: Math.floor(((prev.fps.after - prev.fps.before) / prev.fps.before) * 100)
+        },
+        cpuPriority: prev.cpuPriority + Math.floor(Math.random() * 3) - 1,
+        memoryLatency: prev.memoryLatency + Math.floor(Math.random() * 3) - 1,
+        gpuPerformance: prev.gpuPerformance + Math.floor(Math.random() * 3) - 1,
+        inputLag: prev.inputLag + Math.floor(Math.random() * 2) - 1
+      }));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [isBoostEnabled]);
 
   const handleToggleBoost = () => {
     setIsBoostEnabled(!isBoostEnabled);
@@ -351,16 +380,19 @@ export const FpsBooster: React.FC = () => {
               </div>
 
               <div className="flex justify-between items-center mb-2">
-                <div className="text-2xl font-bold text-white">68</div>
+                <div className="text-2xl font-bold text-white">{metrics.fps.before}</div>
                 <div className="text-green-400 flex items-center">
                   <Zap size={16} className="mr-1" />
-                  +27%
+                  +{metrics.fps.boost}%
                 </div>
-                <div className="text-2xl font-bold text-purple-400">86</div>
+                <div className="text-2xl font-bold text-purple-400">{metrics.fps.after}</div>
               </div>
 
               <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div className="h-full bg-purple-500 transition-all duration-500" style={{ width: '75%' }} />
+                <div 
+                  className="h-full bg-purple-500 transition-all duration-500" 
+                  style={{ width: `${(metrics.fps.after / (metrics.fps.before * 2)) * 100}%` }} 
+                />
               </div>
 
               <div className="flex justify-between mt-1 text-xs text-gray-400">
@@ -377,7 +409,7 @@ export const FpsBooster: React.FC = () => {
                     <Cpu className="text-gray-400 mr-2" size={16} />
                     <span className="text-sm text-white">CPU Priority</span>
                   </div>
-                  <span className="text-green-400 text-sm">+12%</span>
+                  <span className="text-green-400 text-sm">+{metrics.cpuPriority}%</span>
                 </div>
               </div>
 
@@ -387,7 +419,7 @@ export const FpsBooster: React.FC = () => {
                     <HardDrive className="text-gray-400 mr-2" size={16} />
                     <span className="text-sm text-white">Memory Latency</span>
                   </div>
-                  <span className="text-green-400 text-sm">-8%</span>
+                  <span className="text-green-400 text-sm">{metrics.memoryLatency}%</span>
                 </div>
               </div>
 
@@ -397,7 +429,7 @@ export const FpsBooster: React.FC = () => {
                     <Fan className="text-gray-400 mr-2" size={16} />
                     <span className="text-sm text-white">GPU Performance</span>
                   </div>
-                  <span className="text-green-400 text-sm">+15%</span>
+                  <span className="text-green-400 text-sm">+{metrics.gpuPerformance}%</span>
                 </div>
               </div>
 
@@ -407,19 +439,28 @@ export const FpsBooster: React.FC = () => {
                     <Clock className="text-gray-400 mr-2" size={16} />
                     <span className="text-sm text-white">Input Lag</span>
                   </div>
-                  <span className="text-green-400 text-sm">-5ms</span>
+                  <span className="text-green-400 text-sm">{metrics.inputLag}ms</span>
                 </div>
               </div>
             </div>
 
             {/* Advanced Settings Button */}
-            <button className="w-full py-2.5 rounded-lg bg-purple-500/20 text-purple-300 font-medium hover:bg-purple-500/30 transition-colors duration-200 flex items-center justify-center">
+            <button 
+              onClick={() => setIsAdvancedSettingsOpen(true)}
+              className="w-full py-2.5 rounded-lg bg-purple-500/20 text-purple-300 font-medium hover:bg-purple-500/30 transition-colors duration-200 flex items-center justify-center"
+            >
               <Cog size={16} className="mr-2" />
               Advanced Settings
             </button>
           </div>
         </div>
       </div>
+
+      {/* Advanced Settings Modal */}
+      <AdvancedSettingsModal 
+        isOpen={isAdvancedSettingsOpen}
+        onClose={() => setIsAdvancedSettingsOpen(false)}
+      />
     </div>
   );
 };
