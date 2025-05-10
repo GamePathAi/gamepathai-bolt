@@ -1,9 +1,8 @@
-```typescript
 import React, { useState, useEffect } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
 import { gameScanner, type GameInfo } from '../../lib/gameDetection/gameScanner';
 
-export const GameList: React.FC = () => {
+const GameList: React.FC = () => {
   const [games, setGames] = useState<GameInfo[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
@@ -196,4 +195,5 @@ export const GameList: React.FC = () => {
     </div>
   );
 };
-```
+
+export default GameList;
