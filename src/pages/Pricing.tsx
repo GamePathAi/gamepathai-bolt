@@ -1,17 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Shield, Zap, Users, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { createCheckoutSession } from '../lib/stripe';
 import { products } from '../stripe-config';
+import { useAuthStore } from '../stores/authStore';
 
 export const Pricing: React.FC = () => {
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(false);
+
   const handleSubscribe = async (priceId: string) => {
     try {
+      setIsLoading(true);
+      
+      if (!user) {
+        navigate('/auth/login', { state: { from: '/pricing' } });
+        return;
+      }
+
       const checkoutUrl = await createCheckoutSession(priceId, 'subscription');
       if (checkoutUrl) {
         window.location.href = checkoutUrl;
       }
     } catch (error) {
       console.error('Failed to create checkout session:', error);
+      // You could show an error toast here
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -60,9 +76,10 @@ export const Pricing: React.FC = () => {
 
             <button
               onClick={() => handleSubscribe(products[2].priceId)}
-              className="w-full py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150"
+              disabled={isLoading}
+              className="w-full py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {isLoading ? 'Loading...' : 'Start Free Trial'}
             </button>
           </div>
 
@@ -108,9 +125,10 @@ export const Pricing: React.FC = () => {
 
             <button
               onClick={() => handleSubscribe(products[1].priceId)}
-              className="w-full py-2 rounded-md bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-500 hover:to-purple-300 text-white font-medium transition-all duration-200"
+              disabled={isLoading}
+              className="w-full py-2 rounded-md bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-500 hover:to-purple-300 text-white font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {isLoading ? 'Loading...' : 'Start Free Trial'}
             </button>
           </div>
 
@@ -152,9 +170,10 @@ export const Pricing: React.FC = () => {
 
             <button
               onClick={() => handleSubscribe(products[0].priceId)}
-              className="w-full py-2 rounded-md bg-red-500 hover:bg-red-400 text-white font-medium transition-colors duration-150"
+              disabled={isLoading}
+              className="w-full py-2 rounded-md bg-red-500 hover:bg-red-400 text-white font-medium transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Start Free Trial
+              {isLoading ? 'Loading...' : 'Start Free Trial'}
             </button>
           </div>
         </div>

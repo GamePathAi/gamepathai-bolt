@@ -4,7 +4,7 @@ import { products } from '../stripe-config';
 export async function createCheckoutSession(priceId: string, mode: 'subscription' | 'payment') {
   const { data: { session } } = await supabase.auth.getSession();
 
-  if (!session) {
+  if (!session?.access_token) {
     throw new Error('Not authenticated');
   }
 
@@ -24,7 +24,6 @@ export async function createCheckoutSession(priceId: string, mode: 'subscription
       success_url: `${window.location.origin}/checkout/success`,
       cancel_url: `${window.location.origin}/checkout/cancel`,
       mode: mode,
-      trial_period_days: 3, // Add 3-day trial period
     }),
   });
 
