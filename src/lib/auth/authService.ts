@@ -83,14 +83,16 @@ class AuthService {
   ): Promise<void> {
     try {
       const { error } = await supabase.from('security_logs').insert({
-        user_id: userId,
+        user_id: userId || null, // Explicitly set to null if undefined
         event_type: eventType,
         ip_address: 'unknown',
         user_agent: navigator.userAgent,
         metadata
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error logging security event:', error);
+      }
     } catch (error) {
       console.error('Error logging security event:', error);
     }
@@ -122,13 +124,12 @@ class AuthService {
 
       if (error) throw error;
 
-      if (data.user) {
-        await this.logSecurityEvent(
-          data.user.id,
-          'signup',
-          { email: this.encryptSensitiveData(email) }
-        );
-      }
+      // Log the signup attempt, even if user is not yet confirmed
+      await this.logSecurityEvent(
+        data.user?.id,
+        'signup_attempt',
+        { email: this.encryptSensitiveData(email) }
+      );
     } catch (error) {
       throw this.handleAuthError(error);
     }
