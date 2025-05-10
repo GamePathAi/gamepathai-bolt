@@ -3,10 +3,11 @@ import { SystemMonitor } from '../components/dashboard/SystemMonitor';
 import { OptimizeButton } from '../components/dashboard/OptimizeButton';
 import { NetworkMetricsGrid } from '../components/dashboard/NetworkMetricsGrid';
 import { GamesList } from '../components/dashboard/GamesList';
+import { PerformanceMetrics } from '../components/analysis/PerformanceMetrics';
 
 export const Dashboard: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
+    <div className="space-y-6">
       <div className="md:col-span-4 space-y-6">
         {/* Hero Section with Optimize Button */}
         <div className="bg-gray-800/60 backdrop-blur-sm border border-purple-500/20 rounded-lg overflow-hidden relative h-48">
@@ -29,11 +30,14 @@ export const Dashboard: React.FC = () => {
           <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-purple-500/10 blur-xl"></div>
         </div>
 
-        {/* Metrics Grid */}
-        <NetworkMetricsGrid />
+        {/* Performance Metrics */}
+        <PerformanceMetrics />
 
         {/* System Monitor */}
         <SystemMonitor />
+
+        {/* Network Metrics Grid */}
+        <NetworkMetricsGrid />
       </div>
 
       {/* Sidebar section */}
@@ -45,29 +49,6 @@ export const Dashboard: React.FC = () => {
             Detected Games
           </h2>
           <GamesList />
-        </div>
-
-        {/* Pro Features Card */}
-        <div className="bg-gray-800/60 backdrop-blur-sm border border-purple-500/20 rounded-lg p-4 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 rounded-full blur-xl"></div>
-          <h2 className="text-lg font-medium mb-4 flex items-center">
-            <span className="w-2 h-4 bg-purple-500 rounded-sm mr-2"></span>
-            Pro Features
-          </h2>
-          <ul className="space-y-3">
-            {['VPN Integration', 'AI Route Optimizer', 'Priority Support', 'Advanced Analytics'].map((feature, index) => (
-              <li key={index} className="flex items-center text-sm">
-                <div className="w-4 h-4 rounded-full bg-gray-700 flex items-center justify-center mr-3">
-                  <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                </div>
-                <span className="text-gray-300">{feature}</span>
-                <span className="ml-auto text-xs text-purple-400 font-medium">PRO</span>
-              </li>
-            ))}
-          </ul>
-          <button className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white">
-            Upgrade Now
-          </button>
         </div>
       </div>
     </div>
