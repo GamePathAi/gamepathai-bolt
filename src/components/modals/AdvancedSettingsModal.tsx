@@ -1,4 +1,3 @@
-```typescript
 import React from 'react';
 import { X, Sliders, Cpu, HardDrive, Fan, Clock } from 'lucide-react';
 
@@ -194,4 +193,3 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
     </div>
   );
 };
-```
