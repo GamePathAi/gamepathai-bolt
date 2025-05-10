@@ -46,6 +46,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
   });
 
   const handleSettingChange = (category: keyof Settings, setting: string, value: number) => {
+    console.log(`Changing ${category}.${setting}: ${settings[category][setting]} -> ${value}`);
     setSettings(prev => ({
       ...prev,
       [category]: {
@@ -56,8 +57,7 @@ export const AdvancedSettingsModal: React.FC<AdvancedSettingsModalProps> = ({ is
   };
 
   const handleApplyChanges = () => {
-    // Here you would typically save the settings to your state management system
-    console.log('Applying settings:', settings);
+    console.log('Applying advanced settings:', settings);
     onClose();
   };
 
