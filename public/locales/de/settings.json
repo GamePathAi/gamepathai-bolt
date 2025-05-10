@@ -1,0 +1,44 @@
+{
+  "title": "Einstellungen",
+  "subtitle": "Konfiguriere deine GamePath AI Erfahrung",
+  "sections": {
+    "general": {
+      "title": "Allgemein",
+      "startWithWindows": {
+        "label": "Mit Windows starten",
+        "description": "Anwendung beim Systemstart ausführen"
+      },
+      "minimizeToTray": {
+        "label": "In Taskleiste minimieren",
+        "description": "Im System-Tray weiterlaufen lassen wenn geschlossen"
+      },
+      "darkMode": {
+        "label": "Dunkelmodus",
+        "description": "Dunkles Theme für die Anwendung verwenden"
+      },
+      "language": {
+        "label": "Sprache",
+        "description": "Wähle deine bevorzugte Sprache"
+      }
+    },
+    "account": {
+      "title": "Konto",
+      "planDetails": "Plan-Details",
+      "status": "Status",
+      "plan": "Plan",
+      "limits": "Limits"
+    },
+    "about": {
+      "title": "Über",
+      "version": "Version",
+      "build": "Build",
+      "license": "Lizenz"
+    },
+    "support": {
+      "title": "Support",
+      "knowledgeBase": "Wissensdatenbank",
+      "liveChat": "Live-Chat",
+      "bugReport": "Fehler melden"
+    }
+  }
+}

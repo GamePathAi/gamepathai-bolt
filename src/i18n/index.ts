@@ -52,8 +52,15 @@ export const cacheLanguageResources = async (lng: string) => {
       try {
         const response = await fetch(`/locales/${lng}/${ns}.json`);
         
+        // Check if response is JSON
+        const contentType = response.headers.get('content-type');
+        if (!contentType || !contentType.includes('application/json')) {
+          console.warn(`Invalid content type for ${ns} namespace: ${contentType}`);
+          continue;
+        }
+
         if (!response.ok) {
-          console.warn(`Failed to fetch ${ns} namespace for ${lng}`);
+          console.warn(`Failed to fetch ${ns} namespace for ${lng}: ${response.status}`);
           continue;
         }
 
@@ -72,12 +79,13 @@ export const cacheLanguageResources = async (lng: string) => {
       }
     }
 
-    // Cache complete language resources
+    // Only cache if we have at least one namespace
     if (Object.keys(resources).length > 0) {
       await set(`i18n_${lng}`, resources);
+      return resources;
     }
 
-    return resources;
+    throw new Error(`No resources could be loaded for language: ${lng}`);
   } catch (error) {
     console.error(`Failed to cache language resources for ${lng}:`, error);
     return null;
@@ -87,7 +95,7 @@ export const cacheLanguageResources = async (lng: string) => {
 export const loadCachedLanguageResources = async (lng: string) => {
   try {
     const cached = await get(`i18n_${lng}`);
-    if (cached) {
+    if (cached && Object.keys(cached).length > 0) {
       Object.entries(cached).forEach(([ns, resources]) => {
         i18n.addResourceBundle(lng, ns, resources, true, true);
       });

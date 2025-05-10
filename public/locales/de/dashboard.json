@@ -1,0 +1,36 @@
+{
+  "title": "Dashboard",
+  "welcome": "Willkommen zurück",
+  "stats": {
+    "gamesOptimized": "Optimierte Spiele",
+    "totalGames": "Spiele gesamt",
+    "activeOptimizations": "Aktive Optimierungen"
+  },
+  "sections": {
+    "performance": {
+      "title": "Leistungsübersicht",
+      "description": "Überwache deine Systemleistung"
+    },
+    "games": {
+      "title": "Aktuelle Spiele",
+      "description": "Deine kürzlich optimierten Spiele",
+      "noGames": "Noch keine Spiele erkannt"
+    },
+    "optimization": {
+      "title": "Optimierungsstatus",
+      "description": "Aktuelle Optimierungseinstellungen und Status"
+    }
+  },
+  "actions": {
+    "optimize": "Jetzt optimieren",
+    "viewAll": "Alle anzeigen",
+    "refresh": "Daten aktualisieren"
+  },
+  "metrics": {
+    "fps": "FPS",
+    "latency": "Latenz",
+    "memory": "Speichernutzung",
+    "cpu": "CPU-Auslastung",
+    "gpu": "GPU-Auslastung"
+  }
+}
