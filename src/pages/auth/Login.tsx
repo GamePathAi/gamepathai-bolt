@@ -12,9 +12,22 @@ export const Login: React.FC = () => {
   const [showResendButton, setShowResendButton] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn } = useAuthStore();
+  const { signIn, resendConfirmationEmail } = useAuthStore();
 
   const from = location.state?.from?.pathname || '/app';
+
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    try {
+      await resendConfirmationEmail(email);
+      setError('Verification email sent! Please check your inbox and spam folder.');
+      setShowResendButton(false);
+    } catch (err) {
+      setError('Failed to resend verification email. Please try again.');
+    } finally {
+      setResendingEmail(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,19 +49,6 @@ export const Login: React.FC = () => {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResendEmail = async () => {
-    setResendingEmail(true);
-    try {
-      // TODO: Implement resend confirmation email functionality
-      setError('Verification email sent! Please check your inbox and spam folder.');
-      setShowResendButton(false);
-    } catch (err) {
-      setError('Failed to resend verification email. Please try again.');
-    } finally {
-      setResendingEmail(false);
     }
   };
 

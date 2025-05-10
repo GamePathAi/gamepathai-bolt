@@ -1,6 +1,6 @@
-import { supabase } from '../supabase';
 import { AES, enc } from 'crypto-js';
 import { z } from 'zod';
+import { supabase } from '../supabase';
 
 // Validation schemas
 const emailSchema = z.string().email('Invalid email format');
@@ -24,7 +24,6 @@ class AuthService {
   private loginAttempts: Map<string, { count: number; timestamp: number }> = new Map();
 
   private constructor() {
-    // Initialize session check
     this.initializeSession();
   }
 
@@ -38,7 +37,6 @@ class AuthService {
   private async initializeSession() {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
-      // Set up session refresh
       supabase.auth.onAuthStateChange((event, session) => {
         if (event === 'SIGNED_OUT') {
           localStorage.removeItem(this.SESSION_KEY);
@@ -239,7 +237,6 @@ class AuthService {
 
   public async getCurrentUser() {
     try {
-      // First check local session
       const sessionStr = localStorage.getItem(this.SESSION_KEY);
       if (sessionStr) {
         try {
@@ -252,7 +249,6 @@ class AuthService {
         }
       }
 
-      // If no local session, check with Supabase
       const { data: { user }, error } = await supabase.auth.getUser();
       
       if (error) {
@@ -280,7 +276,8 @@ class AuthService {
       'auth/wrong-password': 'Invalid email or password',
       'auth/email-already-in-use': 'Email already in use',
       'auth/weak-password': 'Password is too weak',
-      'auth/invalid-login-credentials': 'Invalid email or password'
+      'auth/invalid-login-credentials': 'Invalid email or password',
+      'Email not confirmed': 'Please verify your email address before signing in.'
     };
 
     return {
