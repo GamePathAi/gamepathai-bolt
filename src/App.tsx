@@ -10,8 +10,7 @@ import { Settings } from './pages/Settings';
 import { Landing } from './pages/Landing';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
-import { CheckoutSuccess } from './pages/checkout/Success';
-import { CheckoutCancel } from './pages/checkout/Cancel';
+import { EmailConfirmation } from './pages/auth/EmailConfirmation';
 import { Header } from './components/Header';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
@@ -49,8 +48,7 @@ function App() {
         <Route path="/" element={<Landing />} />
         <Route path="/auth/login" element={<Login />} />
         <Route path="/auth/register" element={<Register />} />
-        <Route path="/checkout/success" element={<CheckoutSuccess />} />
-        <Route path="/checkout/cancel" element={<CheckoutCancel />} />
+        <Route path="/auth/confirm" element={<EmailConfirmation />} />
         <Route path="/app/*" element={
           <AuthGuard>
             <div className="flex h-screen overflow-hidden bg-gray-900 text-gray-100">

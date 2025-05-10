@@ -10,6 +10,7 @@ interface AuthState {
   signUp: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
   setUser: (user: User | null) => void;
   clearError: () => void;
@@ -63,6 +64,18 @@ export const useAuthStore = create<AuthState>((set) => ({
       await authService.resetPassword(email);
     } catch (error) {
       set({ error: error instanceof Error ? error.message : 'Failed to reset password' });
+      throw error;
+    } finally {
+      set({ loading: false });
+    }
+  },
+
+  resendConfirmationEmail: async (email: string) => {
+    set({ loading: true, error: null });
+    try {
+      await authService.resendConfirmationEmail(email);
+    } catch (error) {
+      set({ error: error instanceof Error ? error.message : 'Failed to resend confirmation email' });
       throw error;
     } finally {
       set({ loading: false });

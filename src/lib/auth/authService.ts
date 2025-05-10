@@ -126,7 +126,7 @@ class AuthService {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          emailRedirectTo: `${window.location.origin}/auth/confirm`
         }
       });
 
@@ -192,6 +192,24 @@ class AuthService {
 
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/auth/reset-password`
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      throw this.handleAuthError(error);
+    }
+  }
+
+  public async resendConfirmationEmail(email: string): Promise<void> {
+    try {
+      this.validateEmail(email);
+
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/confirm`
+        }
       });
 
       if (error) throw error;
