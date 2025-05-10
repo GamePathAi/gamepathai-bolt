@@ -41,15 +41,18 @@ export const FpsBooster: React.FC = () => {
   }, [isBoostEnabled]);
 
   const handleToggleBoost = () => {
+    console.log(`Toggling boost: ${isBoostEnabled} -> ${!isBoostEnabled}`);
     setIsBoostEnabled(!isBoostEnabled);
   };
 
   const handleOptimizationChange = (level: 'balanced' | 'performance' | 'extreme') => {
     if (level === 'extreme' && !isBoostEnabled) return; // Pro feature check
+    console.log(`Changing optimization level: ${optimizationLevel} -> ${level}`);
     setOptimizationLevel(level);
   };
 
   const handleSettingToggle = (setting: keyof typeof customSettings) => {
+    console.log(`Toggling ${setting}: ${customSettings[setting]} -> ${!customSettings[setting]}`);
     setCustomSettings(prev => ({
       ...prev,
       [setting]: !prev[setting]

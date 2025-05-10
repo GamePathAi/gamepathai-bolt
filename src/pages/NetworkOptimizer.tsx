@@ -89,11 +89,13 @@ export const NetworkOptimizer: React.FC = () => {
     if (isConnecting) return;
 
     if (isConnected && routeId === selectedRegion) {
+      console.log(`Disconnecting from route: ${routeId}`);
       setIsConnected(false);
       setConnectionProgress(0);
       return;
     }
 
+    console.log(`Connecting to route: ${routeId}`);
     setIsConnecting(true);
     setConnectionProgress(0);
     setSelectedRegion(routeId);
@@ -104,6 +106,7 @@ export const NetworkOptimizer: React.FC = () => {
           clearInterval(interval);
           setIsConnecting(false);
           setIsConnected(true);
+          console.log(`Successfully connected to route: ${routeId}`);
           return 100;
         }
         return prev + 2;
