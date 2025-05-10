@@ -1,0 +1,38 @@
+{
+  "title": "Settings",
+  "subtitle": "Configure your GamePath AI experience",
+  "sections": {
+    "general": {
+      "title": "General",
+      "startWithWindows": {
+        "label": "Start with Windows",
+        "description": "Launch application on system startup"
+      },
+      "minimizeToTray": {
+        "label": "Minimize to Tray",
+        "description": "Keep running in system tray when closed"
+      },
+      "darkMode": {
+        "label": "Dark Mode",
+        "description": "Use dark theme for the application"
+      },
+      "language": {
+        "label": "Language",
+        "description": "Select your preferred language"
+      }
+    },
+    "account": {
+      "title": "Account",
+      "planDetails": "Plan Details",
+      "status": "Status",
+      "plan": "Plan",
+      "limits": "Limits"
+    },
+    "about": {
+      "title": "About",
+      "version": "Version",
+      "build": "Build",
+      "license": "License"
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "app": {
+    "name": "GamePath AI",
+    "description": "Optimiza tu experiencia de juego"
+  },
+  "navigation": {
+    "dashboard": "Panel de Control",
+    "network": "Optimizador de Red",
+    "fps": "Potenciador de FPS",
+    "games": "Biblioteca de Juegos",
+    "vpn": "Gestor VPN",
+    "settings": "Configuración"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "remove": "Eliminar",
+    "update": "Actualizar",
+    "close": "Cerrar"
+  },
+  "status": {
+    "online": "En línea",
+    "offline": "Desconectado",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito"
+  }
+}
