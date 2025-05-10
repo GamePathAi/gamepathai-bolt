@@ -1,6 +1,6 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart } from 'lucide-react';
 
 interface SidebarProps {
   activeTab: string;
@@ -21,6 +21,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'fps', label: 'FPS Booster', icon: Zap },
     { id: 'games', label: 'Games Library', icon: GameController },
     { id: 'vpn', label: 'VPN Manager', icon: Shield },
+    { id: 'performance', label: 'Performance Analysis', icon: BarChart },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
