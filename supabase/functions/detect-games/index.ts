@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsHeaders });
   }
@@ -16,7 +17,7 @@ Deno.serve(async (req) => {
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
 
     if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Missing Supabase environment variables');
+      throw new Error('Missing environment variables');
     }
 
     // Initialize Supabase client
@@ -38,7 +39,8 @@ Deno.serve(async (req) => {
         install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
         icon_url: 'https://images.pexels.com/photos/2007647/pexels-photo-2007647.jpeg',
         size: 102400, // 100GB in MB
-        optimized: true
+        optimized: true,
+        updated_at: new Date().toISOString()
       },
       {
         name: 'League of Legends',
@@ -47,7 +49,8 @@ Deno.serve(async (req) => {
         install_path: 'C:\\Riot Games\\League of Legends',
         icon_url: 'https://images.pexels.com/photos/7915578/pexels-photo-7915578.jpeg',
         size: 15360, // 15GB in MB
-        optimized: true
+        optimized: true,
+        updated_at: new Date().toISOString()
       },
       {
         name: 'Fortnite',
@@ -56,69 +59,62 @@ Deno.serve(async (req) => {
         install_path: 'C:\\Program Files\\Epic Games\\Fortnite',
         icon_url: 'https://images.pexels.com/photos/7915426/pexels-photo-7915426.jpeg',
         size: 26624, // 26GB in MB
-        optimized: false
+        optimized: false,
+        updated_at: new Date().toISOString()
       }
     ];
 
-    try {
-      // Insert detected games into the database
-      const { error: upsertError } = await supabaseClient
-        .from('games')
-        .upsert(
-          detectedGames.map(game => ({
-            ...game,
-            updated_at: new Date().toISOString()
-          })),
-          {
-            onConflict: 'name,platform',
-            ignoreDuplicates: false
-          }
-        );
+    // Insert games one by one to better handle errors
+    const errors: string[] = [];
+    const insertedGames = [];
 
-      if (upsertError) {
-        console.error('Database upsert error:', upsertError);
-        throw upsertError;
-      }
-    } catch (dbError) {
-      console.error('Database operation failed:', dbError);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          games: [],
-          errors: ['Failed to update game database']
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 500,
+    for (const game of detectedGames) {
+      try {
+        const { data, error: upsertError } = await supabaseClient
+          .from('games')
+          .upsert(game, {
+            onConflict: 'name,platform'
+          })
+          .select()
+          .single();
+
+        if (upsertError) {
+          console.error(`Error upserting game ${game.name}:`, upsertError);
+          errors.push(`Failed to update ${game.name}: ${upsertError.message}`);
+        } else if (data) {
+          insertedGames.push(data);
         }
-      );
+      } catch (error) {
+        console.error(`Error processing game ${game.name}:`, error);
+        errors.push(`Failed to process ${game.name}: ${error.message}`);
+      }
     }
 
-    // Return the detected games
+    // Return success even if some games failed, but include the errors
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        games: detectedGames,
-        errors: []
+      JSON.stringify({
+        success: true,
+        games: insertedGames,
+        errors: errors
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
+        status: 200
       }
     );
+
   } catch (error) {
     console.error('Error in detect-games function:', error);
     
-    // Return a more detailed error message
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         success: false,
         games: [],
-        errors: [error instanceof Error ? error.message : 'Internal server error occurred']
+        errors: [error instanceof Error ? error.message : 'Internal server error']
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
+        status: 200 // Return 200 even for errors, but indicate failure in the response body
       }
     );
   }
