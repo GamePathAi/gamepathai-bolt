@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown, AlertTriangle } from 'lucide-react';
-import gameScanner, { type GameInfo } from '../../lib/gameDetection/gameScanner';
+import { gameScanner, type GameInfo } from '../../lib/gameDetection/gameScanner';
 
 export const GameList: React.FC = () => {
   const [games, setGames] = useState<GameInfo[]>([]);
