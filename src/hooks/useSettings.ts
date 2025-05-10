@@ -4,7 +4,6 @@ import { get, set } from 'idb-keyval';
 interface Settings {
   startWithWindows: boolean;
   minimizeToTray: boolean;
-  darkMode: boolean;
 }
 
 const SETTINGS_KEY = 'app_settings';
@@ -13,7 +12,6 @@ export const useSettings = () => {
   const [settings, setSettings] = useState<Settings>({
     startWithWindows: true,
     minimizeToTray: true,
-    darkMode: true,
   });
 
   useEffect(() => {
@@ -37,11 +35,6 @@ export const useSettings = () => {
       const updatedSettings = { ...settings, ...newSettings };
       setSettings(updatedSettings);
       await set(SETTINGS_KEY, updatedSettings);
-
-      // Apply settings
-      if ('darkMode' in newSettings) {
-        document.documentElement.classList.toggle('dark', newSettings.darkMode);
-      }
 
       // Handle system integration settings
       if ('startWithWindows' in newSettings) {

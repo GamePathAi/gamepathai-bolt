@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Bell, Globe, Moon, Monitor, Shield } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Globe, Monitor, Shield } from 'lucide-react';
 import { UpdateModal } from '../components/modals/UpdateModal';
 import { BugReportModal } from '../components/modals/BugReportModal';
 import { ChatWidget } from '../components/chat/ChatWidget';
@@ -136,31 +136,6 @@ export const Settings: React.FC = () => {
                     type="checkbox" 
                     checked={settings.minimizeToTray}
                     onChange={() => handleToggleSetting('minimizeToTray')}
-                    className="sr-only peer" 
-                  />
-                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
-                </label>
-              </div>
-              
-              <div className="flex items-center justify-between p-3 border border-gray-700 rounded-lg">
-                <div className="flex items-center">
-                  <div className="w-10 h-10 rounded-lg bg-gray-700 flex items-center justify-center mr-3">
-                    <Moon className="text-gray-400" size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-white">
-                      {t('settings:sections.general.darkMode.label')}
-                    </h3>
-                    <p className="text-xs text-gray-400">
-                      {t('settings:sections.general.darkMode.description')}
-                    </p>
-                  </div>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={settings.darkMode}
-                    onChange={() => handleToggleSetting('darkMode')}
                     className="sr-only peer" 
                   />
                   <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-gray-400 after:border-gray-400 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500/70 peer-checked:after:bg-white"></div>
