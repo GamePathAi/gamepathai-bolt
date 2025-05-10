@@ -137,16 +137,24 @@ const router = createBrowserRouter(
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>
-  ),
-  {
-    future: {
-      v7_startTransition: true,
-      v7_relativeSplatPath: true
-    }
-  }
+  )
 );
 
 function App() {
+  // Only register service worker in production and when not in StackBlitz
+  React.useEffect(() => {
+    if (
+      process.env.NODE_ENV === 'production' && 
+      'serviceWorker' in navigator &&
+      !window.location.hostname.includes('stackblitz')
+    ) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .catch(error => {
+          console.warn('Service worker registration skipped:', error);
+        });
+    }
+  }, []);
+
   return <RouterProvider router={router} />;
 }
 
