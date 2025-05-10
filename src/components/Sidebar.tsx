@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X } from 'lucide-react';
 import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart } from 'lucide-react';
 import { Logo } from './Logo';
@@ -16,15 +17,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpen,
   setIsOpen
 }) => {
+  const navigate = useNavigate();
+
   const navItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'network', label: 'Network Optimizer', icon: Network },
-    { id: 'fps', label: 'FPS Booster', icon: Zap },
-    { id: 'games', label: 'Games Library', icon: GameController },
-    { id: 'vpn', label: 'VPN Manager', icon: Shield },
-    { id: 'performance', label: 'Performance Analysis', icon: BarChart },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, path: '/app' },
+    { id: 'network', label: 'Network Optimizer', icon: Network, path: '/app/network' },
+    { id: 'fps', label: 'FPS Booster', icon: Zap, path: '/app/fps' },
+    { id: 'games', label: 'Games Library', icon: GameController, path: '/app/games' },
+    { id: 'vpn', label: 'VPN Manager', icon: Shield, path: '/app/vpn' },
+    { id: 'performance', label: 'Performance Analysis', icon: BarChart, path: '/app/performance' },
+    { id: 'settings', label: 'Settings', icon: Settings, path: '/app/settings' },
   ];
+
+  const handleNavigation = (item: typeof navItems[0]) => {
+    setActiveTab(item.id);
+    navigate(item.path);
+    if (!isOpen) setIsOpen(true);
+  };
 
   return (
     <>
@@ -71,10 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 return (
                   <li key={item.id}>
                     <button
-                      onClick={() => {
-                        setActiveTab(item.id);
-                        if (!isOpen) setIsOpen(true);
-                      }}
+                      onClick={() => handleNavigation(item)}
                       className={`
                         w-full flex items-center px-3 py-2 rounded-md text-sm
                         transition-all duration-200 group relative
