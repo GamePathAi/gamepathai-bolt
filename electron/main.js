@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import { Registry } from 'registry-js';
 import * as si from 'systeminformation';
 import Store from 'electron-store';
+import fs from 'fs/promises';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,15 +60,97 @@ async function scanForGames() {
   };
 }
 
-function getSteamGames() {
-  const steamPath = Registry.getValue(
-    Registry.HKEY.LOCAL_MACHINE,
-    'SOFTWARE\\WOW6432Node\\Valve\\Steam',
-    'InstallPath'
-  );
+async function getSteamGames() {
+  try {
+    // Get Steam installation path from registry
+    const steamPath = Registry.getValue(
+      Registry.HKEY.LOCAL_MACHINE,
+      'SOFTWARE\\WOW6432Node\\Valve\\Steam',
+      'InstallPath'
+    );
 
-  // Implementation for Steam games detection
-  return [];
+    if (!steamPath) {
+      console.log('Steam installation not found');
+      return [];
+    }
+
+    // Read Steam library folders configuration
+    const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+    let libraryFoldersContent;
+    
+    try {
+      libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
+    } catch (error) {
+      console.error('Error reading Steam library folders:', error);
+      return [];
+    }
+
+    // Parse library folders VDF file
+    const libraryPaths = [steamPath];
+    const libraryRegex = /"path"\s+"([^"]+)"/g;
+    let match;
+    
+    while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
+      libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
+    }
+
+    const games = [];
+
+    // Scan each library folder for installed games
+    for (const libraryPath of libraryPaths) {
+      const appsPath = path.join(libraryPath, 'steamapps');
+      
+      try {
+        const files = await fs.readdir(appsPath);
+        
+        // Look for appmanifest files which contain game information
+        const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
+        
+        for (const manifest of manifests) {
+          try {
+            const manifestPath = path.join(appsPath, manifest);
+            const manifestContent = await fs.readFile(manifestPath, 'utf8');
+            
+            // Parse game information from manifest
+            const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
+            const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
+            const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
+            const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
+            
+            if (nameMatch && appIdMatch && installDirMatch) {
+              const name = nameMatch[1];
+              const appId = appIdMatch[1];
+              const installDir = installDirMatch[1];
+              const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
+              const sizeInGB = Math.round(sizeInBytes / (1024 * 1024 * 1024));
+              
+              const gamePath = path.join(appsPath, 'common', installDir);
+              const executablePath = path.join(gamePath, `${installDir}.exe`);
+              
+              games.push({
+                id: appId,
+                name,
+                platform: 'Steam',
+                installPath: gamePath,
+                executablePath,
+                size: sizeInGB,
+                iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`
+              });
+            }
+          } catch (error) {
+            console.error(`Error processing manifest ${manifest}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`Error reading library folder ${libraryPath}:`, error);
+      }
+    }
+
+    return games;
+  } catch (error) {
+    console.error('Error scanning Steam games:', error);
+    return [];
+  }
 }
 
 function getEpicGames() {
