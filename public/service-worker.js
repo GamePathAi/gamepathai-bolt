@@ -8,21 +8,34 @@ const ASSETS_TO_CACHE = [
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
-  '/robots.txt'
+  '/robots.txt',
+  '/locales/en/common.json',
+  '/locales/en/auth.json',
+  '/locales/en/dashboard.json',
+  '/locales/en/settings.json'
 ];
 
 // Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        return cache.addAll(ASSETS_TO_CACHE)
-          .catch((error) => {
-            console.error('Failed to cache assets:', error);
-            // Continue with installation even if caching fails
-            return Promise.resolve();
-          });
-      })
+    (async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        
+        // Cache core assets individually to handle failures gracefully
+        for (const asset of ASSETS_TO_CACHE) {
+          try {
+            await cache.add(asset);
+            console.log(`Successfully cached: ${asset}`);
+          } catch (error) {
+            console.warn(`Failed to cache ${asset}:`, error);
+            // Continue with other assets even if one fails
+          }
+        }
+      } catch (error) {
+        console.error('Cache initialization failed:', error);
+      }
+    })()
   );
   self.skipWaiting();
 });
@@ -30,19 +43,23 @@ self.addEventListener('install', (event) => {
 // Activate event
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys()
-      .then((cacheNames) => {
-        return Promise.all(
-          cacheNames
-            .filter((name) => name.startsWith('gamepath-ai-') && name !== CACHE_NAME)
-            .map((name) => caches.delete(name))
+    (async () => {
+      try {
+        // Clean up old caches
+        const keys = await caches.keys();
+        await Promise.all(
+          keys
+            .filter(key => key.startsWith('gamepath-ai-') && key !== CACHE_NAME)
+            .map(key => caches.delete(key))
         );
-      })
-      .catch((error) => {
+        
+        // Take control of all clients
+        await self.clients.claim();
+      } catch (error) {
         console.error('Cache cleanup failed:', error);
-      })
+      }
+    })()
   );
-  self.clients.claim();
 });
 
 // Fetch event
@@ -56,15 +73,25 @@ self.addEventListener('fetch', (event) => {
   // Handle navigation requests
   if (event.request.mode === 'navigate') {
     event.respondWith(
-      fetch(event.request)
-        .catch(() => caches.match('/index.html'))
-        .catch((error) => {
-          console.error('Navigation fetch failed:', error);
+      (async () => {
+        try {
+          // Try network first for navigation
+          const response = await fetch(event.request);
+          return response;
+        } catch (error) {
+          // Network failed, try cache
+          const cache = await caches.open(CACHE_NAME);
+          const cachedResponse = await cache.match('/index.html');
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Both network and cache failed
           return new Response('Navigation failed. Please check your connection.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' }
           });
-        })
+        }
+      })()
     );
     return;
   }
@@ -72,60 +99,86 @@ self.addEventListener('fetch', (event) => {
   // Handle API requests
   if (event.request.url.includes('/api/')) {
     event.respondWith(
-      fetch(event.request)
-        .catch((error) => {
-          console.error('API request failed:', error);
+      (async () => {
+        try {
+          const response = await fetch(event.request);
+          return response;
+        } catch (error) {
           return new Response(JSON.stringify({ error: 'Network request failed' }), {
             status: 503,
             headers: { 'Content-Type': 'application/json' }
           });
-        })
+        }
+      })()
     );
     return;
   }
 
-  // Handle other requests
+  // Handle locales requests specially
+  if (event.request.url.includes('/locales/')) {
+    event.respondWith(
+      (async () => {
+        try {
+          // Try network first for translations
+          const response = await fetch(event.request);
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(event.request, response.clone());
+            return response;
+          }
+          // Network failed or returned error, try cache
+          const cachedResponse = await caches.match(event.request);
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          // Both failed, return empty JSON
+          return new Response('{}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Error handling locale request:', error);
+          return new Response('{}', {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Handle other requests with cache-first strategy
   event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        if (response) {
-          return response;
+    (async () => {
+      try {
+        // Try cache first
+        const cache = await caches.open(CACHE_NAME);
+        const cachedResponse = await cache.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
         }
 
-        return fetch(event.request)
-          .then((response) => {
-            // Check if we received a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-
-            // Clone the response
-            const responseToCache = response.clone();
-
-            // Cache the fetched resource
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache)
-                  .catch((error) => {
-                    console.error('Failed to cache response:', error);
-                  });
-              })
-              .catch((error) => {
-                console.error('Failed to open cache:', error);
-              });
-
-            return response;
-          })
-          .catch((error) => {
-            console.error('Fetch failed:', error);
-            // Return cached version as fallback if available
-            return caches.match(event.request);
-          });
-      })
+        // Cache miss, try network
+        const response = await fetch(event.request);
+        if (response.ok && response.type === 'basic') {
+          cache.put(event.request, response.clone());
+        }
+        return response;
+      } catch (error) {
+        console.error('Fetch failed:', error);
+        // Both cache and network failed
+        const cachedResponse = await caches.match(event.request);
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+        throw error;
+      }
+    })()
   );
 });
 
-// Handle client errors
+// Handle client messages
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'SKIP_WAITING') {
     self.skipWaiting();
