@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings as SettingsIcon, Bell, Globe, Monitor, Shield } from 'lucide-react';
+import { Settings as SettingsIcon, Bell, Globe, Monitor, Shield, RotateCcw } from 'lucide-react';
 import { UpdateModal } from '../components/modals/UpdateModal';
 import { BugReportModal } from '../components/modals/BugReportModal';
 import { ChatWidget } from '../components/chat/ChatWidget';
@@ -16,6 +16,7 @@ export const Settings: React.FC = () => {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [isBugReportModalOpen, setIsBugReportModalOpen] = useState(false);
   const [isCheckingForUpdates, setIsCheckingForUpdates] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleToggleSetting = async (key: string) => {
     try {
@@ -57,23 +58,50 @@ export const Settings: React.FC = () => {
     window.open('https://docs.gamepathai.com', '_blank');
   };
 
+  const handleReset = async () => {
+    setIsResetting(true);
+    try {
+      // Simulate reset operation
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Reset settings logic would go here
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg overflow-hidden p-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-white">{t('settings:title')}</h1>
-            <p className="text-gray-400 mt-1">
-              {t('settings:subtitle')}
-            </p>
+            <h1 className="text-2xl font-bold text-white">Settings</h1>
+            <p className="text-gray-400 mt-1">Configure your GamePath AI experience</p>
           </div>
           <div className="flex items-center space-x-3">
             <button 
-              onClick={() => {}}
-              className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors duration-150"
+              onClick={handleReset}
+              disabled={isResetting}
+              className={`
+                relative px-4 py-2 rounded-lg font-medium
+                transition-all duration-300 transform
+                ${isResetting 
+                  ? 'bg-red-500 text-white cursor-wait'
+                  : 'bg-gray-700 hover:bg-red-500 text-white hover:scale-105'
+                }
+                overflow-hidden group
+              `}
             >
-              Reset Settings
+              <span className="relative z-10 flex items-center">
+                <RotateCcw 
+                  size={16} 
+                  className={`mr-2 transition-transform duration-700 ${
+                    isResetting ? 'animate-spin' : 'group-hover:rotate-180'
+                  }`}
+                />
+                Reset Settings
+              </span>
+              <div className="absolute top-0 -inset-full h-full w-1/2 z-5 block transform -skew-x-12 bg-gradient-to-r from-transparent to-white opacity-20 group-hover:animate-shine" />
             </button>
           </div>
         </div>
