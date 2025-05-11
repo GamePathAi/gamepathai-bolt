@@ -1,0 +1,36 @@
+{
+  "title": "Painel",
+  "welcome": "Bem-vindo de volta",
+  "stats": {
+    "gamesOptimized": "Jogos Otimizados",
+    "totalGames": "Total de Jogos",
+    "activeOptimizations": "Otimizações Ativas"
+  },
+  "sections": {
+    "performance": {
+      "title": "Visão Geral de Desempenho",
+      "description": "Monitore as métricas de desempenho do seu sistema"
+    },
+    "games": {
+      "title": "Jogos Recentes",
+      "description": "Seus jogos recentemente otimizados",
+      "noGames": "Nenhum jogo detectado ainda"
+    },
+    "optimization": {
+      "title": "Status da Otimização",
+      "description": "Configurações e status atuais de otimização"
+    }
+  },
+  "actions": {
+    "optimize": "Otimizar Agora",
+    "viewAll": "Ver Todos",
+    "refresh": "Atualizar Dados"
+  },
+  "metrics": {
+    "fps": "FPS",
+    "latency": "Latência",
+    "memory": "Uso de Memória",
+    "cpu": "Uso da CPU",
+    "gpu": "Uso da GPU"
+  }
+}
