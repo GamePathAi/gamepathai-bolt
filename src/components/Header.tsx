@@ -1,4 +1,3 @@
-```typescript
 import React from 'react';
 import { Menu, Bell } from 'lucide-react';
 import { Logo } from './Logo';
@@ -49,4 +48,3 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
     </header>
   );
 };
-```
