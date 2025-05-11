@@ -1,37 +1,100 @@
 import { supabase } from './supabase';
 
-const DOWNLOAD_URLS = {
-  windows: 'https://downloads.gamepath.ai/releases/latest/GamePathAI-Setup.exe',
-  mac: 'https://downloads.gamepath.ai/releases/latest/GamePathAI.dmg',
-  ios: 'https://apps.apple.com/app/gamepath-ai/id1234567890',
-  android: 'https://play.google.com/store/apps/details?id=ai.gamepath.app'
-};
+interface DownloadOptions {
+  platform: 'windows' | 'mac' | 'linux';
+  version?: string;
+  direct?: boolean;
+}
 
-export async function downloadApp(platform: 'windows' | 'mac' | 'ios' | 'android') {
+export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
+  const { platform, version = 'latest', direct = false } = options;
+  
   try {
     // Log download attempt
-    await supabase.from('download_events').insert({
-      platform,
-      timestamp: new Date().toISOString(),
-      user_agent: navigator.userAgent
-    });
-
-    // For mobile apps, redirect to store
-    if (platform === 'ios' || platform === 'android') {
-      window.location.href = DOWNLOAD_URLS[platform];
-      return;
+    try {
+      await supabase.from('download_events').insert({
+        platform,
+        version,
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
+        direct: direct
+      });
+    } catch (error) {
+      console.warn('Failed to log download event:', error);
+      // Continue with download even if logging fails
     }
 
-    // For desktop apps, trigger download
+    // Build download URL
+    const baseUrl = 'https://downloads.gamepath.ai/releases';
+    const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
+                     platform === 'mac' ? 'GamePathAI.dmg' : 
+                     'GamePathAI.AppImage';
+    
+    const downloadUrl = `${baseUrl}/${version}/${fileName}`;
+
+    // If direct download is requested, return the URL
+    if (direct) {
+      return { success: true, url: downloadUrl };
+    }
+
+    // Otherwise, fetch the file and trigger download
+    const response = await fetch(downloadUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/octet-stream',
+        'X-Client-Info': 'gamepath-ai-web'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download failed with status ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = DOWNLOAD_URLS[platform];
-    link.download = platform === 'windows' ? 'GamePathAI-Setup.exe' : 'GamePathAI.dmg';
+    link.href = url;
+    link.download = fileName;
+    
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
 
+    return { success: true };
   } catch (error) {
     console.error('Download error:', error);
-    throw new Error('Failed to start download');
+    return { 
+      success: false, 
+      error: error instanceof Error ? error.message : 'Failed to start download'
+    };
   }
+}
+
+export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux', version: string = 'latest'): string {
+  const baseUrl = 'https://downloads.gamepath.ai/releases';
+  const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
+                   platform === 'mac' ? 'GamePathAI.dmg' : 
+                   'GamePathAI.AppImage';
+  
+  return `${baseUrl}/${version}/${fileName}`;
+}
+
+export function detectOS(): 'windows' | 'mac' | 'linux' | 'unknown' {
+  const platform = navigator.platform.toLowerCase();
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  if (platform.includes('win') || userAgent.includes('windows')) {
+    return 'windows';
+  }
+  
+  if (platform.includes('mac') || userAgent.includes('macintosh') || userAgent.includes('darwin')) {
+    return 'mac';
+  }
+  
+  if (platform.includes('linux') || platform.includes('x11') || userAgent.includes('linux')) {
+    return 'linux';
+  }
+  
+  return 'unknown';
 }
