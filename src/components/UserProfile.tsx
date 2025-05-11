@@ -1,27 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, ChevronDown, Trophy, Star, Zap, 
-  Award, Settings, History, LogOut 
+  Award, Settings, History, LogOut, Clock 
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
-interface UserStats {
-  gamesOptimized: number;
-  totalUsageHours: number;
-  averageImprovement: number;
+interface UserProfile {
+  display_name: string;
+  created_at: string;
   level: number;
   xp: number;
-  xpNeeded: number;
+  games_optimized: number;
+  total_usage_hours: number;
+  average_improvement: number;
 }
 
-const calculateLevel = (xp: number): { level: number; progress: number } => {
-  const baseXP = 1000;
-  const level = Math.floor(Math.log2(xp / baseXP + 1)) + 1;
-  const currentLevelXP = baseXP * (Math.pow(2, level - 1) - 1);
-  const nextLevelXP = baseXP * (Math.pow(2, level) - 1);
-  const progress = ((xp - currentLevelXP) / (nextLevelXP - currentLevelXP)) * 100;
-  return { level, progress };
+const calculateTrialDaysLeft = (createdAt: string): number => {
+  const trialLength = 3; // 3 days trial
+  const created = new Date(createdAt);
+  const now = new Date();
+  const diffTime = Math.abs(now.getTime() - created.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(0, trialLength - diffDays);
 };
 
 const getLevelTitle = (level: number): string => {
@@ -36,33 +38,41 @@ const getLevelTitle = (level: number): string => {
 
 export const UserProfile: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const { user, signOut } = useAuthStore();
   const navigate = useNavigate();
 
-  // Simulated user stats - in a real app, this would come from your backend
-  const stats: UserStats = {
-    gamesOptimized: 12,
-    totalUsageHours: 48,
-    averageImprovement: 27,
-    level: 8,
-    xp: 8750,
-    xpNeeded: 16000
-  };
+  useEffect(() => {
+    const fetchProfile = async () => {
+      if (!user) return;
 
-  const { level, progress } = calculateLevel(stats.xp);
-  const levelTitle = getLevelTitle(level);
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
 
-  const badges = [
-    { id: 1, name: 'FPS Master', icon: Zap, description: 'Achieved 50% FPS improvement', earned: true },
-    { id: 2, name: 'Network Guru', icon: Trophy, description: 'Reduced latency by 40%', earned: true },
-    { id: 3, name: 'Optimization Expert', icon: Star, description: 'Optimized 10 games', earned: true },
-    { id: 4, name: 'Performance Legend', icon: Award, description: 'Maintained 99% stability', earned: false },
-  ];
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      setProfile(data);
+    };
+
+    fetchProfile();
+  }, [user]);
+
+  const daysLeft = profile ? calculateTrialDaysLeft(profile.created_at) : 3;
+  const isTrialExpired = daysLeft === 0;
+  const levelTitle = profile ? getLevelTitle(profile.level) : 'Novice';
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/auth/login');
   };
+
+  if (!profile) return null;
 
   return (
     <div className="relative">
@@ -71,14 +81,14 @@ export const UserProfile: React.FC = () => {
         className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-700/50 transition-colors duration-200"
       >
         <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-white font-bold">
-          {user?.email?.[0].toUpperCase() || 'U'}
+          {profile.display_name[0].toUpperCase()}
         </div>
         <div className="text-left">
           <div className="flex items-center">
-            <span className="text-sm font-medium text-white">{levelTitle}</span>
+            <span className="text-sm font-medium text-white">{profile.display_name}</span>
             <ChevronDown size={16} className={`ml-1 text-gray-400 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
           </div>
-          <div className="text-xs text-gray-400">Level {level}</div>
+          <div className="text-xs text-gray-400">Level {profile.level}</div>
         </div>
       </button>
 
@@ -88,24 +98,22 @@ export const UserProfile: React.FC = () => {
           <div className="p-4 border-b border-gray-700">
             <div className="flex items-center space-x-3">
               <div className="w-16 h-16 rounded-full bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-2xl font-bold text-white">
-                {user?.email?.[0].toUpperCase() || 'U'}
+                {profile.display_name[0].toUpperCase()}
               </div>
               <div>
-                <h3 className="text-white font-medium">{user?.email}</h3>
+                <h3 className="text-white font-medium">{profile.display_name}</h3>
                 <div className="text-sm text-gray-400">{levelTitle}</div>
-                <div className="mt-2 text-xs text-gray-400">
-                  Level {level} • {Math.round(progress)}% to Level {level + 1}
-                </div>
-              </div>
-            </div>
-            
-            {/* XP Progress Bar */}
-            <div className="mt-3">
-              <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-gradient-to-r from-purple-500 to-cyan-500 transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
+                {!isTrialExpired ? (
+                  <div className="mt-2 flex items-center text-xs text-cyan-400">
+                    <Clock size={12} className="mr-1" />
+                    {daysLeft} days left in trial
+                  </div>
+                ) : (
+                  <div className="mt-2 flex items-center text-xs text-red-400">
+                    <Clock size={12} className="mr-1" />
+                    Trial expired
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -113,39 +121,16 @@ export const UserProfile: React.FC = () => {
           {/* Stats Grid */}
           <div className="grid grid-cols-3 gap-2 p-4 border-b border-gray-700">
             <div className="text-center">
-              <div className="text-lg font-bold text-white">{stats.gamesOptimized}</div>
+              <div className="text-lg font-bold text-white">{profile.games_optimized}</div>
               <div className="text-xs text-gray-400">Games Optimized</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-white">{stats.totalUsageHours}h</div>
+              <div className="text-lg font-bold text-white">{profile.total_usage_hours}h</div>
               <div className="text-xs text-gray-400">Total Usage</div>
             </div>
             <div className="text-center">
-              <div className="text-lg font-bold text-white">+{stats.averageImprovement}%</div>
+              <div className="text-lg font-bold text-white">+{profile.average_improvement}%</div>
               <div className="text-xs text-gray-400">Avg. Improvement</div>
-            </div>
-          </div>
-
-          {/* Badges */}
-          <div className="p-4 border-b border-gray-700">
-            <h4 className="text-sm font-medium text-gray-400 mb-3">Achievements</h4>
-            <div className="grid grid-cols-2 gap-2">
-              {badges.map(badge => (
-                <div 
-                  key={badge.id}
-                  className={`flex items-center p-2 rounded-lg ${
-                    badge.earned 
-                      ? 'bg-gray-700/50 text-white' 
-                      : 'bg-gray-700/20 text-gray-500'
-                  }`}
-                >
-                  <badge.icon size={16} className="mr-2" />
-                  <div>
-                    <div className="text-xs font-medium">{badge.name}</div>
-                    <div className="text-xs opacity-60">{badge.description}</div>
-                  </div>
-                </div>
-              ))}
             </div>
           </div>
 
@@ -161,12 +146,20 @@ export const UserProfile: React.FC = () => {
               <Settings size={16} className="mr-2" />
               Settings
             </button>
-            <button 
-              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-gray-700/50 text-left text-sm text-gray-300 transition-colors"
-            >
-              <History size={16} className="mr-2" />
-              Optimization History
-            </button>
+            
+            {isTrialExpired && (
+              <button 
+                onClick={() => {
+                  navigate('/pricing');
+                  setIsMenuOpen(false);
+                }}
+                className="w-full flex items-center px-3 py-2 rounded-lg bg-purple-500/20 hover:bg-purple-500/30 text-left text-sm text-purple-300 transition-colors"
+              >
+                <Star size={16} className="mr-2" />
+                Upgrade to Pro
+              </button>
+            )}
+            
             <button 
               onClick={handleSignOut}
               className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-red-500/10 text-left text-sm text-red-400 transition-colors"
