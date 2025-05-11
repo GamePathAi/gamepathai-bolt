@@ -156,7 +156,7 @@ function App() {
     ) {
       navigator.serviceWorker.register('/service-worker.js')
         .catch(error => {
-          console.warn('Service worker registration skipped:', error);
+          console.warn('Service worker registration failed:', error);
         });
     }
   }, []);
