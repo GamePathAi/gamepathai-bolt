@@ -137,7 +137,13 @@ const router = createBrowserRouter(
       />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>
-  )
+  ),
+  {
+    future: {
+      v7_startTransition: true,
+      v7_relativeSplatPath: true
+    }
+  }
 );
 
 function App() {

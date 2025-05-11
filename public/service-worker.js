@@ -37,20 +37,36 @@ self.addEventListener('activate', (event) => {
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
-  // Check if request is made by chrome extensions or web page
-  // If request is made for web page url must contains http.
-  if (!(event.request.url.indexOf('http') === 0)) return;
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
 
+  // Skip non-HTTP(S) requests
+  if (!event.request.url.startsWith('http')) return;
+
+  // Handle navigation requests
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        return caches.match('/index.html');
+      })
+    );
+    return;
+  }
+
+  // Handle other requests
   event.respondWith(
     caches.match(event.request).then((response) => {
-      // Return cached version or fetch new version
-      return response || fetch(event.request).then((response) => {
+      if (response) {
+        return response;
+      }
+
+      return fetch(event.request).then((response) => {
         // Check if we received a valid response
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
 
-        // Clone the response as it can only be consumed once
+        // Clone the response
         const responseToCache = response.clone();
 
         // Cache the fetched resource

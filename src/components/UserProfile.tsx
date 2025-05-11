@@ -15,6 +15,9 @@ interface UserProfile {
   games_optimized: number;
   total_usage_hours: number;
   average_improvement: number;
+  trial_started_at: string;
+  trial_ended_at: string | null;
+  is_pro: boolean;
 }
 
 const calculateTrialDaysLeft = (createdAt: string): number => {
@@ -46,26 +49,50 @@ export const UserProfile: React.FC = () => {
     const fetchProfile = async () => {
       if (!user) return;
 
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-        return;
+        if (error) {
+          if (error.code === 'PGRST116') {
+            // Profile doesn't exist, create it
+            const { data: newProfile, error: createError } = await supabase
+              .from('user_profiles')
+              .insert([
+                {
+                  user_id: user.id,
+                  display_name: user.email?.split('@')[0] || 'User',
+                  trial_started_at: new Date().toISOString(),
+                  trial_ended_at: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)).toISOString(),
+                  is_pro: false
+                }
+              ])
+              .select()
+              .single();
+
+            if (createError) {
+              console.error('Error creating profile:', createError);
+              return;
+            }
+
+            setProfile(newProfile);
+          } else {
+            console.error('Error fetching profile:', error);
+          }
+          return;
+        }
+
+        setProfile(data);
+      } catch (err) {
+        console.error('Error in fetchProfile:', err);
       }
-
-      setProfile(data);
     };
 
     fetchProfile();
   }, [user]);
-
-  const daysLeft = profile ? calculateTrialDaysLeft(profile.created_at) : 3;
-  const isTrialExpired = daysLeft === 0;
-  const levelTitle = profile ? getLevelTitle(profile.level) : 'Novice';
 
   const handleSignOut = async () => {
     await signOut();
@@ -73,6 +100,10 @@ export const UserProfile: React.FC = () => {
   };
 
   if (!profile) return null;
+
+  const daysLeft = calculateTrialDaysLeft(profile.trial_started_at);
+  const isTrialExpired = daysLeft === 0;
+  const levelTitle = getLevelTitle(profile.level);
 
   return (
     <div className="relative">
