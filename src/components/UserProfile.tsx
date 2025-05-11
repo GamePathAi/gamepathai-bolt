@@ -1,4 +1,3 @@
-```typescript
 import React, { useState } from 'react';
 import { 
   User, ChevronDown, Trophy, Star, Zap, 
@@ -178,4 +177,3 @@ export const UserProfile: React.FC = () => {
     </div>
   );
 };
-```
