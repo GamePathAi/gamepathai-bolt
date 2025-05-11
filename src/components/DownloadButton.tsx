@@ -3,7 +3,6 @@ import { Download } from 'lucide-react';
 
 export const DownloadButton: React.FC = () => {
   const handleDownload = () => {
-    // Replace with actual download URLs once builds are available
     const os = detectOS();
     const downloadUrls = {
       windows: 'https://downloads.gamepath.ai/releases/latest/GamePathAI-Setup.exe',
