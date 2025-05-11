@@ -35,7 +35,7 @@ export const Settings: React.FC = () => {
   const handleUpgradeToPro = async () => {
     try {
       const checkoutUrl = await createCheckoutSession(
-        'price_1RMWKnH2pA9wm7hmLpmpGkn5', // Co-op plan price ID
+        'price_1RMWKnH2pA9wm7hmLpmpGkn5',
         'subscription'
       );
       if (checkoutUrl) {
@@ -48,7 +48,6 @@ export const Settings: React.FC = () => {
 
   const handleCheckForUpdates = async () => {
     setIsCheckingForUpdates(true);
-    // Simulate checking for updates
     await new Promise(resolve => setTimeout(resolve, 1500));
     setIsCheckingForUpdates(false);
     setIsUpdateModalOpen(true);
@@ -71,10 +70,10 @@ export const Settings: React.FC = () => {
           </div>
           <div className="flex items-center space-x-3">
             <button 
-              onClick={() => {}} // Reset settings handler
+              onClick={() => {}}
               className="px-4 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-white font-medium transition-colors duration-150"
             >
-              {t('common:actions.reset')}
+              Reset Settings
             </button>
           </div>
         </div>
@@ -200,7 +199,7 @@ export const Settings: React.FC = () => {
                 </h4>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div className="text-gray-400">{t('settings:sections.account.status')}:</div>
-                  <div className="text-green-400 font-medium">{t('common:status.active')}</div>
+                  <div className="text-green-400 font-medium">Active</div>
                   <div className="text-gray-400">{t('settings:sections.account.plan')}:</div>
                   <div className="text-white">Free</div>
                   <div className="text-gray-400">{t('settings:sections.account.limits')}:</div>
@@ -212,7 +211,7 @@ export const Settings: React.FC = () => {
                 onClick={handleUpgradeToPro}
                 className="w-full mt-4 py-2 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-sm font-medium text-white hover:from-purple-500 hover:to-cyan-500 transition-all duration-200"
               >
-                {t('common:actions.upgrade')}
+                Upgrade to Pro
               </button>
             </div>
           </div>
@@ -246,10 +245,10 @@ export const Settings: React.FC = () => {
                   {isCheckingForUpdates ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      {t('common:status.loading')}
+                      Checking for Updates...
                     </>
                   ) : (
-                    t('common:actions.checkUpdates')
+                    'Check for Updates'
                   )}
                 </button>
               </div>
@@ -267,33 +266,20 @@ export const Settings: React.FC = () => {
                 onClick={handleKnowledgeBase}
                 className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M9.09 9.00008C9.3251 8.33175 9.78915 7.76819 10.4 7.40921C11.0108 7.05024 11.7289 6.91902 12.4272 7.03879C13.1255 7.15857 13.7588 7.52161 14.2151 8.06361C14.6713 8.60561 14.9211 9.2916 14.92 10.0001C14.92 12.0001 11.92 13.0001 11.92 13.0001" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M12 17H12.01" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {t('settings:sections.support.knowledgeBase')}
+                View Knowledge Base
               </button>
               
-              <button
-                onClick={() => {}} // Chat widget handles this
+              <button 
                 className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M21 11.5C21.0034 12.8199 20.6951 14.1219 20.1 15.3C19.3944 16.7118 18.3098 17.8992 16.9674 18.7293C15.6251 19.5594 14.0782 19.9994 12.5 20C11.1801 20.0035 9.87812 19.6951 8.7 19.1L3 21L4.9 15.3C4.30493 14.1219 3.99656 12.8199 4 11.5C4.00061 9.92179 4.44061 8.37488 5.27072 7.03258C6.10083 5.69028 7.28825 4.6056 8.7 3.90003C9.87812 3.30496 11.1801 2.99659 12.5 3.00003H13C15.0843 3.11502 17.053 3.99479 18.5291 5.47089C20.0052 6.94699 20.885 8.91568 21 11V11.5Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {t('settings:sections.support.liveChat')}
+                Contact Support
               </button>
               
-              <button
+              <button 
                 onClick={() => setIsBugReportModalOpen(true)}
                 className="w-full py-2 rounded-md bg-gray-700 hover:bg-gray-600 text-sm font-medium text-white flex items-center justify-center transition-colors duration-150"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M14 9L9 4L4 9" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M20 20H13C11.9391 20 10.9217 19.5786 10.1716 18.8284C9.42143 18.0783 9 17.0609 9 16V4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {t('settings:sections.support.bugReport')}
+                Report an Issue
               </button>
             </div>
           </div>
