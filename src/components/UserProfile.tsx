@@ -76,7 +76,7 @@ export const UserProfile: React.FC = () => {
         <div className="text-left">
           <div className="flex items-center">
             <span className="text-sm font-medium text-white">{levelTitle}</span>
-            <ChevronDown size={16} className="ml-1 text-gray-400" />
+            <ChevronDown size={16} className={`ml-1 text-gray-400 transition-transform duration-200 ${isMenuOpen ? 'rotate-180' : ''}`} />
           </div>
           <div className="text-xs text-gray-400">Level {level}</div>
         </div>
@@ -152,7 +152,10 @@ export const UserProfile: React.FC = () => {
           {/* Menu Options */}
           <div className="p-2">
             <button 
-              onClick={() => navigate('/app/settings')}
+              onClick={() => {
+                navigate('/app/settings');
+                setIsMenuOpen(false);
+              }}
               className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-gray-700/50 text-left text-sm text-gray-300 transition-colors"
             >
               <Settings size={16} className="mr-2" />
@@ -166,7 +169,7 @@ export const UserProfile: React.FC = () => {
             </button>
             <button 
               onClick={handleSignOut}
-              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-gray-700/50 text-left text-sm text-red-400 transition-colors"
+              className="w-full flex items-center px-3 py-2 rounded-lg hover:bg-red-500/10 text-left text-sm text-red-400 transition-colors"
             >
               <LogOut size={16} className="mr-2" />
               Sign Out

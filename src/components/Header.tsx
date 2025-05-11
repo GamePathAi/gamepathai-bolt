@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({ toggleSidebar }) => {
         {/* Pro Upgrade Button */}
         <Link 
           to="/pricing"
-          className="hidden sm:flex items-center px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-xs font-medium text-white"
+          className="hidden sm:flex items-center px-3 py-1.5 rounded-md bg-gradient-to-r from-purple-600 to-cyan-600 text-xs font-medium text-white hover:from-purple-500 hover:to-cyan-500 transition-all duration-200"
         >
           Upgrade to Pro
         </Link>
