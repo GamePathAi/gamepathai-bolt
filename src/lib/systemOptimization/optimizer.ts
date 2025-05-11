@@ -56,8 +56,11 @@ class SystemOptimizer {
   private metricsBuffer: SystemMetrics[] = [];
   private readonly bufferSize = 100;
   private isOptimizing = false;
+  private isDesktopApp = false;
 
   private constructor() {
+    // Check if we're running in Electron
+    this.isDesktopApp = !!(window && window.process && window.process.type);
     this.startMetricsCollection();
   }
 
@@ -84,31 +87,62 @@ class SystemOptimizer {
   }
 
   private async gatherSystemMetrics(): Promise<SystemMetrics> {
-    // Implement system metrics collection
-    return {
-      cpu: {
-        usage: Math.random() * 100,
-        temperature: 50 + Math.random() * 30,
-        frequency: 2000 + Math.random() * 1000,
-        processes: []
-      },
-      memory: {
-        used: Math.random() * 16384,
-        available: 16384,
-        swapUsage: Math.random() * 1024
-      },
-      gpu: {
-        usage: Math.random() * 100,
-        temperature: 60 + Math.random() * 20,
-        memoryUsed: Math.random() * 8192,
-        memoryTotal: 8192
-      },
-      network: {
-        latency: Math.random() * 100,
-        bandwidth: 100 + Math.random() * 900,
-        packetLoss: Math.random()
-      }
-    };
+    if (this.isDesktopApp) {
+      // Use Electron IPC to get real hardware metrics
+      const { ipcRenderer } = window.require('electron');
+      const hardwareMetrics = await ipcRenderer.invoke('get-system-metrics');
+      
+      return {
+        cpu: {
+          usage: hardwareMetrics.cpu.usage,
+          temperature: hardwareMetrics.cpu.temperature,
+          frequency: hardwareMetrics.cpu.frequency,
+          processes: hardwareMetrics.cpu.processes
+        },
+        memory: {
+          used: hardwareMetrics.memory.used,
+          available: hardwareMetrics.memory.available,
+          swapUsage: hardwareMetrics.memory.swapUsage
+        },
+        gpu: {
+          usage: hardwareMetrics.gpu.usage,
+          temperature: hardwareMetrics.gpu.temperature,
+          memoryUsed: hardwareMetrics.gpu.memoryUsed,
+          memoryTotal: hardwareMetrics.gpu.memoryTotal
+        },
+        network: {
+          latency: hardwareMetrics.network.latency,
+          bandwidth: hardwareMetrics.network.bandwidth,
+          packetLoss: hardwareMetrics.network.packetLoss
+        }
+      };
+    } else {
+      // Web version - return simulated metrics
+      return {
+        cpu: {
+          usage: Math.random() * 100,
+          temperature: 50 + Math.random() * 30,
+          frequency: 2000 + Math.random() * 1000,
+          processes: []
+        },
+        memory: {
+          used: Math.random() * 16384,
+          available: 16384,
+          swapUsage: Math.random() * 1024
+        },
+        gpu: {
+          usage: Math.random() * 100,
+          temperature: 60 + Math.random() * 20,
+          memoryUsed: Math.random() * 8192,
+          memoryTotal: 8192
+        },
+        network: {
+          latency: Math.random() * 100,
+          bandwidth: 100 + Math.random() * 900,
+          packetLoss: Math.random()
+        }
+      };
+    }
   }
 
   private async processAndStoreMetrics() {
