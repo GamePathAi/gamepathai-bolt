@@ -3,7 +3,7 @@ import { modelTrainer } from '../ml/modelTraining';
 import { dataProcessor } from '../ml/dataProcessing';
 import { networkOptimizer } from '../networkOptimization/optimizer';
 
-interface SystemMetrics {
+export interface SystemMetrics {
   cpu: {
     usage: number;
     temperature: number;
@@ -325,6 +325,12 @@ class SystemOptimizer {
 
     return verifiedResults;
   }
+  
+  // Public method to get current metrics
+  public async getMetrics(): Promise<SystemMetrics> {
+    return await this.gatherSystemMetrics();
+  }
 }
 
 export const systemOptimizer = SystemOptimizer.getInstance();
+export type { SystemMetrics };

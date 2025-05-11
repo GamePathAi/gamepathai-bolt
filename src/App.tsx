@@ -24,6 +24,7 @@ import { Header } from './components/Header';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { PerformanceReport } from './components/analysis/PerformanceReport';
+import { DownloadPage } from './pages/DownloadPage';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -56,6 +57,7 @@ const router = createBrowserRouter(
     <Route>
       <Route path="/" element={<Landing />} />
       <Route path="/pricing" element={<Pricing />} />
+      <Route path="/download" element={<DownloadPage />} />
       <Route path="/auth">
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />

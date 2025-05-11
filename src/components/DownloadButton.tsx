@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { Download, AlertTriangle, Check } from 'lucide-react';
 import { downloadApp, detectOS } from '../lib/downloads';
+import { DownloadErrorHandler } from './DownloadErrorHandler';
 
 export const DownloadButton: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleDownload = async () => {
     setError(null);
     setSuccess(false);
     setIsDownloading(true);
+    setShowErrorDetails(false);
 
     try {
       const os = detectOS();
@@ -18,6 +21,7 @@ export const DownloadButton: React.FC = () => {
       if (os === 'unknown') {
         setError('Could not detect your operating system. Please select a download option manually.');
         setIsDownloading(false);
+        setShowErrorDetails(true);
         return;
       }
 
@@ -31,6 +35,7 @@ export const DownloadButton: React.FC = () => {
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed. Please try again later.');
+      setShowErrorDetails(true);
     } finally {
       setIsDownloading(false);
     }
@@ -56,7 +61,7 @@ export const DownloadButton: React.FC = () => {
           transition-all duration-200 
           flex items-center
           disabled:opacity-50 disabled:cursor-not-allowed
-          ${error ? 'animate-shake' : ''}
+          ${error && !showErrorDetails ? 'animate-shake' : ''}
         `}
       >
         {isDownloading ? (
@@ -77,41 +82,12 @@ export const DownloadButton: React.FC = () => {
         )}
       </button>
 
-      {error && (
-        <div className="absolute top-full left-0 right-0 mt-2 p-3 bg-red-500/10 border border-red-500/50 rounded-lg z-10">
-          <div className="flex items-center text-red-400">
-            <AlertTriangle size={16} className="mr-2 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
-          </div>
-          <div className="mt-2 text-xs text-gray-400">
-            Try the direct download links:
-            <div className="flex flex-wrap gap-2 mt-1">
-              <a 
-                href="https://downloads.gamepath.ai/releases/latest/GamePathAI-Setup.exe" 
-                className="text-cyan-400 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Windows
-              </a>
-              <a 
-                href="https://downloads.gamepath.ai/releases/latest/GamePathAI.dmg" 
-                className="text-cyan-400 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                macOS
-              </a>
-              <a 
-                href="https://downloads.gamepath.ai/releases/latest/GamePathAI.AppImage" 
-                className="text-cyan-400 hover:underline"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Linux
-              </a>
-            </div>
-          </div>
+      {error && showErrorDetails && (
+        <div className="absolute top-full left-0 right-0 mt-2 z-10">
+          <DownloadErrorHandler 
+            error={error} 
+            onRetry={handleDownload} 
+          />
         </div>
       )}
     </div>
