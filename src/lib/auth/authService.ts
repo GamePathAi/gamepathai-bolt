@@ -123,7 +123,9 @@ class AuthService {
         options: {
           emailRedirectTo: `${window.location.origin}/auth/confirm`,
           data: {
-            trial_started_at: new Date().toISOString()
+            trial_started_at: new Date().toISOString(),
+            trial_ended_at: new Date(Date.now() + (3 * 24 * 60 * 60 * 1000)).toISOString(),
+            is_pro: false
           }
         }
       });
