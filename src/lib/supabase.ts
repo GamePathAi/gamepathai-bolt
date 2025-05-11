@@ -25,7 +25,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce'
+    flowType: 'pkce',
+    storage: window.localStorage,
+    storageKey: 'gamepath-auth',
+    debug: import.meta.env.DEV
   },
   global: {
     headers: {

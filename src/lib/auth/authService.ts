@@ -97,11 +97,9 @@ class AuthService {
 
       if (error) {
         console.error('Error logging security event:', error);
-        // Don't throw error to avoid disrupting the auth flow
       }
     } catch (error) {
       console.error('Error logging security event:', error);
-      // Don't throw error to avoid disrupting the auth flow
     }
   }
 
@@ -123,7 +121,10 @@ class AuthService {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/confirm`
+          emailRedirectTo: `${window.location.origin}/auth/confirm`,
+          data: {
+            trial_started_at: new Date().toISOString()
+          }
         }
       });
 

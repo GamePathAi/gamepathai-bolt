@@ -37,6 +37,7 @@ export const Login: React.FC = () => {
 
     try {
       await signIn(email, password);
+      // Use replace to prevent going back to login
       navigate(from, { replace: true });
     } catch (err: any) {
       if (err.message === 'Email not confirmed') {
