@@ -1,0 +1,39 @@
+[Desktop Entry]
+Version=1.0.0
+Type=Application
+Name=GamePath AI
+GenericName=Game Optimization Tool
+Comment=AI-powered game optimization and performance enhancement
+Categories=Game;Utility;Settings;
+Keywords=game;optimization;performance;fps;network;latency;
+Icon=gamepath-ai
+Exec=gamepath-ai %U
+Terminal=false
+StartupNotify=true
+StartupWMClass=gamepath-ai
+MimeType=x-scheme-handler/gamepath;
+
+# Actions
+Actions=Optimize;Settings;
+
+[Desktop Action Optimize]
+Name=Quick Optimize
+Exec=gamepath-ai --optimize
+
+[Desktop Action Settings]
+Name=Settings
+Exec=gamepath-ai --settings
+
+# Translations
+Name[de]=GamePath AI
+Name[es]=GamePath AI
+Name[fr]=GamePath AI
+Name[pt_BR]=GamePath AI
+GenericName[de]=Spiel-Optimierungswerkzeug
+GenericName[es]=Herramienta de Optimización de Juegos
+GenericName[fr]=Outil d'Optimisation de Jeux
+GenericName[pt_BR]=Ferramenta de Otimização de Jogos
+Comment[de]=KI-gestützte Spieleoptimierung und Leistungsverbesserung
+Comment[es]=Optimización de juegos y mejora de rendimiento con IA
+Comment[fr]=Optimisation de jeux et amélioration des performances par IA
+Comment[pt_BR]=Otimização de jogos e melhoria de desempenho com IA
