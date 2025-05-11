@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 // Get environment variables
 const supabaseUrl = 'https://iafamwvctehdltqmnhyx.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlhZmFtd3ZjdGVoZGx0cW1uaHl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3MDc4MjEsImV4cCI6MjA2MDI4MzgyMX0.fSA1zetUFf2VGWpC8G0EbkRj29AWNSSpla4WCH16CVw';
 
 // Debug logging
 console.log('Supabase URL:', supabaseUrl ? 'Found' : 'Missing');
