@@ -4,6 +4,9 @@ interface DownloadOptions {
   platform: 'windows' | 'mac' | 'linux';
   version?: string;
   direct?: boolean;
+  referralSource?: string;
+  campaignId?: string;
+  deviceType?: string;
 }
 
 // Mock download URLs since the actual GitHub repository doesn't have releases yet
@@ -14,9 +17,19 @@ const DOWNLOAD_URLS = {
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
-  const { platform, version = 'latest', direct = false } = options;
+  const { 
+    platform, 
+    version = 'latest', 
+    direct = false,
+    referralSource = 'direct',
+    campaignId = '',
+    deviceType = detectDeviceType()
+  } = options;
   
   try {
+    // Get the current user if logged in
+    const { data: { user } } = await supabase.auth.getUser();
+    
     // Log download attempt
     try {
       await supabase.from('download_events').insert({
@@ -24,7 +37,13 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         version,
         timestamp: new Date().toISOString(),
         user_agent: navigator.userAgent,
-        direct: direct
+        direct: direct,
+        user_id: user?.id || null,
+        device_type: deviceType,
+        installation_status: 'initiated',
+        referral_source: referralSource,
+        campaign_id: campaignId,
+        app_version: version
       });
     } catch (error) {
       console.warn('Failed to log download event:', error);
@@ -73,4 +92,66 @@ export function detectOS(): 'windows' | 'mac' | 'linux' | 'unknown' {
   }
   
   return 'unknown';
+}
+
+function detectDeviceType(): string {
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  if (/android/i.test(userAgent)) {
+    return 'android';
+  }
+  
+  if (/iphone|ipad|ipod/i.test(userAgent)) {
+    return 'ios';
+  }
+  
+  if (/windows phone/i.test(userAgent)) {
+    return 'windows_phone';
+  }
+  
+  // Check for tablet
+  if (/tablet|ipad/i.test(userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2)) {
+    return 'tablet';
+  }
+  
+  // Check for mobile
+  if (/mobile|iphone|ipod|android/i.test(userAgent)) {
+    return 'mobile';
+  }
+  
+  // Default to desktop
+  return 'desktop';
+}
+
+export async function updateInstallationStatus(downloadId: string, status: 'completed' | 'failed' | 'cancelled'): Promise<boolean> {
+  try {
+    const { error } = await supabase
+      .from('download_events')
+      .update({ installation_status: status })
+      .eq('id', downloadId);
+      
+    return !error;
+  } catch (error) {
+    console.error('Failed to update installation status:', error);
+    return false;
+  }
+}
+
+export async function getDownloadStats(days: number = 30): Promise<any> {
+  try {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const { data, error } = await supabase
+      .from('download_events')
+      .select('platform, device_type, installation_status, created_at')
+      .gte('created_at', startDate.toISOString());
+      
+    if (error) throw error;
+    
+    return data;
+  } catch (error) {
+    console.error('Failed to get download stats:', error);
+    return [];
+  }
 }
