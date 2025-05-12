@@ -41,7 +41,6 @@ export const DownloadErrorHandler: React.FC<DownloadErrorHandlerProps> = ({ erro
               className="flex items-center justify-center w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg text-sm font-medium transition-colors"
               target="_blank"
               rel="noopener noreferrer"
-              download
             >
               <ExternalLink size={16} className="mr-2" />
               Direct Download Link

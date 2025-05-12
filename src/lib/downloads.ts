@@ -26,7 +26,6 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         });
     } catch (error) {
       console.warn('Failed to log download event:', error);
-      // Continue with download even if logging fails
     }
 
     // Build download URL
@@ -36,24 +35,11 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     
     const downloadUrl = `${DOWNLOAD_BASE_URL}/${version}/${fileName}`;
 
-    // If direct download is requested, return the URL
-    if (direct) {
-      return { success: true, url: downloadUrl };
-    }
-
-    // Create an anchor element and trigger download
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
-    
-    // Append to body, click, and remove
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    return { success: true };
+    // Always return URL for direct handling in the component
+    return { 
+      success: true, 
+      url: downloadUrl 
+    };
   } catch (error) {
     console.error('Download error:', error);
     return { 

@@ -70,8 +70,12 @@ self.addEventListener('fetch', (event) => {
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
 
-  // Skip installer downloads and GitHub requests
-  if (event.request.url.includes('github.com')) {
+  // Skip download requests to GitHub or other external download domains
+  if (event.request.url.includes('github.com') || 
+      event.request.url.includes('releases/download') ||
+      event.request.url.includes('.exe') ||
+      event.request.url.includes('.dmg') ||
+      event.request.url.includes('.AppImage')) {
     return;
   }
 
