@@ -15,6 +15,23 @@ const ASSETS_TO_CACHE = [
   '/locales/en/settings.json'
 ];
 
+// File extensions to skip caching
+const SKIP_EXTENSIONS = [
+  '.exe',
+  '.dmg',
+  '.AppImage',
+  '.zip',
+  '.tar.gz',
+  '.msi'
+];
+
+// Domains to skip interception
+const SKIP_DOMAINS = [
+  'github.com',
+  'githubusercontent.com',
+  'releases/download'
+];
+
 // Install event
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -62,6 +79,23 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// Helper function to check if a request should be skipped
+function shouldSkipRequest(url) {
+  const urlObj = new URL(url);
+  
+  // Skip based on file extension
+  if (SKIP_EXTENSIONS.some(ext => url.endsWith(ext))) {
+    return true;
+  }
+  
+  // Skip based on domain
+  if (SKIP_DOMAINS.some(domain => url.includes(domain))) {
+    return true;
+  }
+  
+  return false;
+}
+
 // Fetch event
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
@@ -69,13 +103,10 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
-
-  // Skip download requests to GitHub or other external download domains
-  if (event.request.url.includes('github.com') || 
-      event.request.url.includes('releases/download') ||
-      event.request.url.includes('.exe') ||
-      event.request.url.includes('.dmg') ||
-      event.request.url.includes('.AppImage')) {
+  
+  // Skip download requests and specific domains
+  if (shouldSkipRequest(event.request.url)) {
+    console.log(`Skipping service worker interception for: ${event.request.url}`);
     return;
   }
 

@@ -20,22 +20,23 @@ export const DownloadButton: React.FC = () => {
       
       if (os === 'unknown') {
         setError('Could not detect your operating system. Please select a download option manually.');
+        setIsDownloading(false);
         setShowErrorDetails(true);
         return;
       }
 
-      // Get download URL
+      // Get download URL without attempting to fetch the file
       const result = await downloadApp({ platform: os, direct: true });
 
       if (!result.success || !result.url) {
         throw new Error(result.error || 'Failed to get download URL');
       }
 
-      // Create and trigger download link
+      // Create and trigger download link directly
       const link = document.createElement('a');
       link.href = result.url;
-      link.target = '_blank';
-      link.rel = 'noopener noreferrer';
+      link.setAttribute('download', ''); // Use download attribute
+      link.setAttribute('target', '_blank'); // Open in new tab as fallback
       
       // Append to body, click, and remove
       document.body.appendChild(link);
