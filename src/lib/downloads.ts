@@ -6,8 +6,8 @@ interface DownloadOptions {
   direct?: boolean;
 }
 
-// Base URL for downloads - using a real CDN URL
-const DOWNLOAD_BASE_URL = 'https://cdn.gamepath.ai/releases';
+// Base URL for downloads - using GitHub releases as a temporary CDN
+const DOWNLOAD_BASE_URL = 'https://github.com/gamepath-ai/releases/download';
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
   const { platform, version = 'latest', direct = false } = options;
