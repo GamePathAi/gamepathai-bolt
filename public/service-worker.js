@@ -29,7 +29,7 @@ const SKIP_EXTENSIONS = [
 const SKIP_DOMAINS = [
   'github.com',
   'githubusercontent.com',
-  'releases/download'
+  'api.github.com'
 ];
 
 // Install event
@@ -81,8 +81,6 @@ self.addEventListener('activate', (event) => {
 
 // Helper function to check if a request should be skipped
 function shouldSkipRequest(url) {
-  const urlObj = new URL(url);
-  
   // Skip based on file extension
   if (SKIP_EXTENSIONS.some(ext => url.endsWith(ext))) {
     return true;

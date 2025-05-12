@@ -25,23 +25,18 @@ export const DownloadButton: React.FC = () => {
         return;
       }
 
-      // Get download URL without attempting to fetch the file
-      const result = await downloadApp({ platform: os, direct: true });
+      // Just get the URL and open it in a new tab
+      const result = await downloadApp({ 
+        platform: os,
+        direct: true
+      });
 
       if (!result.success || !result.url) {
-        throw new Error(result.error || 'Failed to get download URL');
+        throw new Error(result.error || 'Download failed');
       }
 
-      // Create and trigger download link directly
-      const link = document.createElement('a');
-      link.href = result.url;
-      link.setAttribute('download', ''); // Use download attribute
-      link.setAttribute('target', '_blank'); // Open in new tab as fallback
-      
-      // Append to body, click, and remove
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // Open the download URL in a new tab
+      window.open(result.url, '_blank', 'noopener,noreferrer');
       
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);

@@ -6,11 +6,13 @@ interface DownloadOptions {
   direct?: boolean;
 }
 
-// Base URL for downloads - using GitHub releases
-const DOWNLOAD_BASE_URL = 'https://github.com/GamePathAi/gamepathai-bolt/releases/download';
+// GitHub repository information
+const REPO_OWNER = 'GamePathAi';
+const REPO_NAME = 'gamepathai-bolt';
+const DEFAULT_VERSION = 'v1.0.0'; // Use a specific version tag instead of "latest"
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
-  const { platform, version = 'latest', direct = false } = options;
+  const { platform, version = DEFAULT_VERSION, direct = false } = options;
   
   try {
     // Log download attempt
@@ -29,29 +31,17 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       // Continue with download even if logging fails
     }
 
-    // Build download URL
-    const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
-                     platform === 'mac' ? 'GamePathAI.dmg' : 
-                     'GamePathAI.AppImage';
-    
-    const downloadUrl = `${DOWNLOAD_BASE_URL}/${version}/${fileName}`;
+    // Get the download URL
+    const downloadUrl = getDownloadUrl(platform, version);
 
     // For direct downloads, just return the URL
     if (direct) {
       return { success: true, url: downloadUrl };
     }
 
-    // For browser-initiated downloads, create and click a link
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = fileName;
-    link.target = '_blank';
-    link.rel = 'noopener noreferrer';
+    // For browser-initiated downloads, open in a new tab
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
     
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
     return { success: true };
   } catch (error) {
     console.error('Download error:', error);
@@ -62,12 +52,13 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
   }
 }
 
-export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux', version: string = 'latest'): string {
+export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux', version: string = DEFAULT_VERSION): string {
   const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
                    platform === 'mac' ? 'GamePathAI.dmg' : 
                    'GamePathAI.AppImage';
   
-  return `${DOWNLOAD_BASE_URL}/${version}/${fileName}`;
+  // Use GitHub releases URL format
+  return `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${version}/${fileName}`;
 }
 
 export function detectOS(): 'windows' | 'mac' | 'linux' | 'unknown' {
