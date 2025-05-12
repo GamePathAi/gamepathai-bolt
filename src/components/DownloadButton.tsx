@@ -1,17 +1,15 @@
 import React, { useState } from 'react';
-import { Download, AlertTriangle, Check } from 'lucide-react';
+import { Download, AlertTriangle } from 'lucide-react';
 import { downloadApp, detectOS } from '../lib/downloads';
 import { DownloadErrorHandler } from './DownloadErrorHandler';
 
 export const DownloadButton: React.FC = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
   const handleDownload = async () => {
     setError(null);
-    setSuccess(false);
     setIsDownloading(true);
     setShowErrorDetails(false);
 
@@ -20,19 +18,30 @@ export const DownloadButton: React.FC = () => {
       
       if (os === 'unknown') {
         setError('Could not detect your operating system. Please select a download option manually.');
-        setIsDownloading(false);
         setShowErrorDetails(true);
         return;
       }
 
-      const result = await downloadApp({ platform: os });
-
-      if (!result.success) {
-        throw new Error(result.error || 'Download failed');
+      // Create anchor element for direct download
+      const { url } = await downloadApp({ platform: os, direct: true });
+      
+      if (!url) {
+        throw new Error('Failed to get download URL');
       }
 
-      setSuccess(true);
-      setTimeout(() => setSuccess(false), 3000);
+      // Create and click anchor element
+      const link = document.createElement('a');
+      link.href = url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.download = os === 'windows' ? 'GamePathAI-Setup.exe' : 
+                     os === 'mac' ? 'GamePathAI.dmg' : 
+                     'GamePathAI.AppImage';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Download failed. Please try again later.');
       setShowErrorDetails(true);
@@ -68,11 +77,6 @@ export const DownloadButton: React.FC = () => {
           <>
             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
             Downloading...
-          </>
-        ) : success ? (
-          <>
-            <Check className="mr-2 text-green-400" size={20} />
-            Download Started
           </>
         ) : (
           <>

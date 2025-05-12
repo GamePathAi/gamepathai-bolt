@@ -18,13 +18,7 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pexels.com https://github.com; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://github.com"
-
-[[headers]]
-  for = "/service-worker.js"
-  [headers.values]
-    Cache-Control = "no-cache"
-    Service-Worker-Allowed = "/"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pexels.com https://github.com https://raw.githubusercontent.com; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://github.com https://raw.githubusercontent.com https://api.github.com"
 
 [dev]
   command = "npm run dev"

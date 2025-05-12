@@ -6,8 +6,8 @@ interface DownloadOptions {
   direct?: boolean;
 }
 
-// Base URL for downloads - using GitHub releases as a temporary CDN
-const DOWNLOAD_BASE_URL = 'https://github.com/gamepath-ai/releases/download';
+// Base URL for downloads - using GitHub releases
+const DOWNLOAD_BASE_URL = 'https://github.com/GamePathAi/gamepathai-bolt/releases/download';
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
   const { platform, version = 'latest', direct = false } = options;
@@ -41,31 +41,17 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       return { success: true, url: downloadUrl };
     }
 
-    // Otherwise, fetch the file and trigger download
-    const response = await fetch(downloadUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/octet-stream',
-        'X-Client-Info': 'gamepath-ai-web'
-      },
-      mode: 'cors',
-      credentials: 'omit'
-    });
-
-    if (!response.ok) {
-      throw new Error(`Download failed with status ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const url = window.URL.createObjectURL(blob);
+    // Create an anchor element and trigger download
     const link = document.createElement('a');
-    link.href = url;
+    link.href = downloadUrl;
     link.download = fileName;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
     
+    // Append to body, click, and remove
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
 
     return { success: true };
   } catch (error) {
