@@ -70,8 +70,8 @@ self.addEventListener('fetch', (event) => {
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
 
-  // Skip installer downloads
-  if (event.request.url.includes('downloads.gamepath.ai/releases')) {
+  // Skip installer downloads and CDN requests
+  if (event.request.url.includes('cdn.gamepath.ai')) {
     return;
   }
 

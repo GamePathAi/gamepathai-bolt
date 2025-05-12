@@ -6,6 +6,9 @@ interface DownloadOptions {
   direct?: boolean;
 }
 
+// Base URL for downloads - using a real CDN URL
+const DOWNLOAD_BASE_URL = 'https://cdn.gamepath.ai/releases';
+
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
   const { platform, version = 'latest', direct = false } = options;
   
@@ -27,12 +30,11 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     }
 
     // Build download URL
-    const baseUrl = 'https://downloads.gamepath.ai/releases';
     const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
                      platform === 'mac' ? 'GamePathAI.dmg' : 
                      'GamePathAI.AppImage';
     
-    const downloadUrl = `${baseUrl}/${version}/${fileName}`;
+    const downloadUrl = `${DOWNLOAD_BASE_URL}/${version}/${fileName}`;
 
     // If direct download is requested, return the URL
     if (direct) {
@@ -46,7 +48,8 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         'Accept': 'application/octet-stream',
         'X-Client-Info': 'gamepath-ai-web'
       },
-      mode: 'cors'
+      mode: 'cors',
+      credentials: 'omit'
     });
 
     if (!response.ok) {
@@ -75,12 +78,11 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
 }
 
 export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux', version: string = 'latest'): string {
-  const baseUrl = 'https://downloads.gamepath.ai/releases';
   const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
                    platform === 'mac' ? 'GamePathAI.dmg' : 
                    'GamePathAI.AppImage';
   
-  return `${baseUrl}/${version}/${fileName}`;
+  return `${DOWNLOAD_BASE_URL}/${version}/${fileName}`;
 }
 
 export function detectOS(): 'windows' | 'mac' | 'linux' | 'unknown' {
