@@ -25,7 +25,7 @@ export const DownloadButton: React.FC = () => {
         return;
       }
 
-      // Just get the URL and open it in a new tab
+      // Get the download URL and open it in a new tab
       const result = await downloadApp({ 
         platform: os,
         direct: true

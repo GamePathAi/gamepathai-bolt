@@ -29,7 +29,8 @@ const SKIP_EXTENSIONS = [
 const SKIP_DOMAINS = [
   'github.com',
   'githubusercontent.com',
-  'api.github.com'
+  'api.github.com',
+  'example.com'
 ];
 
 // Install event

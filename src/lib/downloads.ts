@@ -6,33 +6,33 @@ interface DownloadOptions {
   direct?: boolean;
 }
 
-// GitHub repository information
-const REPO_OWNER = 'GamePathAi';
-const REPO_NAME = 'gamepathai-bolt';
-const DEFAULT_VERSION = 'v1.0.0'; // Use a specific version tag instead of "latest"
+// Mock download URLs since the actual GitHub repository doesn't have releases yet
+const DOWNLOAD_URLS = {
+  windows: 'https://example.com/downloads/GamePathAI-Setup.exe',
+  mac: 'https://example.com/downloads/GamePathAI.dmg',
+  linux: 'https://example.com/downloads/GamePathAI.AppImage'
+};
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
-  const { platform, version = DEFAULT_VERSION, direct = false } = options;
+  const { platform, version = 'latest', direct = false } = options;
   
   try {
     // Log download attempt
     try {
-      await supabase
-        .from('download_events')
-        .insert({
-          platform,
-          version,
-          timestamp: new Date().toISOString(),
-          user_agent: navigator.userAgent,
-          direct
-        });
+      await supabase.from('download_events').insert({
+        platform,
+        version,
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
+        direct: direct
+      });
     } catch (error) {
       console.warn('Failed to log download event:', error);
       // Continue with download even if logging fails
     }
 
     // Get the download URL
-    const downloadUrl = getDownloadUrl(platform, version);
+    const downloadUrl = getDownloadUrl(platform);
 
     // For direct downloads, just return the URL
     if (direct) {
@@ -52,13 +52,8 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
   }
 }
 
-export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux', version: string = DEFAULT_VERSION): string {
-  const fileName = platform === 'windows' ? 'GamePathAI-Setup.exe' : 
-                   platform === 'mac' ? 'GamePathAI.dmg' : 
-                   'GamePathAI.AppImage';
-  
-  // Use GitHub releases URL format
-  return `https://github.com/${REPO_OWNER}/${REPO_NAME}/releases/download/${version}/${fileName}`;
+export function getDownloadUrl(platform: 'windows' | 'mac' | 'linux'): string {
+  return DOWNLOAD_URLS[platform];
 }
 
 export function detectOS(): 'windows' | 'mac' | 'linux' | 'unknown' {
