@@ -12,13 +12,15 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
   try {
     // Log download attempt
     try {
-      await supabase.from('download_events').insert({
-        platform,
-        version,
-        timestamp: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-        direct: direct
-      });
+      await supabase
+        .from('download_events')
+        .insert({
+          platform,
+          version,
+          timestamp: new Date().toISOString(),
+          user_agent: navigator.userAgent,
+          direct
+        });
     } catch (error) {
       console.warn('Failed to log download event:', error);
       // Continue with download even if logging fails
@@ -43,7 +45,8 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       headers: {
         'Accept': 'application/octet-stream',
         'X-Client-Info': 'gamepath-ai-web'
-      }
+      },
+      mode: 'cors'
     });
 
     if (!response.ok) {

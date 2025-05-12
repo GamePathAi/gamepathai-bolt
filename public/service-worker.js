@@ -70,6 +70,11 @@ self.addEventListener('fetch', (event) => {
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
 
+  // Skip installer downloads
+  if (event.request.url.includes('downloads.gamepath.ai/releases')) {
+    return;
+  }
+
   // Handle navigation requests
   if (event.request.mode === 'navigate') {
     event.respondWith(
