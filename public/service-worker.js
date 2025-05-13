@@ -1,5 +1,3 @@
-
-//
 // Service Worker Version
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `gamepath-ai-${CACHE_VERSION}`;
@@ -63,7 +61,6 @@ self.addEventListener('activate', (event) => {
             .filter(key => key.startsWith('gamepath-ai-') && key !== CACHE_NAME)
             .map(key => caches.delete(key))
         );
-
         await self.clients.claim();
       } catch (error) {
         console.error('Cache cleanup failed:', error);
@@ -112,30 +109,9 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Handle download requests
+  // Don't intercept large downloads, let the browser handle them directly
   if (isDownloadRequest(event.request)) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-          // Add security headers and proper content type
-          const headers = new Headers(response.headers);
-          headers.set('Content-Type', 'application/octet-stream');
-          headers.set('Content-Disposition', 'attachment');
-
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers
-          });
-        })
-        .catch(error => {
-          console.error('Download error:', error);
-          // No throw here - just log. Could return a fallback response instead if wanted.
-          // return new Response('Falha ao baixar arquivo. Tente novamente mais tarde.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
-        })
-    );
+    // Do nothing, let the browser handle it naturally
     return;
   }
 
@@ -201,8 +177,7 @@ self.addEventListener('fetch', (event) => {
         if (cachedResponse) {
           return addSecurityHeaders(cachedResponse);
         }
-        // No throw here - prevents Uncaught (in promise) errors in console.
-        // Could optionally return a custom offline response here.
+        // Don't throw additional exceptions
       }
     })()
   );
