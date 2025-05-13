@@ -15,6 +15,29 @@
     "electron:build": "vite build && electron-builder",
     "deploy": "vite build && netlify deploy --prod"
   },
+  "build": {
+    "appId": "ai.gamepath.app",
+    "productName": "GamePath AI",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "public/icons/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/icons/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "public/icons/icon.png"
+    }
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
     "@tensorflow/tfjs": "^4.17.0", 
