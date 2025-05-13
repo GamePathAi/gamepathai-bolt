@@ -8,14 +8,13 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
-// Production download URLs with proper code signing and checksums
 const DOWNLOAD_URLS = {
-  windows: 'https://cdn.gamepathai.com/releases/latest/GamePathAI-Setup.exe',
-  mac: 'https://cdn.gamepathai.com/releases/latest/GamePathAI.dmg',
-  linux: 'https://cdn.gamepathai.com/releases/latest/GamePathAI.AppImage'
+  windows: 'https://releases.gamepathai.com/latest/GamePathAI-Setup.exe',
+  mac: 'https://releases.gamepathai.com/latest/GamePathAI.dmg',
+  linux: 'https://releases.gamepathai.com/latest/GamePathAI.AppImage'
 };
 
-export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; error?: string }> {
   const { 
     platform, 
     version = 'latest',
@@ -49,52 +48,20 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     // Get the download URL
     const downloadUrl = getDownloadUrl(platform);
 
-    // Create a hidden iframe for download
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    document.body.appendChild(iframe);
-
-    // Create form for POST download request
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = downloadUrl;
-    form.target = iframe.name;
-
-    // Add CSRF token
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    if (csrfToken) {
-      const csrfInput = document.createElement('input');
-      csrfInput.type = 'hidden';
-      csrfInput.name = '_csrf';
-      csrfInput.value = csrfToken;
-      form.appendChild(csrfInput);
-    }
-
-    // Add download parameters
-    const params = {
-      platform,
-      version,
-      timestamp: Date.now().toString(),
-      checksum: true
-    };
-
-    Object.entries(params).forEach(([key, value]) => {
-      const input = document.createElement('input');
-      input.type = 'hidden';
-      input.name = key;
-      input.value = value;
-      form.appendChild(input);
-    });
-
-    // Submit form to initiate download
-    document.body.appendChild(form);
-    form.submit();
-
-    // Cleanup
-    setTimeout(() => {
-      document.body.removeChild(iframe);
-      document.body.removeChild(form);
-    }, 1000);
+    // Create a download link element
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
+    
+    // Add download attributes
+    link.setAttribute('data-platform', platform);
+    link.setAttribute('data-version', version);
+    link.setAttribute('rel', 'noopener noreferrer');
+    
+    // Trigger download
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
 
     return { success: true };
   } catch (error) {
