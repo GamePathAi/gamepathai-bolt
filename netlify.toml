@@ -27,7 +27,6 @@
       connect-src 'self' 
         https://*.supabase.co 
         wss://*.supabase.co 
-        https://cdn.gamepathai.com
         https://releases.gamepathai.com;
       frame-src 'none';
       object-src 'none';
