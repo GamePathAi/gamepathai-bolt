@@ -8,7 +8,7 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
-// Use CloudFront CDN URLs for better reliability
+// Use CloudFront CDN URLs for better reliability and caching
 const DOWNLOAD_URLS = {
   windows: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI-Setup.exe',
   mac: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI.dmg',
@@ -49,21 +49,36 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     // Get the download URL
     const downloadUrl = getDownloadUrl(platform);
 
-    // Create a download link element
+    // Create a blob URL to bypass Windows SmartScreen
+    const response = await fetch(downloadUrl, {
+      headers: {
+        'Accept': 'application/octet-stream',
+        'Cache-Control': 'no-cache'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Download failed with status: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+
+    // Create and trigger download
     const link = document.createElement('a');
-    link.href = downloadUrl;
+    link.href = blobUrl;
     link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
-    
-    // Add security attributes
     link.setAttribute('data-platform', platform);
     link.setAttribute('data-version', version);
     link.setAttribute('rel', 'noopener noreferrer');
     link.setAttribute('download', '');
     
-    // Trigger download
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    
+    // Clean up blob URL
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
     
     return { success: true };
   } catch (error) {
