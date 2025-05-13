@@ -9,11 +9,11 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
-// Mock download URLs since the actual GitHub repository doesn't have releases yet
+// Download URLs for each platform
 const DOWNLOAD_URLS = {
-  windows: 'https://example.com/downloads/GamePathAI-Setup.exe',
-  mac: 'https://example.com/downloads/GamePathAI.dmg',
-  linux: 'https://example.com/downloads/GamePathAI.AppImage'
+  windows: 'https://gamepathai.com/downloads/GamePathAI-Setup.exe',
+  mac: 'https://gamepathai.com/downloads/GamePathAI.dmg',
+  linux: 'https://gamepathai.com/downloads/GamePathAI.AppImage'
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
