@@ -62,6 +62,9 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     const link = document.createElement('a');
     link.href = downloadUrl;
     link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
+    link.setAttribute('data-platform', platform);
+    link.setAttribute('data-version', version);
+    link.setAttribute('rel', 'noopener noreferrer');
     link.style.display = 'none';
     document.body.appendChild(link);
 

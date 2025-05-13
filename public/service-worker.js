@@ -116,8 +116,23 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then(response => {
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          
+          // Clone the response to add security headers
+          const secureResponse = new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: new Headers({
+              ...Object.fromEntries(response.headers.entries()),
+              'Content-Type': 'application/octet-stream',
+              'Content-Disposition': 'attachment',
+              'X-Content-Type-Options': 'nosniff',
+              'Content-Security-Policy': "default-src 'none'",
+              'X-Download-Options': 'noopen'
+            })
+          });
+          
           console.log(`Download started: ${event.request.url}`);
-          return response;
+          return secureResponse;
         })
         .catch(error => {
           console.error(`Download error: ${error}`);
