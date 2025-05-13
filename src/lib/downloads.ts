@@ -58,8 +58,21 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       return { success: true, url: downloadUrl };
     }
 
-    // For browser-initiated downloads, open in a new tab
-    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    // Create a hidden anchor element
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+
+    // Trigger the download
+    link.click();
+
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    }, 100);
     
     return { success: true };
   } catch (error) {

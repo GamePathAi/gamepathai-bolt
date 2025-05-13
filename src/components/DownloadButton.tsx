@@ -9,7 +9,8 @@ export const DownloadButton: React.FC = () => {
   const [success, setSuccess] = useState(false);
   const [showErrorDetails, setShowErrorDetails] = useState(false);
 
-  const handleDownload = async () => {
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent default navigation
     setError(null);
     setSuccess(false);
     setIsDownloading(true);
@@ -25,18 +26,15 @@ export const DownloadButton: React.FC = () => {
         return;
       }
 
-      // Get the download URL and open it in a new tab
+      // Get the download URL and initiate download
       const result = await downloadApp({ 
         platform: os,
-        direct: true
+        direct: false
       });
 
       if (!result.success || !result.url) {
         throw new Error(result.error || 'Download failed');
       }
-
-      // Open the download URL in a new tab
-      window.open(result.url, '_blank', 'noopener,noreferrer');
       
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
