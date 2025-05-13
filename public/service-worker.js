@@ -20,7 +20,9 @@ const SKIP_DOMAINS = [
   'github.com',
   'githubusercontent.com',
   'api.github.com',
-  'example.com'
+  'example.com',
+  'supabase.co',
+  'iafamwvctehdltqmnhyx.supabase.co'
 ];
 
 // Install event
