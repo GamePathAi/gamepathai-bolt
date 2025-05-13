@@ -3,24 +3,22 @@ import { supabase } from './supabase';
 interface DownloadOptions {
   platform: 'windows' | 'mac' | 'linux';
   version?: string;
-  direct?: boolean;
   referralSource?: string;
   campaignId?: string;
   deviceType?: string;
 }
 
-// Download URLs for each platform with code signing
+// Production download URLs with proper code signing and checksums
 const DOWNLOAD_URLS = {
-  windows: 'https://releases.gamepathai.com/downloads/GamePathAI-Setup.exe',
-  mac: 'https://releases.gamepathai.com/downloads/GamePathAI.dmg',
-  linux: 'https://releases.gamepathai.com/downloads/GamePathAI.AppImage'
+  windows: 'https://cdn.gamepathai.com/releases/latest/GamePathAI-Setup.exe',
+  mac: 'https://cdn.gamepathai.com/releases/latest/GamePathAI.dmg',
+  linux: 'https://cdn.gamepathai.com/releases/latest/GamePathAI.AppImage'
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
   const { 
     platform, 
-    version = 'latest', 
-    direct = false,
+    version = 'latest',
     referralSource = 'direct',
     campaignId = '',
     deviceType = detectDeviceType()
@@ -37,7 +35,6 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         version,
         timestamp: new Date().toISOString(),
         user_agent: navigator.userAgent,
-        direct: direct,
         user_id: user?.id || null,
         device_type: deviceType,
         installation_status: 'initiated',
@@ -47,42 +44,58 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       });
     } catch (error) {
       console.warn('Failed to log download event:', error);
-      // Continue with download even if logging fails
     }
 
     // Get the download URL
     const downloadUrl = getDownloadUrl(platform);
 
-    // For direct downloads, just return the URL
-    if (direct) {
-      return { success: true, url: downloadUrl };
+    // Create a hidden iframe for download
+    const iframe = document.createElement('iframe');
+    iframe.style.display = 'none';
+    document.body.appendChild(iframe);
+
+    // Create form for POST download request
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = downloadUrl;
+    form.target = iframe.name;
+
+    // Add CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    if (csrfToken) {
+      const csrfInput = document.createElement('input');
+      csrfInput.type = 'hidden';
+      csrfInput.name = '_csrf';
+      csrfInput.value = csrfToken;
+      form.appendChild(csrfInput);
     }
 
-    // Create a hidden anchor element
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
-    link.setAttribute('data-platform', platform);
-    link.setAttribute('data-version', version);
-    link.setAttribute('rel', 'noopener noreferrer');
-    
-    // Add security attributes
-    link.setAttribute('download', ''); // Force download
-    link.setAttribute('referrerpolicy', 'no-referrer');
-    
-    // Hide the link
-    link.style.display = 'none';
-    document.body.appendChild(link);
+    // Add download parameters
+    const params = {
+      platform,
+      version,
+      timestamp: Date.now().toString(),
+      checksum: true
+    };
 
-    // Trigger the download
-    link.click();
+    Object.entries(params).forEach(([key, value]) => {
+      const input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = key;
+      input.value = value;
+      form.appendChild(input);
+    });
 
-    // Clean up
+    // Submit form to initiate download
+    document.body.appendChild(form);
+    form.submit();
+
+    // Cleanup
     setTimeout(() => {
-      document.body.removeChild(link);
-      URL.revokeObjectURL(downloadUrl);
-    }, 100);
-    
+      document.body.removeChild(iframe);
+      document.body.removeChild(form);
+    }, 1000);
+
     return { success: true };
   } catch (error) {
     console.error('Download error:', error);
@@ -131,17 +144,14 @@ function detectDeviceType(): string {
     return 'windows_phone';
   }
   
-  // Check for tablet
   if (/tablet|ipad/i.test(userAgent) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 2)) {
     return 'tablet';
   }
   
-  // Check for mobile
   if (/mobile|iphone|ipod|android/i.test(userAgent)) {
     return 'mobile';
   }
   
-  // Default to desktop
   return 'desktop';
 }
 

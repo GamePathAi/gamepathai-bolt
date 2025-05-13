@@ -21,12 +21,11 @@
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pexels.com https://example.com; font-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://example.com"
 
 [[headers]]
-  for = "/downloads/*"
+  for = "/releases/*"
   [headers.values]
     Content-Type = "application/octet-stream"
     Content-Disposition = "attachment"
-    Access-Control-Allow-Origin = "*"
-    Cache-Control = "no-cache"
+    Cache-Control = "no-store, no-cache, must-revalidate"
     X-Content-Type-Options = "nosniff"
     Content-Security-Policy = "default-src 'none'"
     X-Download-Options = "noopen"

@@ -15,16 +15,6 @@ const ASSETS_TO_CACHE = [
   '/locales/en/settings.json'
 ];
 
-// File extensions for downloads
-const DOWNLOAD_EXTENSIONS = [
-  '.exe',
-  '.dmg',
-  '.AppImage',
-  '.zip',
-  '.tar.gz',
-  '.msi'
-];
-
 // Domains to skip interception
 const SKIP_DOMAINS = [
   'github.com',
@@ -47,7 +37,6 @@ self.addEventListener('install', (event) => {
             console.log(`Successfully cached: ${asset}`);
           } catch (error) {
             console.warn(`Failed to cache ${asset}:`, error);
-            // Continue with other assets even if one fails
           }
         }
       } catch (error) {
@@ -71,7 +60,6 @@ self.addEventListener('activate', (event) => {
             .map(key => caches.delete(key))
         );
         
-        // Take control of all clients
         await self.clients.claim();
       } catch (error) {
         console.error('Cache cleanup failed:', error);
@@ -82,17 +70,29 @@ self.addEventListener('activate', (event) => {
 
 // Helper function to check if a request should be skipped
 function shouldSkipRequest(url) {
-  // Skip based on domain
-  if (SKIP_DOMAINS.some(domain => url.includes(domain))) {
-    return true;
-  }
-  
-  return false;
+  return SKIP_DOMAINS.some(domain => url.includes(domain));
 }
 
-// Helper function to check if a request is for a download file
-function isDownloadFile(url) {
-  return DOWNLOAD_EXTENSIONS.some(ext => url.toLowerCase().endsWith(ext.toLowerCase()));
+// Helper function to check if a request is for a download
+function isDownloadRequest(request) {
+  return request.url.includes('/releases/') && 
+         (request.url.endsWith('.exe') || 
+          request.url.endsWith('.dmg') || 
+          request.url.endsWith('.AppImage'));
+}
+
+// Helper function to add security headers
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Content-Security-Policy', "default-src 'self'");
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 // Fetch event
@@ -105,40 +105,29 @@ self.addEventListener('fetch', (event) => {
   
   // Skip specific domains
   if (shouldSkipRequest(event.request.url)) {
-    console.log(`Skipping service worker interception for: ${event.request.url}`);
     return;
   }
 
-  // Handle download files
-  if (isDownloadFile(event.request.url)) {
-    console.log(`Processing download request: ${event.request.url}`);
+  // Handle download requests
+  if (isDownloadRequest(event.request)) {
     event.respondWith(
       fetch(event.request)
         .then(response => {
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
           
-          // Clone the response to add security headers
-          const secureResponse = new Response(response.body, {
+          // Add security headers and proper content type
+          const headers = new Headers(response.headers);
+          headers.set('Content-Type', 'application/octet-stream');
+          headers.set('Content-Disposition', 'attachment');
+          
+          return new Response(response.body, {
             status: response.status,
             statusText: response.statusText,
-            headers: new Headers({
-              ...Object.fromEntries(response.headers.entries()),
-              'Content-Type': 'application/octet-stream',
-              'Content-Disposition': 'attachment',
-              'X-Content-Type-Options': 'nosniff',
-              'Content-Security-Policy': "default-src 'none'",
-              'X-Download-Options': 'noopen',
-              'X-Frame-Options': 'DENY',
-              'X-XSS-Protection': '1; mode=block',
-              'Referrer-Policy': 'no-referrer'
-            })
+            headers
           });
-          
-          console.log(`Download started: ${event.request.url}`);
-          return secureResponse;
         })
         .catch(error => {
-          console.error(`Download error: ${error}`);
+          console.error('Download error:', error);
           throw error;
         })
     );
@@ -150,17 +139,14 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         try {
-          // Try network first for navigation
           const response = await fetch(event.request);
-          return response;
+          return addSecurityHeaders(response);
         } catch (error) {
-          // Network failed, try cache
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match('/index.html');
           if (cachedResponse) {
-            return cachedResponse;
+            return addSecurityHeaders(cachedResponse);
           }
-          // Both network and cache failed
           return new Response('Navigation failed. Please check your connection.', {
             status: 503,
             headers: { 'Content-Type': 'text/plain' }
@@ -177,44 +163,10 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(event.request);
-          return response;
+          return addSecurityHeaders(response);
         } catch (error) {
           return new Response(JSON.stringify({ error: 'Network request failed' }), {
             status: 503,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        }
-      })()
-    );
-    return;
-  }
-
-  // Handle locales requests specially
-  if (event.request.url.includes('/locales/')) {
-    event.respondWith(
-      (async () => {
-        try {
-          // Try network first for translations
-          const response = await fetch(event.request);
-          if (response.ok) {
-            const cache = await caches.open(CACHE_NAME);
-            cache.put(event.request, response.clone());
-            return response;
-          }
-          // Network failed or returned error, try cache
-          const cachedResponse = await caches.match(event.request);
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          // Both failed, return empty JSON
-          return new Response('{}', {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          });
-        } catch (error) {
-          console.error('Error handling locale request:', error);
-          return new Response('{}', {
-            status: 200,
             headers: { 'Content-Type': 'application/json' }
           });
         }
@@ -227,25 +179,22 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     (async () => {
       try {
-        // Try cache first
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(event.request);
         if (cachedResponse) {
-          return cachedResponse;
+          return addSecurityHeaders(cachedResponse);
         }
 
-        // Cache miss, try network
         const response = await fetch(event.request);
         if (response.ok && response.type === 'basic') {
           cache.put(event.request, response.clone());
         }
-        return response;
+        return addSecurityHeaders(response);
       } catch (error) {
         console.error('Fetch failed:', error);
-        // Both cache and network failed
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) {
-          return cachedResponse;
+          return addSecurityHeaders(cachedResponse);
         }
         throw error;
       }
