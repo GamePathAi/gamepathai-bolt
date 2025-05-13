@@ -31,6 +31,9 @@
     Content-Security-Policy = "default-src 'none'"
     X-Download-Options = "noopen"
     X-Permitted-Cross-Domain-Policies = "none"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    Referrer-Policy = "no-referrer"
 
 [dev]
   command = "npm run dev"

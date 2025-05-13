@@ -127,7 +127,10 @@ self.addEventListener('fetch', (event) => {
               'Content-Disposition': 'attachment',
               'X-Content-Type-Options': 'nosniff',
               'Content-Security-Policy': "default-src 'none'",
-              'X-Download-Options': 'noopen'
+              'X-Download-Options': 'noopen',
+              'X-Frame-Options': 'DENY',
+              'X-XSS-Protection': '1; mode=block',
+              'Referrer-Policy': 'no-referrer'
             })
           });
           

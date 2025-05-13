@@ -9,11 +9,11 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
-// Download URLs for each platform
+// Download URLs for each platform with code signing
 const DOWNLOAD_URLS = {
-  windows: 'https://gamepathai.com/downloads/GamePathAI-Setup.exe',
-  mac: 'https://gamepathai.com/downloads/GamePathAI.dmg',
-  linux: 'https://gamepathai.com/downloads/GamePathAI.AppImage'
+  windows: 'https://releases.gamepathai.com/downloads/GamePathAI-Setup.exe',
+  mac: 'https://releases.gamepathai.com/downloads/GamePathAI.dmg',
+  linux: 'https://releases.gamepathai.com/downloads/GamePathAI.AppImage'
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; url?: string; error?: string }> {
@@ -65,6 +65,12 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     link.setAttribute('data-platform', platform);
     link.setAttribute('data-version', version);
     link.setAttribute('rel', 'noopener noreferrer');
+    
+    // Add security attributes
+    link.setAttribute('download', ''); // Force download
+    link.setAttribute('referrerpolicy', 'no-referrer');
+    
+    // Hide the link
     link.style.display = 'none';
     document.body.appendChild(link);
 
@@ -74,7 +80,7 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     // Clean up
     setTimeout(() => {
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
+      URL.revokeObjectURL(downloadUrl);
     }, 100);
     
     return { success: true };
