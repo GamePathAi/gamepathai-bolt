@@ -5,31 +5,16 @@ import compression from 'vite-plugin-compression';
 export default defineConfig({
   plugins: [
     react(),
-    compression({
-      algorithm: 'gzip',
-      ext: '.gz'
-    })
+    compression(), // Generates .gz files for static assets
   ],
   optimizeDeps: {
     exclude: ['lucide-react'],
   },
   server: {
     fs: {
+      // Allow serving files from one level up to the project root
       allow: ['..'],
     },
-  },
-  build: {
-    outDir: 'dist',
-    assetsDir: 'assets',
-    sourcemap: true,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          ui: ['lucide-react'],
-        }
-      }
-    }
   },
   publicDir: 'public',
 });
