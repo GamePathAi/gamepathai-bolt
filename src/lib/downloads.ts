@@ -8,11 +8,10 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
-// Use CloudFront CDN URLs for better reliability and caching
 const DOWNLOAD_URLS = {
-  windows: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI-Setup.exe',
-  mac: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI.dmg',
-  linux: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI.AppImage'
+  windows: 'https://releases.gamepathai.com/latest/GamePathAI-Setup.exe',
+  mac: 'https://releases.gamepathai.com/latest/GamePathAI.dmg',
+  linux: 'https://releases.gamepathai.com/latest/GamePathAI.AppImage'
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; error?: string }> {
@@ -49,7 +48,7 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     // Get the download URL
     const downloadUrl = getDownloadUrl(platform);
 
-    // Create a blob URL to bypass Windows SmartScreen
+    // Create a blob URL to handle the download securely
     const response = await fetch(downloadUrl, {
       headers: {
         'Accept': 'application/octet-stream',

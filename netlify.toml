@@ -27,14 +27,15 @@
       connect-src 'self' 
         https://*.supabase.co 
         wss://*.supabase.co 
-        https://cdn.gamepathai.com;
+        https://cdn.gamepathai.com
+        https://releases.gamepathai.com;
       frame-src 'none';
       object-src 'none';
       base-uri 'self';
       form-action 'self';
       frame-ancestors 'none';
       media-src 'self';
-      worker-src 'self';
+      worker-src 'self' blob:;
       manifest-src 'self';
       upgrade-insecure-requests;
       block-all-mixed-content
