@@ -15,8 +15,8 @@ const ASSETS_TO_CACHE = [
   '/locales/en/settings.json'
 ];
 
-// File extensions to skip caching
-const SKIP_EXTENSIONS = [
+// File extensions for downloads
+const DOWNLOAD_EXTENSIONS = [
   '.exe',
   '.dmg',
   '.AppImage',
@@ -82,17 +82,17 @@ self.addEventListener('activate', (event) => {
 
 // Helper function to check if a request should be skipped
 function shouldSkipRequest(url) {
-  // Skip based on file extension
-  if (SKIP_EXTENSIONS.some(ext => url.endsWith(ext))) {
-    return true;
-  }
-  
   // Skip based on domain
   if (SKIP_DOMAINS.some(domain => url.includes(domain))) {
     return true;
   }
   
   return false;
+}
+
+// Helper function to check if a request is for a download file
+function isDownloadFile(url) {
+  return DOWNLOAD_EXTENSIONS.some(ext => url.toLowerCase().endsWith(ext.toLowerCase()));
 }
 
 // Fetch event
@@ -103,9 +103,27 @@ self.addEventListener('fetch', (event) => {
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
   
-  // Skip download requests and specific domains
+  // Skip specific domains
   if (shouldSkipRequest(event.request.url)) {
     console.log(`Skipping service worker interception for: ${event.request.url}`);
+    return;
+  }
+
+  // Handle download files
+  if (isDownloadFile(event.request.url)) {
+    console.log(`Processing download request: ${event.request.url}`);
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+          console.log(`Download started: ${event.request.url}`);
+          return response;
+        })
+        .catch(error => {
+          console.error(`Download error: ${error}`);
+          throw error;
+        })
+    );
     return;
   }
 
