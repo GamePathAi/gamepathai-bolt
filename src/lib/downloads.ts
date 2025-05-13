@@ -24,11 +24,14 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
   } = options;
   
   try {
+    console.log(`Preparing download for ${platform}...`);
+    
     // Get the current user if logged in
     const { data: { user } } = await supabase.auth.getUser();
     
     // Log download attempt
     try {
+      console.log('Logging download event to Supabase...');
       await supabase.from('download_events').insert({
         platform,
         version,
@@ -41,44 +44,29 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         campaign_id: campaignId,
         app_version: version
       });
+      console.log('Download event logged successfully');
     } catch (error) {
       console.warn('Failed to log download event:', error);
     }
 
     // Get the download URL
     const downloadUrl = getDownloadUrl(platform);
+    console.log(`Download URL: ${downloadUrl}`);
 
-    // Create a blob URL to handle the download securely
-    const response = await fetch(downloadUrl, {
-      headers: {
-        'Accept': 'application/octet-stream',
-        'Cache-Control': 'no-cache'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Download failed with status: ${response.status}`);
-    }
-
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-
-    // Create and trigger download
+    // For direct download without fetch (more reliable in some browsers)
+    // This approach works better with large files and avoids CORS issues
     const link = document.createElement('a');
-    link.href = blobUrl;
+    link.href = downloadUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
     link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
-    link.setAttribute('data-platform', platform);
-    link.setAttribute('data-version', version);
-    link.setAttribute('rel', 'noopener noreferrer');
-    link.setAttribute('download', '');
     
+    console.log('Triggering download...');
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Clean up blob URL
-    setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
-    
+    console.log('Download initiated successfully');
     return { success: true };
   } catch (error) {
     console.error('Download error:', error);

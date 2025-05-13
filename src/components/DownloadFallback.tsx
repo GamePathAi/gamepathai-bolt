@@ -3,6 +3,10 @@ import { Download, ExternalLink } from 'lucide-react';
 import { getDownloadUrl } from '../lib/downloads';
 
 export const DownloadFallback: React.FC = () => {
+  const handleDownloadClick = (platform: 'windows' | 'mac' | 'linux') => {
+    console.log(`${platform} download link clicked:`, getDownloadUrl(platform));
+  };
+
   return (
     <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg p-6">
       <h2 className="text-xl font-bold text-white mb-4">Download GamePath AI</h2>
@@ -17,6 +21,7 @@ export const DownloadFallback: React.FC = () => {
           className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => handleDownloadClick('windows')}
         >
           <div className="w-12 h-12 rounded-full bg-cyan-500/20 flex items-center justify-center mb-3">
             <Download className="text-cyan-400" size={24} />
@@ -37,6 +42,7 @@ export const DownloadFallback: React.FC = () => {
           className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => handleDownloadClick('mac')}
         >
           <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center mb-3">
             <Download className="text-purple-400" size={24} />
@@ -57,6 +63,7 @@ export const DownloadFallback: React.FC = () => {
           className="flex flex-col items-center p-4 bg-gray-700/50 hover:bg-gray-700 border border-gray-600 rounded-lg transition-colors"
           target="_blank"
           rel="noopener noreferrer"
+          onClick={() => handleDownloadClick('linux')}
         >
           <div className="w-12 h-12 rounded-full bg-green-500/20 flex items-center justify-center mb-3">
             <Download className="text-green-400" size={24} />

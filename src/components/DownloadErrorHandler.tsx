@@ -20,6 +20,11 @@ export const DownloadErrorHandler: React.FC<DownloadErrorHandlerProps> = ({ erro
     return getDownloadUrl(os === 'unknown' ? 'windows' : os);
   };
 
+  const handleDirectDownload = (e: React.MouseEvent) => {
+    console.log('Direct download link clicked:', getDirectDownloadUrl());
+    // We don't prevent default here to allow the browser to handle the download
+  };
+
   return (
     <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-lg">
       <div className="flex items-start">
@@ -41,6 +46,7 @@ export const DownloadErrorHandler: React.FC<DownloadErrorHandlerProps> = ({ erro
               className="flex items-center justify-center w-full py-2 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 rounded-lg text-sm font-medium transition-colors"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={handleDirectDownload}
             >
               <ExternalLink size={16} className="mr-2" />
               Direct Download Link

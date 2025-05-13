@@ -26,11 +26,18 @@ export const DownloadButton: React.FC = () => {
         return;
       }
 
+      console.log(`Starting download for ${os}...`);
+
       // Initiate download
       const result = await downloadApp({ 
         platform: os,
-        version: 'latest'
+        version: 'latest',
+        referralSource: 'website',
+        campaignId: '',
+        deviceType: navigator.userAgent.toLowerCase().includes('mobile') ? 'mobile' : 'desktop'
       });
+
+      console.log('Download result:', result);
 
       if (!result.success) {
         throw new Error(result.error || 'Download failed');
@@ -39,6 +46,7 @@ export const DownloadButton: React.FC = () => {
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
+      console.error('Download error:', err);
       setError(err instanceof Error ? err.message : 'Download failed. Please try again later.');
       setShowErrorDetails(true);
     } finally {
