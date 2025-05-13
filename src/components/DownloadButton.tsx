@@ -26,7 +26,7 @@ export const DownloadButton: React.FC = () => {
         return;
       }
 
-      // Get the download URL and initiate download
+      // Initiate download
       const result = await downloadApp({ 
         platform: os,
         version: 'latest'

@@ -8,10 +8,11 @@ interface DownloadOptions {
   deviceType?: string;
 }
 
+// Use CloudFront CDN URLs for better reliability
 const DOWNLOAD_URLS = {
-  windows: 'https://releases.gamepathai.com/latest/GamePathAI-Setup.exe',
-  mac: 'https://releases.gamepathai.com/latest/GamePathAI.dmg',
-  linux: 'https://releases.gamepathai.com/latest/GamePathAI.AppImage'
+  windows: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI-Setup.exe',
+  mac: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI.dmg',
+  linux: 'https://cdn.gamepathai.com/downloads/latest/GamePathAI.AppImage'
 };
 
 export async function downloadApp(options: DownloadOptions): Promise<{ success: boolean; error?: string }> {
