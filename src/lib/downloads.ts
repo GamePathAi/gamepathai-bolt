@@ -29,22 +29,29 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     // Get the current user if logged in
     const { data: { user } } = await supabase.auth.getUser();
     
-    // Log download attempt
+    // Log download attempt using Supabase client (handles auth automatically)
     try {
       console.log('Logging download event to Supabase...');
-      await supabase.from('download_events').insert({
-        platform,
-        version,
-        timestamp: new Date().toISOString(),
-        user_agent: navigator.userAgent,
-        user_id: user?.id || null,
-        device_type: deviceType,
-        installation_status: 'initiated',
-        referral_source: referralSource,
-        campaign_id: campaignId,
-        app_version: version
-      });
-      console.log('Download event logged successfully');
+      const { error: insertError } = await supabase
+        .from('download_events')
+        .insert({
+          platform,
+          version,
+          timestamp: new Date().toISOString(),
+          user_agent: navigator.userAgent,
+          user_id: user?.id || null,
+          device_type: deviceType,
+          installation_status: 'initiated',
+          referral_source: referralSource,
+          campaign_id: campaignId,
+          app_version: version
+        });
+
+      if (insertError) {
+        console.error('Failed to log download event:', insertError);
+      } else {
+        console.log('Download event logged successfully');
+      }
     } catch (error) {
       console.warn('Failed to log download event:', error);
     }
