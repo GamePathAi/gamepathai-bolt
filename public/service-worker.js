@@ -1,3 +1,5 @@
+
+//
 // Service Worker Version
 const CACHE_VERSION = 'v1';
 const CACHE_NAME = `gamepath-ai-${CACHE_VERSION}`;
@@ -31,7 +33,7 @@ self.addEventListener('install', (event) => {
     (async () => {
       try {
         const cache = await caches.open(CACHE_NAME);
-        
+
         // Cache core assets individually to handle failures gracefully
         for (const asset of ASSETS_TO_CACHE) {
           try {
@@ -61,7 +63,7 @@ self.addEventListener('activate', (event) => {
             .filter(key => key.startsWith('gamepath-ai-') && key !== CACHE_NAME)
             .map(key => caches.delete(key))
         );
-        
+
         await self.clients.claim();
       } catch (error) {
         console.error('Cache cleanup failed:', error);
@@ -77,10 +79,24 @@ function shouldSkipRequest(url) {
 
 // Helper function to check if a request is for a download
 function isDownloadRequest(request) {
-  return request.url.includes('/releases/') && 
-         (request.url.endsWith('.exe') || 
-          request.url.endsWith('.dmg') || 
-          request.url.endsWith('.AppImage'));
+  return request.url.includes('/releases/') &&
+    (request.url.endsWith('.exe') ||
+      request.url.endsWith('.dmg') ||
+      request.url.endsWith('.AppImage'));
+}
+
+// Helper function to add security headers
+function addSecurityHeaders(response) {
+  const headers = new Headers(response.headers);
+  headers.set('Content-Security-Policy', "default-src 'self'");
+  headers.set('X-Content-Type-Options', 'nosniff');
+  headers.set('X-Frame-Options', 'DENY');
+  headers.set('X-XSS-Protection', '1; mode=block');
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 // Fetch event
@@ -90,7 +106,7 @@ self.addEventListener('fetch', (event) => {
 
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
-  
+
   // Skip specific domains
   if (shouldSkipRequest(event.request.url)) {
     return;
@@ -102,12 +118,12 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then(response => {
           if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-          
-          // Add proper content type
+
+          // Add security headers and proper content type
           const headers = new Headers(response.headers);
           headers.set('Content-Type', 'application/octet-stream');
           headers.set('Content-Disposition', 'attachment');
-          
+
           return new Response(response.body, {
             status: response.status,
             statusText: response.statusText,
@@ -116,7 +132,8 @@ self.addEventListener('fetch', (event) => {
         })
         .catch(error => {
           console.error('Download error:', error);
-          throw error;
+          // No throw here - just log. Could return a fallback response instead if wanted.
+          // return new Response('Falha ao baixar arquivo. Tente novamente mais tarde.', { status: 503, headers: { 'Content-Type': 'text/plain' } });
         })
     );
     return;
@@ -128,12 +145,12 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(event.request);
-          return response;
+          return addSecurityHeaders(response);
         } catch (error) {
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match('/index.html');
           if (cachedResponse) {
-            return cachedResponse;
+            return addSecurityHeaders(cachedResponse);
           }
           return new Response('Navigation failed. Please check your connection.', {
             status: 503,
@@ -151,7 +168,7 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(event.request);
-          return response;
+          return addSecurityHeaders(response);
         } catch (error) {
           return new Response(JSON.stringify({ error: 'Network request failed' }), {
             status: 503,
@@ -170,21 +187,22 @@ self.addEventListener('fetch', (event) => {
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(event.request);
         if (cachedResponse) {
-          return cachedResponse;
+          return addSecurityHeaders(cachedResponse);
         }
 
         const response = await fetch(event.request);
         if (response.ok && response.type === 'basic') {
           cache.put(event.request, response.clone());
         }
-        return response;
+        return addSecurityHeaders(response);
       } catch (error) {
         console.error('Fetch failed:', error);
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) {
-          return cachedResponse;
+          return addSecurityHeaders(cachedResponse);
         }
-        throw error;
+        // No throw here - prevents Uncaught (in promise) errors in console.
+        // Could optionally return a custom offline response here.
       }
     })()
   );
@@ -205,3 +223,5 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   console.error('Service worker unhandled rejection:', event.reason);
 });
+
+// (linha vazia no final para boas práticas)
