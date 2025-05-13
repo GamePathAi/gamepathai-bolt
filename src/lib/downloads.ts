@@ -53,16 +53,17 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     link.href = downloadUrl;
     link.download = `GamePathAI-Setup${platform === 'windows' ? '.exe' : platform === 'mac' ? '.dmg' : '.AppImage'}`;
     
-    // Add download attributes
+    // Add security attributes
     link.setAttribute('data-platform', platform);
     link.setAttribute('data-version', version);
     link.setAttribute('rel', 'noopener noreferrer');
+    link.setAttribute('download', '');
     
     // Trigger download
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
+    
     return { success: true };
   } catch (error) {
     console.error('Download error:', error);

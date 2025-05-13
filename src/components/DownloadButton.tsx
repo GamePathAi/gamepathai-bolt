@@ -29,10 +29,10 @@ export const DownloadButton: React.FC = () => {
       // Get the download URL and initiate download
       const result = await downloadApp({ 
         platform: os,
-        direct: false
+        version: 'latest'
       });
 
-      if (!result.success || !result.url) {
+      if (!result.success) {
         throw new Error(result.error || 'Download failed');
       }
       
