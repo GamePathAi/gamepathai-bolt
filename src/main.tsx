@@ -7,14 +7,51 @@ import './i18n';
 import App from './App';
 import './index.css';
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <ErrorBoundary>
-      <LanguageProvider>
-        <AuthProvider>
-          <App />
-        </AuthProvider>
-      </LanguageProvider>
-    </ErrorBoundary>
-  </StrictMode>
-);
+// Logs para depuração
+console.log('main.tsx carregado');
+const rootElement = document.getElementById('root');
+console.log('Elemento root encontrado:', rootElement);
+
+if (rootElement) {
+  try {
+    console.log('Tentando renderizar React');
+    createRoot(rootElement).render(
+      <StrictMode>
+        <ErrorBoundary>
+          <LanguageProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </LanguageProvider>
+        </ErrorBoundary>
+      </StrictMode>
+    );
+    console.log('React renderizado com sucesso');
+  } catch (error) {
+    console.error('Erro ao renderizar React:', error);
+  }
+} else {
+  console.error('Elemento root não encontrado no documento');
+  // Tenta criar o elemento se não existir
+  const newRoot = document.createElement('div');
+  newRoot.id = 'root';
+  document.body.appendChild(newRoot);
+  console.log('Elemento root criado manualmente');
+  
+  try {
+    createRoot(newRoot).render(
+      <StrictMode>
+        <ErrorBoundary>
+          <LanguageProvider>
+            <AuthProvider>
+              <App />
+            </AuthProvider>
+          </LanguageProvider>
+        </ErrorBoundary>
+      </StrictMode>
+    );
+    console.log('React renderizado no elemento root criado manualmente');
+  } catch (error) {
+    console.error('Erro ao renderizar React no elemento criado manualmente:', error);
+  }
+}
