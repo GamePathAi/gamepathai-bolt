@@ -3,7 +3,7 @@
   "productName": "GamePath AI",
   "private": true,
   "version": "0.1.0",
-  "main": "electron/main.js",
+  "main": "electron/main.cjs",
   "type": "module",
   "description": "GamePath AI - Inteligência artificial para gaming",
   "author": "GamePathAI Team",
