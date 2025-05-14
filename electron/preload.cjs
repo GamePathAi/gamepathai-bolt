@@ -1,4 +1,5 @@
-import { contextBridge, ipcRenderer } from 'electron';
+// electron/preload.cjs
+const { contextBridge, ipcRenderer } = require('electron');
 
 // Expõe APIs do Electron para o processo de renderização de forma segura
 contextBridge.exposeInMainWorld('electronAPI', {
