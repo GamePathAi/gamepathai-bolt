@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { Registry } from 'registry-js';
@@ -19,9 +19,12 @@ async function createWindow() {
     width: 1280,
     height: 720,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    show: false, // Não mostra até carregar completamente
+    icon: path.join(process.resourcesPath || __dirname, 'public/icons/icon.png')
   });
 
   // In development, load from Vite dev server
@@ -32,6 +35,11 @@ async function createWindow() {
     // In production, load the built files
     await mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
+  
+  // Mostra a janela quando estiver pronta
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 }
 
 app.whenReady().then(createWindow);
@@ -403,8 +411,6 @@ async function launchXboxGame(game) {
 }
 
 // IPC handlers for communication with renderer process
-import { ipcMain } from 'electron';
-
 ipcMain.handle('scan-games', async () => {
   return await scanForGames();
 });
