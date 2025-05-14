@@ -82,19 +82,6 @@ function isDownloadRequest(request) {
       request.url.endsWith('.AppImage'));
 }
 
-// Helper function to add security headers
-function addSecurityHeaders(response) {
-  const headers = new Headers(response.headers);
-  headers.set('Content-Security-Policy', "default-src 'self'");
-  headers.set('X-Content-Type-Options', 'nosniff');
-  headers.set('X-Frame-Options', 'DENY');
-  headers.set('X-XSS-Protection', '1; mode=block');
-  return new Response(response.body, {
-    status: response.status,
-    statusText: response.statusText,
-    headers
-  });
-}
 
 // Fetch event
 self.addEventListener('fetch', (event) => {
@@ -121,12 +108,12 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(event.request);
-          return addSecurityHeaders(response);
+          return response;
         } catch (error) {
           const cache = await caches.open(CACHE_NAME);
           const cachedResponse = await cache.match('/index.html');
           if (cachedResponse) {
-            return addSecurityHeaders(cachedResponse);
+            return cachedResponse;
           }
           return new Response('Navigation failed. Please check your connection.', {
             status: 503,
@@ -144,7 +131,7 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(event.request);
-          return addSecurityHeaders(response);
+          return response;
         } catch (error) {
           return new Response(JSON.stringify({ error: 'Network request failed' }), {
             status: 503,
@@ -163,19 +150,19 @@ self.addEventListener('fetch', (event) => {
         const cache = await caches.open(CACHE_NAME);
         const cachedResponse = await cache.match(event.request);
         if (cachedResponse) {
-          return addSecurityHeaders(cachedResponse);
+          return cachedResponse;
         }
 
         const response = await fetch(event.request);
         if (response.ok && response.type === 'basic') {
           cache.put(event.request, response.clone());
         }
-        return addSecurityHeaders(response);
+        return response;
       } catch (error) {
         console.error('Fetch failed:', error);
         const cachedResponse = await caches.match(event.request);
         if (cachedResponse) {
-          return addSecurityHeaders(cachedResponse);
+          return cachedResponse;
         }
         // Don't throw additional exceptions
       }
@@ -198,5 +185,3 @@ self.addEventListener('error', (event) => {
 self.addEventListener('unhandledrejection', (event) => {
   console.error('Service worker unhandled rejection:', event.reason);
 });
-
-// (linha vazia no final para boas práticas)
