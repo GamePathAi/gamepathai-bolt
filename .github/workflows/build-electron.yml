@@ -9,76 +9,114 @@ jobs:
     name: Build for Windows
     steps:
       - name: Checkout código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
       - name: Instalar dependências
         run: npm ci
+      - name: Verificar estrutura do projeto
+        run: |
+          dir
+          dir electron
       - name: Build com Electron
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Lista arquivos gerados
-        run: dir dist-electron
+          ELECTRON_RUN: true
+      - name: Verificar saída do build
+        run: |
+          dir
+          dir dist-electron || echo "dist-electron não existe!"
+          dir dist || echo "dist não existe!"
+          echo "Buscando arquivos .exe:"
+          where /r . *.exe
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
             dist-electron/**/*.exe
             dist-electron/**/*.msi
+            dist/**/*.exe
+            dist/**/*.msi
           retention-days: 5
+          if-no-files-found: warn
+
   build-mac:
     runs-on: macos-latest
     name: Build for macOS
     steps:
       - name: Checkout código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
       - name: Instalar dependências
         run: npm ci
+      - name: Verificar estrutura do projeto
+        run: |
+          ls -la
+          ls -la electron
       - name: Build com Electron
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Lista arquivos gerados
-        run: ls -la dist-electron
+          ELECTRON_RUN: true
+      - name: Verificar saída do build
+        run: |
+          ls -la
+          ls -la dist-electron || echo "dist-electron não existe!"
+          ls -la dist || echo "dist não existe!"
+          echo "Buscando arquivos .dmg:"
+          find . -name "*.dmg"
       - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: |
             dist-electron/**/*.dmg
             dist-electron/**/*.pkg
+            dist/**/*.dmg
+            dist/**/*.pkg
           retention-days: 5
+          if-no-files-found: warn
+
   build-linux:
     runs-on: ubuntu-latest
     name: Build for Linux
     steps:
       - name: Checkout código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: 18
           cache: 'npm'
       - name: Instalar dependências
         run: npm ci
+      - name: Verificar estrutura do projeto
+        run: |
+          ls -la
+          ls -la electron
       - name: Build com Electron
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      - name: Lista arquivos gerados
-        run: ls -la dist-electron
+          ELECTRON_RUN: true
+      - name: Verificar saída do build
+        run: |
+          ls -la
+          ls -la dist-electron || echo "dist-electron não existe!"
+          ls -la dist || echo "dist não existe!"
+          echo "Buscando arquivos .AppImage:"
+          find . -name "*.AppImage"
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: |
@@ -86,20 +124,30 @@ jobs:
             dist-electron/**/*.deb
             dist-electron/**/*.rpm
             dist-electron/**/*.snap
+            dist/**/*.AppImage
+            dist/**/*.deb
+            dist/**/*.rpm
+            dist/**/*.snap
           retention-days: 5
+          if-no-files-found: warn
+
   release:
     needs: [build-windows, build-mac, build-linux]
     runs-on: ubuntu-latest
     name: Create GitHub Release
     steps:
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
       - name: Display structure of downloaded files
-        run: ls -R artifacts
+        run: |
+          echo "Verificando arquivos baixados:"
+          ls -R artifacts || echo "Nenhum artefato encontrado!"
+          echo "Buscando arquivos executáveis:"
+          find artifacts -type f | grep -E "\.exe$|\.dmg$|\.AppImage$"
       - name: Publicar Release no GitHub
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/**/*.exe
