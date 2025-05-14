@@ -1,8 +1,42 @@
 // electron/main.js
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const fs = require('fs').promises;
 const { spawn } = require('child_process');
+
+// Importação segura para fs.promises
+let fs;
+try {
+  fs = require('fs').promises;
+} catch (e) {
+  console.warn('fs.promises not available:', e.message);
+  const fsBase = require('fs');
+  fs = {
+    readFile: (path, options) => {
+      return new Promise((resolve, reject) => {
+        fsBase.readFile(path, options, (err, data) => {
+          if (err) reject(err);
+          else resolve(data);
+        });
+      });
+    },
+    readdir: (path, options) => {
+      return new Promise((resolve, reject) => {
+        fsBase.readdir(path, options, (err, files) => {
+          if (err) reject(err);
+          else resolve(files);
+        });
+      });
+    },
+    stat: (path) => {
+      return new Promise((resolve, reject) => {
+        fsBase.stat(path, (err, stats) => {
+          if (err) reject(err);
+          else resolve(stats);
+        });
+      });
+    }
+  };
+}
 
 // Importações com tratamento de erros para módulos nativos opcionais
 let Registry, si, Store;
@@ -10,7 +44,13 @@ try {
   Registry = require('registry-js').Registry;
 } catch (e) {
   console.warn('registry-js not available:', e.message);
-  Registry = { getValue: () => null, HKEY: { LOCAL_MACHINE: 0 } };
+  Registry = { 
+    getValue: () => null, 
+    HKEY: { 
+      LOCAL_MACHINE: 0,
+      CURRENT_USER: 1
+    } 
+  };
 }
 
 try {
@@ -26,10 +66,15 @@ try {
 }
 
 try {
-  Store = require('electron-store');
+  const StoreModule = require('electron-store');
+  Store = StoreModule;
 } catch (e) {
   console.warn('electron-store not available:', e.message);
-  Store = class FakeStore { constructor() {} get() {} set() {} };
+  Store = class FakeStore { 
+    constructor() { this.data = {}; }
+    get(key) { return this.data[key]; }
+    set(key, value) { this.data[key] = value; }
+  };
 }
 
 // Inicializar o store
@@ -38,9 +83,20 @@ const store = new Store();
 // Variável para a janela principal
 let mainWindow;
 
+// Verifica se um caminho existe com tratamento de erro
+async function pathExists(pathToCheck) {
+  try {
+    await fs.stat(pathToCheck);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
 // Cria a janela principal
 async function createWindow() {
-  mainWindow = new BrowserWindow({
+  // Configurações da janela
+  const windowConfig = {
     width: 1280,
     height: 720,
     webPreferences: {
@@ -49,25 +105,73 @@ async function createWindow() {
       preload: path.join(__dirname, 'preload.js')
     },
     show: false // Não mostra até carregar completamente
-  });
+  };
+  
+  // Verificar se o preload.js existe, se não, usar opções mais simples
+  const preloadPath = path.join(__dirname, 'preload.js');
+  try {
+    await fs.stat(preloadPath);
+  } catch (e) {
+    console.warn('Preload script not found, disabling contextIsolation');
+    windowConfig.webPreferences = {
+      nodeIntegration: true,
+      contextIsolation: false
+    };
+  }
+  
+  mainWindow = new BrowserWindow(windowConfig);
 
   // Definir ícone baseado na plataforma
-  if (process.platform === 'win32') {
-    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.ico'));
-  } else if (process.platform === 'darwin') {
-    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.icns'));
-  } else {
-    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.png'));
+  try {
+    if (process.platform === 'win32') {
+      const iconPath = path.join(__dirname, '../public/icons/icon.ico');
+      if (await pathExists(iconPath)) {
+        mainWindow.setIcon(iconPath);
+      }
+    } else if (process.platform === 'darwin') {
+      const iconPath = path.join(__dirname, '../public/icons/icon.icns');
+      if (await pathExists(iconPath)) {
+        mainWindow.setIcon(iconPath);
+      }
+    } else {
+      const iconPath = path.join(__dirname, '../public/icons/icon.png');
+      if (await pathExists(iconPath)) {
+        mainWindow.setIcon(iconPath);
+      }
+    }
+  } catch (e) {
+    console.warn('Failed to set window icon:', e.message);
   }
 
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development') {
-    await mainWindow.loadURL('http://localhost:5173');
-    mainWindow.webContents.openDevTools();
+    try {
+      await mainWindow.loadURL('http://localhost:5173');
+      mainWindow.webContents.openDevTools();
+    } catch (e) {
+      console.error('Failed to load development URL:', e.message);
+      // Fallback to dist
+      const indexPath = path.join(__dirname, '../dist/index.html');
+      if (await pathExists(indexPath)) {
+        await mainWindow.loadFile(indexPath);
+      } else {
+        await mainWindow.loadFile(path.join(__dirname, 'error.html'));
+      }
+    }
   } else {
-    // No modo de produção, carrega do diretório dist
-    const indexPath = path.join(__dirname, '../dist/index.html');
-    await mainWindow.loadFile(indexPath);
+    try {
+      // No modo de produção, carrega do diretório dist
+      const indexPath = path.join(__dirname, '../dist/index.html');
+      if (await pathExists(indexPath)) {
+        await mainWindow.loadFile(indexPath);
+      } else {
+        console.error('Production index.html not found');
+        // Criar um conteúdo de erro básico
+        await mainWindow.loadURL('data:text/html;charset=utf-8,<h1>Error: Application files not found</h1>');
+      }
+    } catch (e) {
+      console.error('Failed to load production file:', e.message);
+    }
   }
 
   // Mostra a janela quando estiver pronta
@@ -77,7 +181,10 @@ async function createWindow() {
 }
 
 // Inicializa o app quando estiver pronto
-app.whenReady().then(createWindow);
+app.whenReady().then(createWindow).catch(err => {
+  console.error('Failed to create window:', err);
+  app.quit();
+});
 
 // Fecha a aplicação quando todas as janelas forem fechadas (exceto no macOS)
 app.on('window-all-closed', () => {
@@ -89,21 +196,28 @@ app.on('window-all-closed', () => {
 // No macOS, recria a janela quando o ícone do dock for clicado
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
+    createWindow().catch(err => {
+      console.error('Failed to recreate window:', err);
+    });
   }
 });
 
 // Game detection functions
 async function scanForGames() {
-  const steamGames = getSteamGames();
-  const epicGames = getEpicGames();
-  const xboxGames = getXboxGames();
+  try {
+    const steamGames = getSteamGames();
+    const epicGames = getEpicGames();
+    const xboxGames = getXboxGames();
 
-  return {
-    steam: await steamGames,
-    epic: await epicGames,
-    xbox: await xboxGames
-  };
+    return {
+      steam: await steamGames,
+      epic: await epicGames,
+      xbox: await xboxGames
+    };
+  } catch (error) {
+    console.error('Error scanning games:', error);
+    return { steam: [], epic: [], xbox: [] };
+  }
 }
 
 async function getSteamGames() {
@@ -469,11 +583,21 @@ async function launchXboxGame(game) {
 
 // IPC handlers for communication with renderer process
 ipcMain.handle('scan-games', async () => {
-  return await scanForGames();
+  try {
+    return await scanForGames();
+  } catch (error) {
+    console.error('Error in scan-games handler:', error);
+    return { steam: [], epic: [], xbox: [] };
+  }
 });
 
 ipcMain.handle('get-system-info', async () => {
-  return await getSystemInfo();
+  try {
+    return await getSystemInfo();
+  } catch (error) {
+    console.error('Error in get-system-info handler:', error);
+    return { cpu: {}, memory: {}, gpu: {}, os: {} };
+  }
 });
 
 ipcMain.handle('launch-game', async (event, game) => {
@@ -484,7 +608,7 @@ ipcMain.handle('launch-game', async (event, game) => {
     console.error('Error in launch-game handler:', error);
     return {
       success: false,
-      error: error.message
+      error: error.message || 'Unknown error'
     };
   }
 });
