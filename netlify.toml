@@ -2,9 +2,16 @@
   command = "npm run build"
   publish = "dist"
   functions = "netlify/functions"
+  # Ignore os erros em dependências nativas não essenciais para o site web
+  ignore = "grep -s -q 'registry-js\|unix-dgram\|electron' <<< \"$COMMIT_REF\""
 
 [build.environment]
-  NODE_VERSION = "20"
+  NODE_VERSION = "18.16.0"  # Mudando para uma versão LTS mais estável
+  # Desabilita a instalação de dependências nativas problemáticas durante o build do Netlify
+  NPM_FLAGS = "--no-optional --no-audit --no-fund --ignore-scripts"
+  ELECTRON_SKIP_BINARY_DOWNLOAD = "1"
+  SHARP_SKIP_DOWNLOAD = "true"
+  PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD = "1"
 
 [[redirects]]
   from = "/*"
@@ -58,3 +65,22 @@
   publish = "dist"
   autoLaunch = true
   framework = "#custom"
+
+# Novas configurações para pular módulos problemáticos
+[build.processing]
+  skip_processing = true
+
+# Configuração específica para evitar erros em módulos nativos
+[build.processing.css]
+  bundle = false
+  minify = false
+
+[build.processing.js]
+  bundle = false
+  minify = false
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = false

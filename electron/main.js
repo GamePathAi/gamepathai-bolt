@@ -1,15 +1,38 @@
-import { app, BrowserWindow, ipcMain } from 'electron';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { Registry } from 'registry-js';
-import * as si from 'systeminformation';
-import Store from 'electron-store';
-import fs from 'fs/promises';
-import { spawn } from 'child_process';
+// electron/main.js
+const { app, BrowserWindow, ipcMain } = require('electron');
+const path = require('path');
+const fs = require('fs').promises;
+const { spawn } = require('child_process');
 
-// Inicialização de diretórios
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Importações com tratamento de erros para módulos nativos opcionais
+let Registry, si, Store;
+try {
+  Registry = require('registry-js').Registry;
+} catch (e) {
+  console.warn('registry-js not available:', e.message);
+  Registry = { getValue: () => null, HKEY: { LOCAL_MACHINE: 0 } };
+}
+
+try {
+  si = require('systeminformation');
+} catch (e) {
+  console.warn('systeminformation not available:', e.message);
+  si = { 
+    cpu: async () => ({}),
+    mem: async () => ({}), 
+    graphics: async () => ({ controllers: [{}] }),
+    osInfo: async () => ({})
+  };
+}
+
+try {
+  Store = require('electron-store');
+} catch (e) {
+  console.warn('electron-store not available:', e.message);
+  Store = class FakeStore { constructor() {} get() {} set() {} };
+}
+
+// Inicializar o store
 const store = new Store();
 
 // Variável para a janela principal
@@ -21,10 +44,21 @@ async function createWindow() {
     width: 1280,
     height: 720,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
-    }
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js')
+    },
+    show: false // Não mostra até carregar completamente
   });
+
+  // Definir ícone baseado na plataforma
+  if (process.platform === 'win32') {
+    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.ico'));
+  } else if (process.platform === 'darwin') {
+    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.icns'));
+  } else {
+    mainWindow.setIcon(path.join(__dirname, '../public/icons/icon.png'));
+  }
 
   // In development, load from Vite dev server
   if (process.env.NODE_ENV === 'development') {
@@ -35,6 +69,11 @@ async function createWindow() {
     const indexPath = path.join(__dirname, '../dist/index.html');
     await mainWindow.loadFile(indexPath);
   }
+
+  // Mostra a janela quando estiver pronta
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 }
 
 // Inicializa o app quando estiver pronto
@@ -162,6 +201,11 @@ async function getSteamGames() {
 
 async function getEpicGames() {
   try {
+    if (!process.env.LOCALAPPDATA) {
+      console.log('LOCALAPPDATA environment variable not set');
+      return [];
+    }
+
     // Get Epic Games installation path from registry
     const epicManifestPath = path.join(
       process.env.LOCALAPPDATA,
@@ -229,6 +273,11 @@ async function getEpicGames() {
 
 async function getXboxGames() {
   try {
+    if (!process.env.ProgramFiles) {
+      console.log('ProgramFiles environment variable not set');
+      return [];
+    }
+
     // Check Windows Gaming registry keys
     const gamingPath = Registry.getValue(
       Registry.HKEY.LOCAL_MACHINE,
@@ -300,17 +349,27 @@ async function getXboxGames() {
 
 // System monitoring functions
 async function getSystemInfo() {
-  const cpu = await si.cpu();
-  const mem = await si.mem();
-  const gpu = await si.graphics();
-  const os = await si.osInfo();
+  try {
+    const cpu = await si.cpu();
+    const mem = await si.mem();
+    const gpu = await si.graphics();
+    const os = await si.osInfo();
 
-  return {
-    cpu,
-    memory: mem,
-    gpu: gpu.controllers[0],
-    os
-  };
+    return {
+      cpu,
+      memory: mem,
+      gpu: gpu.controllers[0],
+      os
+    };
+  } catch (error) {
+    console.error('Error getting system info:', error);
+    return {
+      cpu: {},
+      memory: {},
+      gpu: {},
+      os: {}
+    };
+  }
 }
 
 // Game launching functions
@@ -409,8 +468,6 @@ async function launchXboxGame(game) {
 }
 
 // IPC handlers for communication with renderer process
-import { ipcMain } from 'electron';
-
 ipcMain.handle('scan-games', async () => {
   return await scanForGames();
 });
