@@ -430,6 +430,7 @@ class NetworkMetrics {
     const bandwidth = await this.estimateBandwidth();
     const packetLoss = await this.calculatePacketLoss();
     const gameServers = await this.measureLatency(GAME_SERVERS);
+    const traceroute = await this.traceRoute();
     
     return {
       latency,
@@ -437,6 +438,7 @@ class NetworkMetrics {
       bandwidth,
       packetLoss,
       gameServers,
+      traceroute,
       timestamp: Date.now()
     };
   }

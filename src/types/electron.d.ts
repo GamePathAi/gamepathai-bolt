@@ -87,6 +87,7 @@ interface ElectronAPI {
   }>;
   
   // VPN functions
+  getVpnServers: () => Promise<any[]>;
   connectToVpn: (server: any) => Promise<{
     success: boolean;
     error?: string;
@@ -94,6 +95,22 @@ interface ElectronAPI {
   disconnectFromVpn: () => Promise<{
     success: boolean;
     error?: string;
+  }>;
+  getVpnStatus: () => Promise<{
+    isConnected: boolean;
+    server?: any;
+    connectionTime?: Date;
+    metrics?: {
+      download: number;
+      upload: number;
+      latency: number;
+      uptime: string;
+    };
+  }>;
+  testVpnSpeed: () => Promise<{
+    download: number;
+    upload: number;
+    latency: number;
   }>;
 }
 
