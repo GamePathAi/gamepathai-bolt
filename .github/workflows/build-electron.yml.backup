@@ -1,0 +1,104 @@
+CONTE�DO_DO_YAML_ACIMA
+name: Build & Release Electron App
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write # Garante permissões para criar releases
+  
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    name: Build for Windows
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+
+      - name: Instalar dependências
+        run: npm ci
+
+      # Modificar temporariamente o package.json para evitar problemas com dependências nativas
+      - name: Configurar para build
+        shell: pwsh
+        run: |
+          $packageJson = Get-Content -Path package.json -Raw | ConvertFrom-Json
+          $packageJson.build.publish = @(@{provider="github"; owner="GamePathAi"; repo="gamepathai-bolt"; private=$false})
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
+          
+      - name: Build com Electron
+        run: npm run electron:build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
+          USE_HARD_LINKS: "false"
+          ELECTRON_RUN: "true"
+
+      - name: Verificar saída do build
+        shell: pwsh
+        run: |
+          Write-Host "Conteúdo da pasta dist-electron (se existir):"
+          if (Test-Path dist-electron) { Get-ChildItem -Path dist-electron -Recurse | Format-Table FullName, Length -AutoSize }
+          
+          Write-Host "Conteúdo da pasta dist (se existir):"
+          if (Test-Path dist) { Get-ChildItem -Path dist -Recurse | Format-Table FullName, Length -AutoSize }
+          
+          Write-Host "Conteúdo da pasta build (se existir):"
+          if (Test-Path build) { Get-ChildItem -Path build -Recurse | Format-Table FullName, Length -AutoSize }
+          
+          Write-Host "Conteúdo da pasta release (se existir):"
+          if (Test-Path release) { Get-ChildItem -Path release -Recurse | Format-Table FullName, Length -AutoSize }
+          
+          Write-Host "Todos os arquivos .exe encontrados:"
+          Get-ChildItem -Path . -Recurse -Filter "*.exe" | Select-Object FullName, Length | Format-Table -AutoSize
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: |
+            dist-electron/*.exe
+            dist/*.exe
+            build/*.exe
+            release/*.exe
+            **/*.exe
+          retention-days: 5
+          if-no-files-found: warn
+
+  create-release:
+    needs: [build-windows]
+    runs-on: ubuntu-latest
+    name: Create GitHub Release
+    steps:
+      - name: Download Windows artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-build
+          path: artifacts/windows
+
+      - name: Display artifacts structure
+        run: |
+          echo "Verificando estrutura dos artefatos:"
+          find artifacts -type f | sort
+          echo "Tamanho dos arquivos:"
+          du -h artifacts/*/* || echo "Não foi possível verificar o tamanho dos arquivos"
+          ls -la artifacts/windows/
+
+      - name: Criar release no GitHub
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/windows/*.exe
+            artifacts/**/*.exe
+          generate_release_notes: true
+          draft: false
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
