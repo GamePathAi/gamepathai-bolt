@@ -1,9 +1,12 @@
 {
   "name": "gamepath-ai",
+  "productName": "GamePath AI",
   "private": true,
   "version": "0.1.0",
   "main": "electron/main.js",
   "type": "module",
+  "description": "GamePath AI - Inteligência artificial para gaming",
+  "author": "GamePathAI Team",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -13,34 +16,109 @@
     "analyze": "vite-bundle-analyzer",
     "electron:dev": "concurrently \"vite\" \"electron .\"",
     "electron:build": "vite build && electron-builder",
-    "deploy": "vite build && netlify deploy --prod"
+    "electron:build:dir": "vite build && electron-builder --dir",
+    "electron:build:win": "vite build && electron-builder --win",
+    "electron:build:mac": "vite build && electron-builder --mac",
+    "electron:build:linux": "vite build && electron-builder --linux",
+    "deploy": "vite build && netlify deploy --prod",
+    "postinstall": "electron-builder install-app-deps"
   },
   "build": {
     "appId": "ai.gamepath.app",
     "productName": "GamePath AI",
     "directories": {
-      "output": "dist"
+      "output": "dist-electron",
+      "buildResources": "public"
     },
+    "asar": true,
     "files": [
       "dist/**/*",
-      "electron/**/*"
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "public",
+        "to": "public"
+      }
     ],
     "win": {
-      "target": "nsis",
-      "icon": "public/icons/icon.ico"
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icons/icon.ico",
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "mac": {
-      "target": "dmg",
-      "icon": "public/icons/icon.icns"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ],
+      "icon": "public/icons/icon.icns",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "public.app-category.developer-tools"
     },
     "linux": {
-      "target": "AppImage",
-      "icon": "public/icons/icon.png"
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "public/icons/icon.png",
+      "artifactName": "${productName}-${version}-${arch}.${ext}",
+      "category": "Development"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "GamePath AI"
+    },
+    "dmg": {
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 400
+      }
+    },
+    "publish": {
+      "provider": "github",
+      "releaseType": "release"
     }
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.39.3",
-    "@tensorflow/tfjs": "^4.17.0", 
+    "@tensorflow/tfjs": "^4.17.0",
     "@tensorflow/tfjs-backend-wasm": "^4.17.0",
     "@tensorflow/tfjs-core": "^4.17.0",
     "comlink": "^4.4.1",

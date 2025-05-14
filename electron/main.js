@@ -7,24 +7,23 @@ import Store from 'electron-store';
 import fs from 'fs/promises';
 import { spawn } from 'child_process';
 
+// Inicialização de diretórios
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-
 const store = new Store();
 
+// Variável para a janela principal
 let mainWindow;
 
+// Cria a janela principal
 async function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 720,
     webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js')
-    },
-    show: false, // Não mostra até carregar completamente
-    icon: path.join(process.resourcesPath || __dirname, 'public/icons/icon.png')
+      nodeIntegration: true,
+      contextIsolation: false
+    }
   });
 
   // In development, load from Vite dev server
@@ -32,24 +31,23 @@ async function createWindow() {
     await mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production, load the built files
-    await mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // No modo de produção, carrega do diretório dist
+    const indexPath = path.join(__dirname, '../dist/index.html');
+    await mainWindow.loadFile(indexPath);
   }
-  
-  // Mostra a janela quando estiver pronta
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
 }
 
+// Inicializa o app quando estiver pronto
 app.whenReady().then(createWindow);
 
+// Fecha a aplicação quando todas as janelas forem fechadas (exceto no macOS)
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
+// No macOS, recria a janela quando o ícone do dock for clicado
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
     createWindow();
@@ -86,7 +84,7 @@ async function getSteamGames() {
     // Read Steam library folders configuration
     const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
     let libraryFoldersContent;
-    
+
     try {
       libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
     } catch (error) {
@@ -98,7 +96,7 @@ async function getSteamGames() {
     const libraryPaths = [steamPath];
     const libraryRegex = /"path"\s+"([^"]+)"/g;
     let match;
-    
+
     while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
       libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
     }
@@ -108,34 +106,34 @@ async function getSteamGames() {
     // Scan each library folder for installed games
     for (const libraryPath of libraryPaths) {
       const appsPath = path.join(libraryPath, 'steamapps');
-      
+
       try {
         const files = await fs.readdir(appsPath);
-        
+
         // Look for appmanifest files which contain game information
         const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
-        
+
         for (const manifest of manifests) {
           try {
             const manifestPath = path.join(appsPath, manifest);
             const manifestContent = await fs.readFile(manifestPath, 'utf8');
-            
+
             // Parse game information from manifest
             const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
             const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
             const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
             const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
-            
+
             if (nameMatch && appIdMatch && installDirMatch) {
               const name = nameMatch[1];
               const appId = appIdMatch[1];
               const installDir = installDirMatch[1];
               const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
               const sizeInGB = Math.round(sizeInBytes / (1024 * 1024 * 1024));
-              
+
               const gamePath = path.join(appsPath, 'common', installDir);
               const executablePath = path.join(gamePath, `${installDir}.exe`);
-              
+
               games.push({
                 id: appId,
                 name,
@@ -249,31 +247,31 @@ async function getXboxGames() {
 
     try {
       const entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
-      
+
       for (const entry of entries) {
         if (entry.isDirectory() && entry.name.includes('Microsoft.Xbox')) {
           try {
             const gamePath = path.join(windowsAppsPath, entry.name);
             const manifestPath = path.join(gamePath, 'AppxManifest.xml');
-            
+
             // Read and parse the AppxManifest.xml file
             const manifestContent = await fs.readFile(manifestPath, 'utf8');
-            
+
             // Extract game information from manifest
             const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
             const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
-            
+
             if (nameMatch && executableMatch) {
               const name = nameMatch[1];
               const executableName = executableMatch[1];
-              
+
               // Get game size
               const stats = await fs.stat(gamePath);
               const sizeInGB = Math.round(stats.size / (1024 * 1024 * 1024));
-              
+
               // Generate a unique ID from the directory name
               const id = entry.name.split('_')[0];
-              
+
               games.push({
                 id,
                 name,
@@ -411,6 +409,8 @@ async function launchXboxGame(game) {
 }
 
 // IPC handlers for communication with renderer process
+import { ipcMain } from 'electron';
+
 ipcMain.handle('scan-games', async () => {
   return await scanForGames();
 });
@@ -425,9 +425,9 @@ ipcMain.handle('launch-game', async (event, game) => {
     return { success };
   } catch (error) {
     console.error('Error in launch-game handler:', error);
-    return { 
-      success: false, 
-      error: error.message 
+    return {
+      success: false,
+      error: error.message
     };
   }
 });

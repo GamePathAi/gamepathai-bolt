@@ -21,13 +21,15 @@ jobs:
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lista arquivos gerados
+        run: dir dist-electron
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v3
         with:
           name: windows-build
           path: |
-            dist/**/*.exe
-            dist/**/*.msi
+            dist-electron/**/*.exe
+            dist-electron/**/*.msi
           retention-days: 5
   build-mac:
     runs-on: macos-latest
@@ -46,13 +48,15 @@ jobs:
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lista arquivos gerados
+        run: ls -la dist-electron
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v3
         with:
           name: macos-build
           path: |
-            dist/**/*.dmg
-            dist/**/*.pkg
+            dist-electron/**/*.dmg
+            dist-electron/**/*.pkg
           retention-days: 5
   build-linux:
     runs-on: ubuntu-latest
@@ -71,15 +75,17 @@ jobs:
         run: npm run electron:build
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Lista arquivos gerados
+        run: ls -la dist-electron
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v3
         with:
           name: linux-build
           path: |
-            dist/**/*.AppImage
-            dist/**/*.deb
-            dist/**/*.rpm
-            dist/**/*.snap
+            dist-electron/**/*.AppImage
+            dist-electron/**/*.deb
+            dist-electron/**/*.rpm
+            dist-electron/**/*.snap
           retention-days: 5
   release:
     needs: [build-windows, build-mac, build-linux]
