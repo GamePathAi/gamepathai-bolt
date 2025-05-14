@@ -1,18 +1,18 @@
-name: Build & Release Electron App
+ï»¿name: Build & Release Electron App
 on:
   push:
     tags:
       - 'v*'
 
 permissions:
-  contents: write # Garante permissões para criar releases
+  contents: write # Garante permissÃµes para criar releases
   
 jobs:
   build-windows:
     runs-on: windows-latest
     name: Build for Windows
     steps:
-      - name: Checkout código
+      - name: Checkout cÃ³digo
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -21,10 +21,10 @@ jobs:
           node-version: 18
           cache: 'npm'
 
-      - name: Instalar dependências
+      - name: Instalar dependÃªncias
         run: npm ci
 
-      # Modificar temporariamente o package.json para evitar problemas com dependências nativas
+      # Modificar temporariamente o package.json para evitar problemas com dependÃªncias nativas
       - name: Configurar para build
         shell: pwsh
         run: |
@@ -32,42 +32,30 @@ jobs:
           $packageJson.build.publish = @(@{provider="github"; owner="GamePathAi"; repo="gamepathai-bolt"; private=$false})
           $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
           
-      - name: Build com Electron
-        run: npm run electron:build
+      - name: Build com mÃ©todo seguro
+        run: npm run electron:build:safe
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
           USE_HARD_LINKS: "false"
           ELECTRON_RUN: "true"
 
-      - name: Verificar saída do build
+      - name: Verificar saÃ­da do build
         shell: pwsh
         run: |
-          Write-Host "Conteúdo da pasta dist-electron (se existir):"
-          if (Test-Path dist-electron) { Get-ChildItem -Path dist-electron -Recurse | Format-Table FullName, Length -AutoSize }
+          Write-Host "ConteÃºdo da pasta temp-dist (onde estÃ¡ nosso build seguro):"
+          if (Test-Path temp-dist) { Get-ChildItem -Path temp-dist -Recurse | Format-Table FullName, Length -AutoSize }
           
-          Write-Host "Conteúdo da pasta dist (se existir):"
-          if (Test-Path dist) { Get-ChildItem -Path dist -Recurse | Format-Table FullName, Length -AutoSize }
-          
-          Write-Host "Conteúdo da pasta build (se existir):"
-          if (Test-Path build) { Get-ChildItem -Path build -Recurse | Format-Table FullName, Length -AutoSize }
-          
-          Write-Host "Conteúdo da pasta release (se existir):"
-          if (Test-Path release) { Get-ChildItem -Path release -Recurse | Format-Table FullName, Length -AutoSize }
-          
-          Write-Host "Todos os arquivos .exe encontrados:"
-          Get-ChildItem -Path . -Recurse -Filter "*.exe" | Select-Object FullName, Length | Format-Table -AutoSize
+          Write-Host "Verificando diretamente os executÃ¡veis criados:"
+          Get-ChildItem -Path temp-dist -Recurse -Filter "*.exe" | Select-Object FullName, Length | Format-Table -AutoSize
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
-            dist-electron/*.exe
-            dist/*.exe
-            build/*.exe
-            release/*.exe
-            **/*.exe
+            temp-dist/*.exe
+            temp-dist/win-unpacked/*.exe
           retention-days: 5
           if-no-files-found: warn
 
@@ -87,7 +75,7 @@ jobs:
           echo "Verificando estrutura dos artefatos:"
           find artifacts -type f | sort
           echo "Tamanho dos arquivos:"
-          du -h artifacts/*/* || echo "Não foi possível verificar o tamanho dos arquivos"
+          du -h artifacts/*/* || echo "NÃ£o foi possÃ­vel verificar o tamanho dos arquivos"
           ls -la artifacts/windows/
 
       - name: Criar release no GitHub
@@ -95,7 +83,6 @@ jobs:
         with:
           files: |
             artifacts/windows/*.exe
-            artifacts/**/*.exe
           generate_release_notes: true
           draft: false
           fail_on_unmatched_files: false
