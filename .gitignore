@@ -48,3 +48,8 @@ coverage/
 # Misc
 .DS_Store
 Thumbs.db
+# Temporary build directories
+Handle/
+Handle.zip
+temp-build/
+temp-dist/
