@@ -8,10 +8,20 @@ export function useGameScanner() {
   const [error, setError] = useState<string | null>(null);
   const [lastScanTime, setLastScanTime] = useState<Date | null>(null);
 
+  // Load games on mount
   useEffect(() => {
-    // Carregar jogos iniciais
-    scanForGames();
+    loadGames();
   }, []);
+
+  const loadGames = async () => {
+    try {
+      const { data, error } = await gameScanner.getInstalledGames();
+      if (error) throw error;
+      setGames(data || []);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to load games');
+    }
+  };
 
   const scanForGames = useCallback(async () => {
     if (isScanning) return [];
@@ -20,16 +30,17 @@ export function useGameScanner() {
     setError(null);
     
     try {
-      const results = await gameScanner.scanForGames();
+      const result = await gameScanner.scanForGames();
       
-      // Combinar resultados
-      const allGames = results.games || [];
+      if (result.errors.length > 0) {
+        console.warn('Scan completed with errors:', result.errors);
+      }
       
-      setGames(allGames);
+      await loadGames(); // Reload games after scan
       setLastScanTime(new Date());
-      return allGames;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao escanear jogos');
+      return result.games || [];
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to scan for games');
       return [];
     } finally {
       setIsScanning(false);
@@ -38,10 +49,15 @@ export function useGameScanner() {
 
   const launchGame = useCallback(async (gameId: string) => {
     try {
+      const isValid = await gameScanner.validateGameFiles(gameId);
+      if (!isValid) {
+        setError('Game files are corrupted or missing. Please verify the installation.');
+        return false;
+      }
       await gameScanner.launchGame(gameId);
       return true;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao iniciar jogo');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to launch game');
       return false;
     }
   }, []);
@@ -50,8 +66,8 @@ export function useGameScanner() {
     try {
       const result = await gameScanner.optimizeGame(gameId, profile);
       return result;
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao otimizar jogo');
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Failed to optimize game');
       return false;
     }
   }, []);

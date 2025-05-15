@@ -1,7 +1,12 @@
 export enum Platform {
   Steam = 'Steam',
   Epic = 'Epic',
-  Riot = 'Riot'
+  Riot = 'Riot',
+  Origin = 'Origin',
+  Battle = 'Battle.net',
+  Ubisoft = 'Ubisoft Connect',
+  GOG = 'GOG',
+  Other = 'Other'
 }
 
 export interface GameInfo {
@@ -16,6 +21,7 @@ export interface GameInfo {
   optimized?: boolean;
   status?: string;
   version?: string;
+  executablePath?: string;
 }
 
 export interface GameSignature {
