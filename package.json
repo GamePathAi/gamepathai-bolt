@@ -160,6 +160,7 @@
                          "react-dom":  "^18.3.1",
                          "react-i18next":  "^14.1.0",
                          "react-router-dom":  "^6.22.3",
+                         "registry-js":  "^1.15.1",
                          "sharp":  "^0.33.2",
                          "systeminformation":  "^5.22.0",
                          "vite-plugin-image-optimizer":  "^1.1.7",
@@ -167,7 +168,11 @@
                          "workbox-window":  "^7.0.0",
                          "ws":  "^8.16.0",
                          "zod":  "^3.22.4",
-                         "zustand":  "^4.5.2"
+                         "zustand":  "^4.5.2",
+                         "ping":  "^0.4.4",
+                         "tcp-ping":  "^0.1.1",
+                         "find-process":  "^1.4.7",
+                         "vdf-parser":  "^1.2.1"
                      },
     "optionalDependencies":  {
                                  "unix-dgram":  "^2.0.6"

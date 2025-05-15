@@ -48,7 +48,7 @@ class GameScanner {
               id: game.id,
               name: game.name,
               platform: 'Steam',
-              process_name: game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
               install_path: game.installPath,
               icon_url: game.iconUrl,
               size: game.size,
@@ -66,7 +66,7 @@ class GameScanner {
               id: game.id,
               name: game.name,
               platform: 'Epic',
-              process_name: game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
               install_path: game.installPath,
               icon_url: game.iconUrl,
               size: game.size,
@@ -84,7 +84,79 @@ class GameScanner {
               id: game.id,
               name: game.name,
               platform: 'Xbox',
-              process_name: game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
+              install_path: game.installPath,
+              icon_url: game.iconUrl,
+              size: game.size,
+              last_played: game.lastPlayed ? new Date(game.lastPlayed) : undefined,
+              optimized: false,
+              status: 'installed'
+            });
+          }
+        }
+        
+        // Processar jogos Origin
+        if (electronGames.origin && Array.isArray(electronGames.origin)) {
+          for (const game of electronGames.origin) {
+            games.push({
+              id: game.id,
+              name: game.name,
+              platform: 'Origin',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
+              install_path: game.installPath,
+              icon_url: game.iconUrl,
+              size: game.size,
+              last_played: game.lastPlayed ? new Date(game.lastPlayed) : undefined,
+              optimized: false,
+              status: 'installed'
+            });
+          }
+        }
+        
+        // Processar jogos Battle.net
+        if (electronGames.battlenet && Array.isArray(electronGames.battlenet)) {
+          for (const game of electronGames.battlenet) {
+            games.push({
+              id: game.id,
+              name: game.name,
+              platform: 'Battle.net',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
+              install_path: game.installPath,
+              icon_url: game.iconUrl,
+              size: game.size,
+              last_played: game.lastPlayed ? new Date(game.lastPlayed) : undefined,
+              optimized: false,
+              status: 'installed'
+            });
+          }
+        }
+        
+        // Processar jogos GOG
+        if (electronGames.gog && Array.isArray(electronGames.gog)) {
+          for (const game of electronGames.gog) {
+            games.push({
+              id: game.id,
+              name: game.name,
+              platform: 'GOG',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
+              install_path: game.installPath,
+              icon_url: game.iconUrl,
+              size: game.size,
+              last_played: game.lastPlayed ? new Date(game.lastPlayed) : undefined,
+              optimized: false,
+              status: 'installed'
+            });
+          }
+        }
+        
+        // Processar jogos Uplay
+        if (electronGames.uplay && Array.isArray(electronGames.uplay)) {
+          for (const game of electronGames.uplay) {
+            games.push({
+              id: game.id,
+              name: game.name,
+              platform: 'Ubisoft Connect',
+              process_name: game.process_name || (game.name.replace(/[^a-zA-Z0-9]/g, '') + '.exe'),
               install_path: game.installPath,
               icon_url: game.iconUrl,
               size: game.size,
