@@ -22,7 +22,9 @@ jobs:
           cache: 'npm'
 
       - name: Instalar dependências
-        run: npm ci
+        run: npm install --ignore-scripts
+        env:
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
 
       # Modificar temporariamente o package.json para evitar problemas com dependências nativas
       - name: Configurar para build
@@ -33,7 +35,7 @@ jobs:
           $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
           
       - name: Build com método seguro
-        run: npm run electron:build:safe
+        run: rimraf temp-dist && npm run build && npx electron-builder --win nsis --config.asar=false --config.directories.output=temp-dist --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
