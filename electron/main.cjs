@@ -68,6 +68,67 @@ try {
 // Inicializar o store
 const store = new Store();
 
+// Importação dinâmica para trabalhar com TypeScript compilado
+let getSteamGames, getEpicGames, getXboxGames, getOriginGames, 
+    getBattleNetGames, getGOGGames, getUplayGames;
+
+try {
+  getSteamGames = require('./src/lib/getSteamGames').default || require('./src/lib/getSteamGames');
+  console.log('Successfully loaded Steam games module');
+} catch (e) {
+  console.warn('Steam games module not available:', e.message);
+  // Será definido pela implementação interna mais tarde
+  getSteamGames = null;
+}
+
+try {
+  getEpicGames = require('./src/lib/getEpicGames').default || require('./src/lib/getEpicGames');
+  console.log('Successfully loaded Epic games module');
+} catch (e) {
+  console.warn('Epic games module not available:', e.message);
+  getEpicGames = null;
+}
+
+try {
+  getXboxGames = require('./src/lib/getXboxGames').default || require('./src/lib/getXboxGames');
+  console.log('Successfully loaded Xbox games module');
+} catch (e) {
+  console.warn('Xbox games module not available:', e.message);
+  getXboxGames = null;
+}
+
+try {
+  getOriginGames = require('./src/lib/getOriginGames').default || require('./src/lib/getOriginGames');
+  console.log('Successfully loaded Origin games module');
+} catch (e) {
+  console.warn('Origin games module not available:', e.message);
+  getOriginGames = null;
+}
+
+try {
+  getBattleNetGames = require('./src/lib/getBattleNetGames').default || require('./src/lib/getBattleNetGames');
+  console.log('Successfully loaded Battle.net games module');
+} catch (e) {
+  console.warn('Battle.net games module not available:', e.message);
+  getBattleNetGames = null;
+}
+
+try {
+  getGOGGames = require('./src/lib/getGOGGames').default || require('./src/lib/getGOGGames');
+  console.log('Successfully loaded GOG games module');
+} catch (e) {
+  console.warn('GOG games module not available:', e.message);
+  getGOGGames = null;
+}
+
+try {
+  getUplayGames = require('./src/lib/getUplayGames').default || require('./src/lib/getUplayGames');
+  console.log('Successfully loaded Uplay games module');
+} catch (e) {
+  console.warn('Uplay games module not available:', e.message);
+  getUplayGames = null;
+}
+
 // Carregar módulos de funcionalidades
 let networkMetrics, systemMonitor, fpsOptimizer, vpnManager;
 
@@ -103,7 +164,10 @@ try {
       gpu: { usage: 40, temperature: 65, memoryUsed: 2000, memoryTotal: 8000 },
       network: { latency: 30, bandwidth: 100, packetLoss: 0.1 }
     }),
-    optimizeForGaming: async () => ({ success: true })
+    optimizeForGaming: async () => ({ success: true }),
+    optimizeProcesses: async () => ({ success: true, details: {} }),
+    optimizeMemory: async () => ({ success: true, details: {} }),
+    optimizeDisk: async () => ({ success: true, details: {} })
   };
 }
 
@@ -371,1148 +435,1119 @@ app.on('activate', () => {
   }
 });
 
-// Game detection functions
-async function scanForGames() {
-  console.log('Scanning for installed games...');
-  try {
-    const steamGames = getSteamGames();
-    const epicGames = getEpicGames();
-    const xboxGames = getXboxGames();
-    const originGames = getOriginGames();
-    const battleNetGames = getBattleNetGames();
-    const gogGames = getGOGGames();
-    const uplayGames = getUplayGames();
-
-    const results = {
-      steam: await steamGames,
-      epic: await epicGames,
-      xbox: await xboxGames,
-      origin: await originGames,
-      battlenet: await battleNetGames,
-      gog: await gogGames,
-      uplay: await uplayGames
-    };
-    
-    console.log(`Found ${results.steam.length} Steam games, ${results.epic.length} Epic games, ${results.xbox.length} Xbox games, ${results.origin.length} Origin games, ${results.battlenet.length} Battle.net games, ${results.gog.length} GOG games, ${results.uplay.length} Uplay games`);
-    return results;
-  } catch (error) {
-    console.error('Error scanning games:', error);
-    return { 
-      steam: [], 
-      epic: [], 
-      xbox: [],
-      origin: [],
-      battlenet: [],
-      gog: [],
-      uplay: []
-    };
-  }
-}
-
-async function getSteamGames() {
-  console.log('Scanning for Steam games...');
-  try {
-    // Tentar obter o caminho do Steam do registro
-    let steamPath = null;
-    
-    // Tentar primeiro HKEY_CURRENT_USER
-    steamPath = Registry.getValue(
-      Registry.HKEY.CURRENT_USER,
-      'SOFTWARE\\Valve\\Steam',
-      'SteamPath'
-    );
-    
-    // Se não encontrar, tentar HKEY_LOCAL_MACHINE
-    if (!steamPath) {
-      steamPath = Registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        'SOFTWARE\\WOW6432Node\\Valve\\Steam',
-        'InstallPath'
-      );
-    }
-    
-    // Se ainda não encontrar, tentar caminhos padrão
-    if (!steamPath) {
-      console.log('Steam installation not found in registry, trying default paths');
-      const defaultPaths = [
-        path.join(os.homedir(), 'Steam'),
-        path.join(os.homedir(), '.steam', 'steam'),
-        'C:\\Program Files (x86)\\Steam',
-        'C:\\Program Files\\Steam',
-        path.join(os.homedir(), 'Library', 'Application Support', 'Steam')
-      ];
-      
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          steamPath = defaultPath;
-          console.log(`Found Steam at default path: ${steamPath}`);
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
-      }
-    }
-
-    if (!steamPath) {
-      console.log('Steam installation not found');
-      return [];
-    }
-
-    console.log('Steam installation found at:', steamPath);
-
-    // Ler configuração de bibliotecas do Steam
-    const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
-    let libraryFoldersContent;
-
+// Game detection functions - implementações internas como fallback
+// Se os módulos importados não estiverem disponíveis, usamos estas implementações
+if (!getSteamGames) {
+  getSteamGames = async function() {
+    console.log('Using internal Steam games scanner');
     try {
-      libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
-      console.log('Read Steam library folders configuration');
-    } catch (error) {
-      console.error('Error reading Steam library folders:', error);
+      // Tentar obter o caminho do Steam do registro
+      let steamPath = null;
       
-      // Tentar caminho alternativo para o arquivo de configuração
-      const altLibraryFoldersPath = path.join(steamPath, 'config', 'libraryfolders.vdf');
-      try {
-        libraryFoldersContent = await fs.readFile(altLibraryFoldersPath, 'utf8');
-        console.log('Read Steam library folders from alternate path');
-      } catch (altError) {
-        console.error('Error reading alternate Steam library folders:', altError);
-        return [];
-      }
-    }
-
-    // Analisar bibliotecas do Steam
-    const libraryPaths = [steamPath];
-    const libraryRegex = /"path"\s+"([^"]+)"/g;
-    let match;
-
-    while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
-      libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
-    }
-
-    // Se não encontrou bibliotecas adicionais, tentar outro formato de arquivo
-    if (libraryPaths.length === 1) {
-      const altLibraryRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/gs;
-      let altMatch;
+      // Tentar primeiro HKEY_CURRENT_USER
+      steamPath = Registry.getValue(
+        Registry.HKEY.CURRENT_USER,
+        'SOFTWARE\\Valve\\Steam',
+        'SteamPath'
+      );
       
-      while ((altMatch = altLibraryRegex.exec(libraryFoldersContent)) !== null) {
-        libraryPaths.push(altMatch[2].replace(/\\\\/g, '\\'));
-      }
-    }
-
-    console.log('Found Steam library paths:', libraryPaths);
-
-    const games = [];
-
-    // Escanear cada biblioteca por jogos instalados
-    for (const libraryPath of libraryPaths) {
-      const appsPath = path.join(libraryPath, 'steamapps');
-      console.log('Scanning Steam library at:', appsPath);
-
-      try {
-        const files = await fs.readdir(appsPath);
-
-        // Procurar por arquivos appmanifest que contêm informações dos jogos
-        const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
-        console.log(`Found ${manifests.length} game manifests in ${appsPath}`);
-
-        for (const manifest of manifests) {
-          try {
-            const manifestPath = path.join(appsPath, manifest);
-            const manifestContent = await fs.readFile(manifestPath, 'utf8');
-
-            // Extrair informações do jogo do manifesto
-            const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
-            const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
-            const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
-            const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
-            const lastPlayedMatch = /"LastPlayed"\s+"(\d+)"/.exec(manifestContent);
-
-            if (nameMatch && appIdMatch && installDirMatch) {
-              const name = nameMatch[1];
-              const appId = appIdMatch[1];
-              const installDir = installDirMatch[1];
-              const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
-              const sizeInGB = Math.round(sizeInBytes / (1024 * 1024 * 1024) * 100) / 100;
-              const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
-
-              const gamePath = path.join(appsPath, 'common', installDir);
-              
-              // Tentar encontrar o executável principal
-              let executablePath = '';
-              try {
-                const gameFiles = await fs.readdir(gamePath);
-                const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
-                
-                // Tentar encontrar o executável com o mesmo nome do diretório
-                const mainExe = exeFiles.find(file => file.toLowerCase() === `${installDir.toLowerCase()}.exe`);
-                if (mainExe) {
-                  executablePath = path.join(gamePath, mainExe);
-                } else if (exeFiles.length > 0) {
-                  // Pegar o primeiro executável encontrado
-                  executablePath = path.join(gamePath, exeFiles[0]);
-                }
-              } catch (error) {
-                console.warn(`Could not scan executables for ${name}:`, error);
-              }
-
-              games.push({
-                id: appId,
-                name,
-                platform: 'Steam',
-                installPath: gamePath,
-                executablePath,
-                process_name: path.basename(executablePath || ''),
-                size: sizeInGB,
-                last_played: lastPlayed,
-                iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`
-              });
-              
-              console.log(`Found Steam game: ${name} (${appId})`);
-            }
-          } catch (error) {
-            console.error(`Error processing manifest ${manifest}:`, error);
-          }
-        }
-      } catch (error) {
-        console.error(`Error reading library folder ${libraryPath}:`, error);
-      }
-    }
-
-    console.log(`Scan complete. Found ${games.length} Steam games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Steam games:', error);
-    return [];
-  }
-}
-
-async function getEpicGames() {
-  console.log('Scanning for Epic Games...');
-  try {
-    // Determinar o caminho para os arquivos de manifesto do Epic Games Launcher
-    let manifestPath = '';
-    
-    if (process.platform === 'win32') {
-      if (process.env.LOCALAPPDATA) {
-        manifestPath = path.join(
-          process.env.LOCALAPPDATA,
-          'EpicGamesLauncher',
-          'Saved',
-          'Config',
-          'Windows'
+      // Se não encontrar, tentar HKEY_LOCAL_MACHINE
+      if (!steamPath) {
+        steamPath = Registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          'SOFTWARE\\WOW6432Node\\Valve\\Steam',
+          'InstallPath'
         );
       }
-    } else if (process.platform === 'darwin') {
-      manifestPath = path.join(
-        os.homedir(),
-        'Library',
-        'Application Support',
-        'Epic',
-        'EpicGamesLauncher',
-        'Config'
-      );
-    } else {
-      // Linux
-      manifestPath = path.join(
-        os.homedir(),
-        '.config',
-        'Epic',
-        'EpicGamesLauncher'
-      );
-    }
-    
-    if (!manifestPath) {
-      console.log('Could not determine Epic Games Launcher config path');
-      return [];
-    }
-    
-    console.log('Looking for Epic Games manifests at:', manifestPath);
-    
-    // Verificar se o diretório existe
-    try {
-      await fs.access(manifestPath);
-    } catch (error) {
-      console.log('Epic Games Launcher config directory not found');
-      return [];
-    }
-    
-    // Procurar por arquivos de manifesto
-    const files = await fs.readdir(manifestPath);
-    
-    // Procurar pelo arquivo de instalação
-    const manifestFile = files.find(file => 
-      file === 'GameInstallation.json' || 
-      file === 'InstallationList.json'
-    );
-    
-    if (!manifestFile) {
-      console.log('No Epic Games installation manifest found');
-      return [];
-    }
-    
-    const manifestFilePath = path.join(manifestPath, manifestFile);
-    console.log('Found Epic Games manifest at:', manifestFilePath);
-    
-    // Ler o arquivo de manifesto
-    const manifestContent = await fs.readFile(manifestFilePath, 'utf8');
-    const manifest = JSON.parse(manifestContent);
-    
-    const games = [];
-    const installationList = manifest.InstallationList || [];
-    
-    console.log(`Found ${installationList.length} Epic games in manifest`);
-    
-    // Processar cada jogo instalado
-    for (const installation of installationList) {
-      try {
-        if (!installation.InstallLocation) {
-          console.log(`Skipping game with no install location: ${installation.DisplayName || 'Unknown'}`);
-          continue;
+      
+      // Se ainda não encontrar, tentar caminhos padrão
+      if (!steamPath) {
+        console.log('Steam installation not found in registry, trying default paths');
+        const defaultPaths = [
+          path.join(os.homedir(), 'Steam'),
+          path.join(os.homedir(), '.steam', 'steam'),
+          'C:\\Program Files (x86)\\Steam',
+          'C:\\Program Files\\Steam',
+          path.join(os.homedir(), 'Library', 'Application Support', 'Steam')
+        ];
+        
+        for (const defaultPath of defaultPaths) {
+          try {
+            await fs.access(defaultPath);
+            steamPath = defaultPath;
+            console.log(`Found Steam at default path: ${steamPath}`);
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
         }
-        
-        console.log(`Processing Epic game: ${installation.DisplayName}`);
-        
-        // Tentar encontrar o executável principal
-        let executablePath = '';
-        if (installation.LaunchExecutable) {
-          executablePath = path.join(
-            installation.InstallLocation,
-            installation.LaunchExecutable
-          );
-        }
-        
-        // Calcular tamanho do jogo
-        let sizeInGB = 0;
-        try {
-          const stats = await fs.stat(installation.InstallLocation);
-          sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-        } catch (error) {
-          console.warn(`Could not determine size for ${installation.DisplayName}:`, error);
-        }
-        
-        games.push({
-          id: installation.AppName,
-          name: installation.DisplayName,
-          platform: 'Epic',
-          installPath: installation.InstallLocation,
-          executablePath,
-          process_name: installation.LaunchExecutable ? path.basename(installation.LaunchExecutable) : '',
-          size: sizeInGB,
-          iconUrl: null // Epic não fornece URLs consistentes para imagens
-        });
-        
-        console.log(`Added Epic game: ${installation.DisplayName}`);
-      } catch (error) {
-        console.error(`Error processing Epic game ${installation?.DisplayName || 'unknown'}:`, error);
       }
+
+      if (!steamPath) {
+        console.log('Steam installation not found');
+        return [];
+      }
+
+      console.log('Steam installation found at:', steamPath);
+
+      // Ler configuração de bibliotecas do Steam
+      const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+      let libraryFoldersContent;
+
+      try {
+        libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
+        console.log('Read Steam library folders configuration');
+      } catch (error) {
+        console.error('Error reading Steam library folders:', error);
+        
+        // Tentar caminho alternativo para o arquivo de configuração
+        const altLibraryFoldersPath = path.join(steamPath, 'config', 'libraryfolders.vdf');
+        try {
+          libraryFoldersContent = await fs.readFile(altLibraryFoldersPath, 'utf8');
+          console.log('Read Steam library folders from alternate path');
+        } catch (altError) {
+          console.error('Error reading alternate Steam library folders:', altError);
+          return [];
+        }
+      }
+
+      // Analisar bibliotecas do Steam
+      const libraryPaths = [steamPath];
+      const libraryRegex = /"path"\s+"([^"]+)"/g;
+      let match;
+
+      while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
+        libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
+      }
+
+      // Se não encontrou bibliotecas adicionais, tentar outro formato de arquivo
+      if (libraryPaths.length === 1) {
+        const altLibraryRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/gs;
+        let altMatch;
+        
+        while ((altMatch = altLibraryRegex.exec(libraryFoldersContent)) !== null) {
+          libraryPaths.push(altMatch[2].replace(/\\\\/g, '\\'));
+        }
+      }
+
+      console.log('Found Steam library paths:', libraryPaths);
+
+      const games = [];
+
+      // Escanear cada biblioteca por jogos instalados
+      for (const libraryPath of libraryPaths) {
+        const appsPath = path.join(libraryPath, 'steamapps');
+        console.log('Scanning Steam library at:', appsPath);
+
+        try {
+          const files = await fs.readdir(appsPath);
+
+          // Procurar por arquivos appmanifest que contêm informações dos jogos
+          const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
+          console.log(`Found ${manifests.length} game manifests in ${appsPath}`);
+
+          for (const manifest of manifests) {
+            try {
+              const manifestPath = path.join(appsPath, manifest);
+              const manifestContent = await fs.readFile(manifestPath, 'utf8');
+
+              // Extrair informações do jogo do manifesto
+              const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
+              const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
+              const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
+              const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
+              const lastPlayedMatch = /"LastPlayed"\s+"(\d+)"/.exec(manifestContent);
+
+              if (nameMatch && appIdMatch && installDirMatch) {
+                const name = nameMatch[1];
+                const appId = appIdMatch[1];
+                const installDir = installDirMatch[1];
+                const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
+                const sizeInGB = Math.round(sizeInBytes / (1024 * 1024 * 1024) * 100) / 100;
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
+
+                const gamePath = path.join(appsPath, 'common', installDir);
+                
+                // Tentar encontrar o executável principal
+                let executablePath = '';
+                try {
+                  const gameFiles = await fs.readdir(gamePath);
+                  const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
+                  
+                  // Tentar encontrar o executável com o mesmo nome do diretório
+                  const mainExe = exeFiles.find(file => file.toLowerCase() === `${installDir.toLowerCase()}.exe`);
+                  if (mainExe) {
+                    executablePath = path.join(gamePath, mainExe);
+                  } else if (exeFiles.length > 0) {
+                    // Pegar o primeiro executável encontrado
+                    executablePath = path.join(gamePath, exeFiles[0]);
+                  }
+                } catch (error) {
+                  console.warn(`Could not scan executables for ${name}:`, error);
+                }
+
+                games.push({
+                  id: appId,
+                  name,
+                  platform: 'Steam',
+                  installPath: gamePath,
+                  executablePath,
+                  process_name: path.basename(executablePath || ''),
+                  size: sizeInGB,
+                  last_played: lastPlayed,
+                  iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`
+                });
+                
+                console.log(`Found Steam game: ${name} (${appId})`);
+              }
+            } catch (error) {
+              console.error(`Error processing manifest ${manifest}:`, error);
+            }
+          }
+        } catch (error) {
+          console.error(`Error reading library folder ${libraryPath}:`, error);
+        }
+      }
+
+      console.log(`Scan complete. Found ${games.length} Steam games`);
+      return games;
+    } catch (error) {
+      console.error('Error scanning Steam games:', error);
+      return [];
     }
-    
-    console.log(`Scan complete. Found ${games.length} Epic games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Epic games:', error);
-    return [];
-  }
+  };
 }
 
-/**
- * Escaneia e encontra jogos do Xbox/Microsoft Store instalados em um sistema Windows.
- * Esta função verifica diretórios específicos onde jogos do Xbox são instalados,
- * lê seus manifestos e extrai informações relevantes.
- * 
- * @returns {Promise<Array>} Um array de objetos contendo informações dos jogos do Xbox encontrados
- */
-async function getXboxGames() {
-  console.log('Scanning for Xbox Games...');
-  try {
-    // Verificar se a plataforma é Windows, já que o Xbox Games só está disponível no Windows
-    if (process.platform !== 'win32') {
-      console.log('Xbox Games scanning is only supported on Windows');
-      return [];
-    }
-
-    // Obter o caminho de instalação do Windows Apps por diferentes métodos
-    let windowsAppsPath;
-    
+if (!getEpicGames) {
+  getEpicGames = async function() {
+    console.log('Using internal Epic Games scanner');
     try {
-      // Primeira tentativa: Chave de registro do GamingServices (mais confiável)
-      windowsAppsPath = Registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        'SOFTWARE\\Microsoft\\GamingServices',
-        'GamingInstallPath'
-      );
+      // Determinar o caminho para os arquivos de manifesto do Epic Games Launcher
+      let manifestPath = '';
       
-      if (windowsAppsPath) {
-        console.log('Found Windows Apps path in GamingServices registry:', windowsAppsPath);
+      if (process.platform === 'win32') {
+        if (process.env.LOCALAPPDATA) {
+          manifestPath = path.join(
+            process.env.LOCALAPPDATA,
+            'EpicGamesLauncher',
+            'Saved',
+            'Config',
+            'Windows'
+          );
+        }
+      } else if (process.platform === 'darwin') {
+        manifestPath = path.join(
+          os.homedir(),
+          'Library',
+          'Application Support',
+          'Epic',
+          'EpicGamesLauncher',
+          'Config'
+        );
+      } else {
+        // Linux
+        manifestPath = path.join(
+          os.homedir(),
+          '.config',
+          'Epic',
+          'EpicGamesLauncher'
+        );
       }
       
-      // Segunda tentativa: Chave de registro alternativa
-      if (!windowsAppsPath) {
+      if (!manifestPath) {
+        console.log('Could not determine Epic Games Launcher config path');
+        return [];
+      }
+      
+      console.log('Looking for Epic Games manifests at:', manifestPath);
+      
+      // Verificar se o diretório existe
+      try {
+        await fs.access(manifestPath);
+      } catch (error) {
+        console.log('Epic Games Launcher config directory not found');
+        return [];
+      }
+      
+      // Procurar por arquivos de manifesto
+      const files = await fs.readdir(manifestPath);
+      
+      // Procurar pelo arquivo de instalação
+      const manifestFile = files.find(file => 
+        file === 'GameInstallation.json' || 
+        file === 'InstallationList.json'
+      );
+      
+      if (!manifestFile) {
+        console.log('No Epic Games installation manifest found');
+        return [];
+      }
+      
+      const manifestFilePath = path.join(manifestPath, manifestFile);
+      console.log('Found Epic Games manifest at:', manifestFilePath);
+      
+      // Ler o arquivo de manifesto
+      const manifestContent = await fs.readFile(manifestFilePath, 'utf8');
+      const manifest = JSON.parse(manifestContent);
+      
+      const games = [];
+      const installationList = manifest.InstallationList || [];
+      
+      console.log(`Found ${installationList.length} Epic games in manifest`);
+      
+      // Processar cada jogo instalado
+      for (const installation of installationList) {
+        try {
+          if (!installation.InstallLocation) {
+            console.log(`Skipping game with no install location: ${installation.DisplayName || 'Unknown'}`);
+            continue;
+          }
+          
+          console.log(`Processing Epic game: ${installation.DisplayName}`);
+          
+          // Tentar encontrar o executável principal
+          let executablePath = '';
+          if (installation.LaunchExecutable) {
+            executablePath = path.join(
+              installation.InstallLocation,
+              installation.LaunchExecutable
+            );
+          }
+          
+          // Calcular tamanho do jogo
+          let sizeInGB = 0;
+          try {
+            const stats = await fs.stat(installation.InstallLocation);
+            sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+          } catch (error) {
+            console.warn(`Could not determine size for ${installation.DisplayName}:`, error);
+          }
+          
+          games.push({
+            id: installation.AppName,
+            name: installation.DisplayName,
+            platform: 'Epic',
+            installPath: installation.InstallLocation,
+            executablePath,
+            process_name: installation.LaunchExecutable ? path.basename(installation.LaunchExecutable) : '',
+            size: sizeInGB,
+            iconUrl: null // Epic não fornece URLs consistentes para imagens
+          });
+          
+          console.log(`Added Epic game: ${installation.DisplayName}`);
+        } catch (error) {
+          console.error(`Error processing Epic game ${installation?.DisplayName || 'unknown'}:`, error);
+        }
+      }
+      
+      console.log(`Scan complete. Found ${games.length} Epic games`);
+      return games;
+    } catch (error) {
+      console.error('Error scanning Epic games:', error);
+      return [];
+    }
+  };
+}
+
+if (!getXboxGames) {
+  getXboxGames = async function() {
+    console.log('Using internal Xbox Games scanner');
+    try {
+      // Verificar se a plataforma é Windows, já que o Xbox Games só está disponível no Windows
+      if (process.platform !== 'win32') {
+        console.log('Xbox Games scanning is only supported on Windows');
+        return [];
+      }
+
+      // Obter o caminho de instalação do Windows Apps por diferentes métodos
+      let windowsAppsPath;
+      
+      try {
+        // Primeira tentativa: Chave de registro do GamingServices (mais confiável)
         windowsAppsPath = Registry.getValue(
           Registry.HKEY.LOCAL_MACHINE,
-          'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Appx\\PackageRoot',
-          'Path'
+          'SOFTWARE\\Microsoft\\GamingServices',
+          'GamingInstallPath'
         );
         
         if (windowsAppsPath) {
-          console.log('Found Windows Apps path in Appx PackageRoot registry:', windowsAppsPath);
-        }
-      }
-    } catch (error) {
-      console.log('Registry access error:', error.message);
-    }
-
-    // Se a pesquisa no registro falhar, usar caminhos padrão
-    if (!windowsAppsPath && process.env.ProgramFiles) {
-      windowsAppsPath = path.join(process.env.ProgramFiles, 'WindowsApps');
-      console.log('Using default Windows Apps path from ProgramFiles:', windowsAppsPath);
-    } else if (!windowsAppsPath) {
-      // Fallback absoluto se ProgramFiles não estiver disponível
-      windowsAppsPath = 'C:\\Program Files\\WindowsApps';
-      console.log('Using hardcoded default Windows Apps path:', windowsAppsPath);
-    }
-
-    console.log('Scanning for Xbox games in:', windowsAppsPath);
-
-    // Verificar se podemos acessar o diretório WindowsApps (requer privilégios elevados)
-    try {
-      await fs.access(windowsAppsPath);
-    } catch (error) {
-      console.error('No access to WindowsApps directory. This requires admin privileges:', error.message);
-      return [];
-    }
-
-    // Ler o diretório WindowsApps
-    let entries;
-    try {
-      entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
-      console.log(`Found ${entries.length} entries in WindowsApps directory`);
-    } catch (error) {
-      console.error('Error reading WindowsApps directory:', error.message);
-      return [];
-    }
-
-    // Filtrar diretórios que possam conter jogos do Xbox
-    const potentialGameDirs = entries.filter(entry => 
-      entry.isDirectory() && (
-        entry.name.includes('Microsoft.Xbox') || 
-        entry.name.includes('Microsoft.GamingApp') ||
-        entry.name.includes('Microsoft.Game')
-      )
-    );
-
-    console.log(`Found ${potentialGameDirs.length} potential Xbox game directories`);
-
-    const games = [];
-
-    // Processar cada diretório de jogo potencial
-    for (const dir of potentialGameDirs) {
-      try {
-        const gamePath = path.join(windowsAppsPath, dir.name);
-        console.log(`Processing potential Xbox game: ${dir.name}`);
-        
-        // Procurar pelo manifesto do aplicativo
-        const manifestPath = path.join(gamePath, 'AppxManifest.xml');
-        
-        // Verificar se o manifesto existe
-        try {
-          await fs.access(manifestPath);
-        } catch (manifestError) {
-          console.log(`No manifest found for ${dir.name}, skipping`);
-          continue;
+          console.log('Found Windows Apps path in GamingServices registry:', windowsAppsPath);
         }
         
-        // Ler e analisar o arquivo AppxManifest.xml
-        const manifestContent = await fs.readFile(manifestPath, 'utf8');
-        
-        // Extrair nome do jogo do manifesto
-        const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
-        if (!nameMatch || !nameMatch[1]) {
-          console.log(`No display name found for ${dir.name}, skipping`);
-          continue;
+        // Segunda tentativa: Chave de registro alternativa
+        if (!windowsAppsPath) {
+          windowsAppsPath = Registry.getValue(
+            Registry.HKEY.LOCAL_MACHINE,
+            'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Appx\\PackageRoot',
+            'Path'
+          );
+          
+          if (windowsAppsPath) {
+            console.log('Found Windows Apps path in Appx PackageRoot registry:', windowsAppsPath);
+          }
         }
-        
-        const gameName = nameMatch[1];
-        
-        // Extrair caminho do executável do manifesto
-        const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
-        const executableName = executableMatch ? executableMatch[1] : '';
-        
-        if (!executableName) {
-          console.log(`No executable found for ${gameName}, skipping`);
-          continue;
-        }
-        
-        console.log(`Found Xbox game: ${gameName} (executable: ${executableName})`);
-        
-        // Gerar um ID único a partir do nome do diretório
-        // Extrair a parte "Microsoft.XYZ" do nome, sem a versão
-        const idMatch = dir.name.match(/^(Microsoft\.[^_]+)/);
-        const gameId = idMatch ? idMatch[1] : dir.name.split('_')[0];
-        
-        // Calcular tamanho do jogo
-        let gameSize = 0;
-        try {
-          const stats = await fs.stat(gamePath);
-          // Converter bytes para GB com 2 casas decimais
-          gameSize = Math.round((stats.size / (1024 * 1024 * 1024)) * 100) / 100;
-          console.log(`Size of ${gameName}: ${gameSize} GB`);
-        } catch (sizeError) {
-          console.warn(`Could not determine size for ${gameName}: ${sizeError.message}`);
-        }
-        
-        // Adicionar jogo à lista com todas as propriedades necessárias
-        games.push({
-          id: gameId,
-          name: gameName,
-          platform: 'Xbox',
-          installPath: gamePath,
-          executablePath: executableName ? path.join(gamePath, executableName) : '',
-          process_name: path.basename(executableName) || executableName,
-          size: gameSize,
-          iconUrl: null // Jogos do Xbox não têm URLs consistentes para imagens
-        });
       } catch (error) {
-        console.error(`Error processing Xbox game ${dir.name}:`, error.message);
+        console.log('Registry access error:', error.message);
       }
+
+      // Se a pesquisa no registro falhar, usar caminhos padrão
+      if (!windowsAppsPath && process.env.ProgramFiles) {
+        windowsAppsPath = path.join(process.env.ProgramFiles, 'WindowsApps');
+        console.log('Using default Windows Apps path from ProgramFiles:', windowsAppsPath);
+      } else if (!windowsAppsPath) {
+        // Fallback absoluto se ProgramFiles não estiver disponível
+        windowsAppsPath = 'C:\\Program Files\\WindowsApps';
+        console.log('Using hardcoded default Windows Apps path:', windowsAppsPath);
+      }
+
+      console.log('Scanning for Xbox games in:', windowsAppsPath);
+
+      // Verificar se podemos acessar o diretório WindowsApps (requer privilégios elevados)
+      try {
+        await fs.access(windowsAppsPath);
+      } catch (error) {
+        console.error('No access to WindowsApps directory. This requires admin privileges:', error.message);
+        return [];
+      }
+
+      // Ler o diretório WindowsApps
+      let entries;
+      try {
+        entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
+        console.log(`Found ${entries.length} entries in WindowsApps directory`);
+      } catch (error) {
+        console.error('Error reading WindowsApps directory:', error.message);
+        return [];
+      }
+
+      // Filtrar diretórios que possam conter jogos do Xbox
+      const potentialGameDirs = entries.filter(entry => 
+        entry.isDirectory() && (
+          entry.name.includes('Microsoft.Xbox') || 
+          entry.name.includes('Microsoft.GamingApp') ||
+          entry.name.includes('Microsoft.Game')
+        )
+      );
+
+      console.log(`Found ${potentialGameDirs.length} potential Xbox game directories`);
+
+      const games = [];
+
+      // Processar cada diretório de jogo potencial
+      for (const dir of potentialGameDirs) {
+        try {
+          const gamePath = path.join(windowsAppsPath, dir.name);
+          console.log(`Processing potential Xbox game: ${dir.name}`);
+          
+          // Procurar pelo manifesto do aplicativo
+          const manifestPath = path.join(gamePath, 'AppxManifest.xml');
+          
+          // Verificar se o manifesto existe
+          try {
+            await fs.access(manifestPath);
+          } catch (manifestError) {
+            console.log(`No manifest found for ${dir.name}, skipping`);
+            continue;
+          }
+          
+          // Ler e analisar o arquivo AppxManifest.xml
+          const manifestContent = await fs.readFile(manifestPath, 'utf8');
+          
+          // Extrair nome do jogo do manifesto
+          const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
+          if (!nameMatch || !nameMatch[1]) {
+            console.log(`No display name found for ${dir.name}, skipping`);
+            continue;
+          }
+          
+          const gameName = nameMatch[1];
+          
+          // Extrair caminho do executável do manifesto
+          const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
+          const executableName = executableMatch ? executableMatch[1] : '';
+          
+          if (!executableName) {
+            console.log(`No executable found for ${gameName}, skipping`);
+            continue;
+          }
+          
+          console.log(`Found Xbox game: ${gameName} (executable: ${executableName})`);
+          
+          // Gerar um ID único a partir do nome do diretório
+          // Extrair a parte "Microsoft.XYZ" do nome, sem a versão
+          const idMatch = dir.name.match(/^(Microsoft\.[^_]+)/);
+          const gameId = idMatch ? idMatch[1] : dir.name.split('_')[0];
+          
+          // Calcular tamanho do jogo
+          let gameSize = 0;
+          try {
+            const stats = await fs.stat(gamePath);
+            // Converter bytes para GB com 2 casas decimais
+            gameSize = Math.round((stats.size / (1024 * 1024 * 1024)) * 100) / 100;
+            console.log(`Size of ${gameName}: ${gameSize} GB`);
+          } catch (sizeError) {
+            console.warn(`Could not determine size for ${gameName}: ${sizeError.message}`);
+          }
+          
+          // Adicionar jogo à lista com todas as propriedades necessárias
+          games.push({
+            id: gameId,
+            name: gameName,
+            platform: 'Xbox',
+            installPath: gamePath,
+            executablePath: executableName ? path.join(gamePath, executableName) : '',
+            process_name: path.basename(executableName) || executableName,
+            size: gameSize,
+            iconUrl: null // Jogos do Xbox não têm URLs consistentes para imagens
+          });
+        } catch (error) {
+          console.error(`Error processing Xbox game ${dir.name}:`, error.message);
+        }
+      }
+      
+      console.log(`Scan complete. Found ${games.length} Xbox games`);
+      return games;
+    } catch (error) {
+      console.error('Error scanning Xbox games:', error.message);
+      return [];
     }
-    
-    console.log(`Scan complete. Found ${games.length} Xbox games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Xbox games:', error.message);
-    return [];
-  }
+  };
 }
 
-async function getOriginGames() {
-  console.log('Scanning for Origin games...');
-  try {
-    if (process.platform !== 'win32') {
-      console.log('Origin Games scanning is only supported on Windows');
-      return [];
-    }
-    
-    // Tentar encontrar o caminho de instalação do Origin
-    let originPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\Origin',
-      'InstallDir'
-    );
-    
-    if (!originPath) {
-      originPath = Registry.getValue(
+if (!getOriginGames) {
+  getOriginGames = async function() {
+    console.log('Using internal Origin Games scanner');
+    try {
+      if (process.platform !== 'win32') {
+        console.log('Origin Games scanning is only supported on Windows');
+        return [];
+      }
+      
+      // Tentar encontrar o caminho de instalação do Origin
+      let originPath = Registry.getValue(
         Registry.HKEY.LOCAL_MACHINE,
-        'SOFTWARE\\Origin',
+        'SOFTWARE\\WOW6432Node\\Origin',
         'InstallDir'
       );
-    }
-    
-    if (!originPath) {
-      // Tentar caminhos padrão
-      const defaultPaths = [
-        'C:\\Program Files (x86)\\Origin',
-        'C:\\Program Files\\Origin'
-      ];
       
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          originPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
+      if (!originPath) {
+        originPath = Registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          'SOFTWARE\\Origin',
+          'InstallDir'
+        );
       }
-    }
-    
-    if (!originPath) {
-      console.log('Origin installation not found');
-      return [];
-    }
-    
-    console.log('Origin installation found at:', originPath);
-    
-    // Tentar encontrar o caminho de instalação dos jogos
-    let gamesPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\Origin',
-      'GamesPath'
-    );
-    
-    if (!gamesPath) {
-      // Tentar caminhos padrão para jogos
-      const defaultGamesPaths = [
-        'C:\\Program Files (x86)\\Origin Games',
-        'C:\\Program Files\\Origin Games',
-        path.join(os.homedir(), 'Origin Games')
-      ];
       
-      for (const defaultPath of defaultGamesPaths) {
-        try {
-          await fs.access(defaultPath);
-          gamesPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
-      }
-    }
-    
-    if (!gamesPath) {
-      console.log('Origin games path not found');
-      return [];
-    }
-    
-    console.log('Origin games path found at:', gamesPath);
-    
-    // Escanear diretório de jogos
-    const games = [];
-    
-    try {
-      const entries = await fs.readdir(gamesPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          try {
-            const gamePath = path.join(gamesPath, entry.name);
-            console.log(`Checking Origin game directory: ${gamePath}`);
-            
-            // Procurar por executáveis
-            const gameFiles = await fs.readdir(gamePath);
-            const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
-            
-            if (exeFiles.length > 0) {
-              // Usar o nome do diretório como nome do jogo
-              const name = entry.name;
-              
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${name}:`, sizeError);
-              }
-              
-              // Escolher o executável principal
-              const mainExe = exeFiles[0]; // Simplificado, poderia ser mais sofisticado
-              const executablePath = path.join(gamePath, mainExe);
-              
-              games.push({
-                id: name.replace(/[^a-zA-Z0-9]/g, ''),
-                name,
-                platform: 'Origin',
-                installPath: gamePath,
-                executablePath,
-                process_name: mainExe,
-                size: sizeInGB,
-                iconUrl: null
-              });
-              
-              console.log(`Found Origin game: ${name}`);
-            }
-          } catch (error) {
-            console.error(`Error processing Origin game directory ${entry.name}:`, error);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error reading Origin games directory:', error);
-    }
-    
-    console.log(`Scan complete. Found ${games.length} Origin games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Origin games:', error);
-    return [];
-  }
-}
-
-async function getBattleNetGames() {
-  console.log('Scanning for Battle.net games...');
-  try {
-    if (process.platform !== 'win32') {
-      console.log('Battle.net Games scanning is only supported on Windows');
-      return [];
-    }
-    
-    // Tentar encontrar o caminho de instalação do Battle.net
-    let battleNetPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Battle.net',
-      'InstallPath'
-    );
-    
-    if (!battleNetPath) {
-      // Tentar caminhos padrão
-      const defaultPaths = [
-        'C:\\Program Files (x86)\\Battle.net',
-        'C:\\Program Files\\Battle.net'
-      ];
-      
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          battleNetPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
-      }
-    }
-    
-    if (!battleNetPath) {
-      console.log('Battle.net installation not found');
-      return [];
-    }
-    
-    console.log('Battle.net installation found at:', battleNetPath);
-    
-    // Jogos conhecidos do Battle.net e seus possíveis caminhos de instalação
-    const knownGames = [
-      { id: 'wow', name: 'World of Warcraft', exeName: 'Wow.exe' },
-      { id: 'ow', name: 'Overwatch', exeName: 'Overwatch.exe' },
-      { id: 'd3', name: 'Diablo III', exeName: 'Diablo III.exe' },
-      { id: 'd2r', name: 'Diablo II: Resurrected', exeName: 'D2R.exe' },
-      { id: 'd4', name: 'Diablo IV', exeName: 'Diablo IV.exe' },
-      { id: 'hs', name: 'Hearthstone', exeName: 'Hearthstone.exe' },
-      { id: 'heroes', name: 'Heroes of the Storm', exeName: 'HeroesOfTheStorm.exe' },
-      { id: 'sc2', name: 'StarCraft II', exeName: 'SC2.exe' },
-      { id: 'scr', name: 'StarCraft: Remastered', exeName: 'StarCraft.exe' },
-      { id: 'w3', name: 'Warcraft III: Reforged', exeName: 'Warcraft III.exe' },
-      { id: 'cod', name: 'Call of Duty', exeName: 'BlackOpsColdWar.exe' },
-      { id: 'codmw', name: 'Call of Duty: Modern Warfare', exeName: 'ModernWarfare.exe' },
-      { id: 'codmw2', name: 'Call of Duty: Modern Warfare 2', exeName: 'ModernWarfare2.exe' },
-      { id: 'codbo4', name: 'Call of Duty: Black Ops 4', exeName: 'BlackOps4.exe' }
-    ];
-    
-    // Possíveis caminhos de instalação
-    const possibleInstallPaths = [
-      'C:\\Program Files (x86)\\',
-      'C:\\Program Files\\',
-      path.join(os.homedir(), 'Games\\'),
-      'D:\\Games\\',
-      'E:\\Games\\'
-    ];
-    
-    const games = [];
-    
-    // Procurar por jogos do Battle.net
-    for (const game of knownGames) {
-      for (const basePath of possibleInstallPaths) {
-        // Tentar diferentes padrões de caminhos
-        const possibleGamePaths = [
-          path.join(basePath, game.name),
-          path.join(basePath, 'Blizzard', game.name),
-          path.join(basePath, 'Battle.net', game.name),
-          path.join(basePath, 'Blizzard Games', game.name)
+      if (!originPath) {
+        // Tentar caminhos padrão
+        const defaultPaths = [
+          'C:\\Program Files (x86)\\Origin',
+          'C:\\Program Files\\Origin'
         ];
         
-        for (const gamePath of possibleGamePaths) {
+        for (const defaultPath of defaultPaths) {
           try {
-            await fs.access(gamePath);
-            
-            // Verificar se o executável existe
-            const exePath = path.join(gamePath, game.exeName);
-            try {
-              await fs.access(exePath);
-              
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${game.name}:`, sizeError);
-              }
-              
-              games.push({
-                id: game.id,
-                name: game.name,
-                platform: 'Battle.net',
-                installPath: gamePath,
-                executablePath: exePath,
-                process_name: game.exeName,
-                size: sizeInGB,
-                iconUrl: null
-              });
-              
-              console.log(`Found Battle.net game: ${game.name}`);
-              break; // Encontrou o jogo, não precisa verificar outros caminhos
-            } catch (exeError) {
-              // Executável não encontrado, continuar procurando
-            }
-          } catch (pathError) {
-            // Caminho não existe, continuar procurando
+            await fs.access(defaultPath);
+            originPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
           }
         }
       }
-    }
-    
-    console.log(`Scan complete. Found ${games.length} Battle.net games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Battle.net games:', error);
-    return [];
-  }
-}
-
-async function getGOGGames() {
-  console.log('Scanning for GOG games...');
-  try {
-    if (process.platform !== 'win32') {
-      console.log('GOG Games scanning is only supported on Windows');
-      return [];
-    }
-    
-    // Tentar encontrar o caminho de instalação do GOG Galaxy
-    let gogPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient',
-      'InstallPath'
-    );
-    
-    if (!gogPath) {
-      // Tentar caminhos padrão
-      const defaultPaths = [
-        'C:\\Program Files (x86)\\GOG Galaxy',
-        'C:\\Program Files\\GOG Galaxy'
-      ];
       
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          gogPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
+      if (!originPath) {
+        console.log('Origin installation not found');
+        return [];
+      }
+      
+      console.log('Origin installation found at:', originPath);
+      
+      // Tentar encontrar o caminho de instalação dos jogos
+      let gamesPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\WOW6432Node\\Origin',
+        'GamesPath'
+      );
+      
+      if (!gamesPath) {
+        // Tentar caminhos padrão para jogos
+        const defaultGamesPaths = [
+          'C:\\Program Files (x86)\\Origin Games',
+          'C:\\Program Files\\Origin Games',
+          path.join(os.homedir(), 'Origin Games')
+        ];
+        
+        for (const defaultPath of defaultGamesPaths) {
+          try {
+            await fs.access(defaultPath);
+            gamesPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
         }
       }
-    }
-    
-    if (!gogPath) {
-      console.log('GOG Galaxy installation not found');
-      return [];
-    }
-    
-    console.log('GOG Galaxy installation found at:', gogPath);
-    
-    // Tentar encontrar o caminho de instalação dos jogos
-    let gamesPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\GOG.com\\Games',
-      'Path'
-    );
-    
-    if (!gamesPath) {
-      // Tentar caminhos padrão para jogos
-      const defaultGamesPaths = [
-        'C:\\Program Files (x86)\\GOG Games',
-        'C:\\Program Files\\GOG Games',
-        'C:\\GOG Games',
-        path.join(os.homedir(), 'GOG Games')
-      ];
       
-      for (const defaultPath of defaultGamesPaths) {
-        try {
-          await fs.access(defaultPath);
-          gamesPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
+      if (!gamesPath) {
+        console.log('Origin games path not found');
+        return [];
       }
-    }
-    
-    if (!gamesPath) {
-      console.log('GOG games path not found, trying to find individual games');
       
-      // Tentar encontrar jogos individuais no registro
+      console.log('Origin games path found at:', gamesPath);
+      
+      // Escanear diretório de jogos
       const games = [];
       
       try {
-        // Enumerar todas as chaves sob SOFTWARE\WOW6432Node\GOG.com\Games
-        const gameKeys = Registry.enumerateValues(
-          Registry.HKEY.LOCAL_MACHINE,
-          'SOFTWARE\\WOW6432Node\\GOG.com\\Games'
-        );
+        const entries = await fs.readdir(gamesPath, { withFileTypes: true });
         
-        for (const gameKey of gameKeys) {
-          try {
-            const gameValues = Registry.enumerateValues(
-              Registry.HKEY.LOCAL_MACHINE,
-              `SOFTWARE\\WOW6432Node\\GOG.com\\Games\\${gameKey.name}`
-            );
-            
-            const pathValue = gameValues.find(v => v.name === 'PATH');
-            const exeValue = gameValues.find(v => v.name === 'EXE');
-            const nameValue = gameValues.find(v => v.name === 'GAMENAME');
-            
-            if (pathValue && exeValue) {
-              const gamePath = pathValue.data;
-              const exeName = exeValue.data;
-              const gameName = nameValue ? nameValue.data : gameKey.name;
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            try {
+              const gamePath = path.join(gamesPath, entry.name);
+              console.log(`Checking Origin game directory: ${gamePath}`);
               
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${gameName}:`, sizeError);
+              // Procurar por executáveis
+              const gameFiles = await fs.readdir(gamePath);
+              const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
+              
+              if (exeFiles.length > 0) {
+                // Usar o nome do diretório como nome do jogo
+                const name = entry.name;
+                
+                // Calcular tamanho do jogo
+                let sizeInGB = 0;
+                try {
+                  const stats = await fs.stat(gamePath);
+                  sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+                } catch (sizeError) {
+                  console.warn(`Could not determine size for ${name}:`, sizeError);
+                }
+                
+                // Escolher o executável principal
+                const mainExe = exeFiles[0]; // Simplificado, poderia ser mais sofisticado
+                const executablePath = path.join(gamePath, mainExe);
+                
+                games.push({
+                  id: name.replace(/[^a-zA-Z0-9]/g, ''),
+                  name,
+                  platform: 'Origin',
+                  installPath: gamePath,
+                  executablePath,
+                  process_name: mainExe,
+                  size: sizeInGB,
+                  iconUrl: null
+                });
+                
+                console.log(`Found Origin game: ${name}`);
               }
-              
-              games.push({
-                id: gameKey.name,
-                name: gameName,
-                platform: 'GOG',
-                installPath: gamePath,
-                executablePath: path.join(gamePath, exeName),
-                process_name: exeName,
-                size: sizeInGB,
-                iconUrl: null
-              });
-              
-              console.log(`Found GOG game: ${gameName}`);
+            } catch (error) {
+              console.error(`Error processing Origin game directory ${entry.name}:`, error);
             }
-          } catch (gameError) {
-            console.error(`Error processing GOG game ${gameKey.name}:`, gameError);
           }
         }
-      } catch (registryError) {
-        console.error('Error reading GOG games from registry:', registryError);
+      } catch (error) {
+        console.error('Error reading Origin games directory:', error);
+      }
+      
+      console.log(`Scan complete. Found ${games.length} Origin games`);
+      return games;
+    } catch (error) {
+      console.error('Error scanning Origin games:', error);
+      return [];
+    }
+  };
+}
+
+if (!getBattleNetGames) {
+  getBattleNetGames = async function() {
+    console.log('Using internal Battle.net Games scanner');
+    try {
+      if (process.platform !== 'win32') {
+        console.log('Battle.net Games scanning is only supported on Windows');
+        return [];
+      }
+      
+      // Tentar encontrar o caminho de instalação do Battle.net
+      let battleNetPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Battle.net',
+        'InstallPath'
+      );
+      
+      if (!battleNetPath) {
+        // Tentar caminhos padrão
+        const defaultPaths = [
+          'C:\\Program Files (x86)\\Battle.net',
+          'C:\\Program Files\\Battle.net'
+        ];
+        
+        for (const defaultPath of defaultPaths) {
+          try {
+            await fs.access(defaultPath);
+            battleNetPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
+        }
+      }
+      
+      if (!battleNetPath) {
+        console.log('Battle.net installation not found');
+        return [];
+      }
+      
+      console.log('Battle.net installation found at:', battleNetPath);
+      
+      // Jogos conhecidos do Battle.net e seus possíveis caminhos de instalação
+      const knownGames = [
+        { id: 'wow', name: 'World of Warcraft', exeName: 'Wow.exe' },
+        { id: 'ow', name: 'Overwatch', exeName: 'Overwatch.exe' },
+        { id: 'd3', name: 'Diablo III', exeName: 'Diablo III.exe' },
+        { id: 'd2r', name: 'Diablo II: Resurrected', exeName: 'D2R.exe' },
+        { id: 'd4', name: 'Diablo IV', exeName: 'Diablo IV.exe' },
+        { id: 'hs', name: 'Hearthstone', exeName: 'Hearthstone.exe' },
+        { id: 'heroes', name: 'Heroes of the Storm', exeName: 'HeroesOfTheStorm.exe' },
+        { id: 'sc2', name: 'StarCraft II', exeName: 'SC2.exe' },
+        { id: 'scr', name: 'StarCraft: Remastered', exeName: 'StarCraft.exe' },
+        { id: 'w3', name: 'Warcraft III: Reforged', exeName: 'Warcraft III.exe' },
+        { id: 'cod', name: 'Call of Duty', exeName: 'BlackOpsColdWar.exe' },
+        { id: 'codmw', name: 'Call of Duty: Modern Warfare', exeName: 'ModernWarfare.exe' },
+        { id: 'codmw2', name: 'Call of Duty: Modern Warfare 2', exeName: 'ModernWarfare2.exe' },
+        { id: 'codbo4', name: 'Call of Duty: Black Ops 4', exeName: 'BlackOps4.exe' }
+      ];
+      
+      // Possíveis caminhos de instalação
+      const possibleInstallPaths = [
+        'C:\\Program Files (x86)\\',
+        'C:\\Program Files\\',
+        path.join(os.homedir(), 'Games\\'),
+        'D:\\Games\\',
+        'E:\\Games\\'
+      ];
+      
+      const games = [];
+      
+      // Procurar por jogos do Battle.net
+      for (const game of knownGames) {
+        for (const basePath of possibleInstallPaths) {
+          // Tentar diferentes padrões de caminhos
+          const possibleGamePaths = [
+            path.join(basePath, game.name),
+            path.join(basePath, 'Blizzard', game.name),
+            path.join(basePath, 'Battle.net', game.name),
+            path.join(basePath, 'Blizzard Games', game.name)
+          ];
+          
+          for (const gamePath of possibleGamePaths) {
+            try {
+              await fs.access(gamePath);
+              
+              // Verificar se o executável existe
+              const exePath = path.join(gamePath, game.exeName);
+              try {
+                await fs.access(exePath);
+                
+                // Calcular tamanho do jogo
+                let sizeInGB = 0;
+                try {
+                  const stats = await fs.stat(gamePath);
+                  sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+                } catch (sizeError) {
+                  console.warn(`Could not determine size for ${game.name}:`, sizeError);
+                }
+                
+                games.push({
+                  id: game.id,
+                  name: game.name,
+                  platform: 'Battle.net',
+                  installPath: gamePath,
+                  executablePath: exePath,
+                  process_name: game.exeName,
+                  size: sizeInGB,
+                  iconUrl: null
+                });
+                
+                console.log(`Found Battle.net game: ${game.name}`);
+                break; // Encontrou o jogo, não precisa verificar outros caminhos
+              } catch (exeError) {
+                // Executável não encontrado, continuar procurando
+              }
+            } catch (pathError) {
+              // Caminho não existe, continuar procurando
+            }
+          }
+        }
+      }
+      
+      console.log(`Scan complete. Found ${games.length} Battle.net games`);
+      return games;
+    } catch (error) {
+      console.error('Error scanning Battle.net games:', error);
+      return [];
+    }
+  };
+}
+
+if (!getGOGGames) {
+  getGOGGames = async function() {
+    console.log('Using internal GOG Games scanner');
+    try {
+      if (process.platform !== 'win32') {
+        console.log('GOG Games scanning is only supported on Windows');
+        return [];
+      }
+      
+      // Tentar encontrar o caminho de instalação do GOG Galaxy
+      let gogPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient',
+        'InstallPath'
+      );
+      
+      if (!gogPath) {
+        // Tentar caminhos padrão
+        const defaultPaths = [
+          'C:\\Program Files (x86)\\GOG Galaxy',
+          'C:\\Program Files\\GOG Galaxy'
+        ];
+        
+        for (const defaultPath of defaultPaths) {
+          try {
+            await fs.access(defaultPath);
+            gogPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
+        }
+      }
+      
+      if (!gogPath) {
+        console.log('GOG Galaxy installation not found');
+        return [];
+      }
+      
+      console.log('GOG Galaxy installation found at:', gogPath);
+      
+      // Tentar encontrar o caminho de instalação dos jogos
+      let gamesPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\WOW6432Node\\GOG.com\\Games',
+        'Path'
+      );
+      
+      if (!gamesPath) {
+        // Tentar caminhos padrão para jogos
+        const defaultGamesPaths = [
+          'C:\\Program Files (x86)\\GOG Games',
+          'C:\\Program Files\\GOG Games',
+          'C:\\GOG Games',
+          path.join(os.homedir(), 'GOG Games')
+        ];
+        
+        for (const defaultPath of defaultGamesPaths) {
+          try {
+            await fs.access(defaultPath);
+            gamesPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
+        }
+      }
+      
+      if (!gamesPath) {
+        console.log('GOG games path not found, trying to find individual games');
+        
+        // Tentar encontrar jogos individuais no registro
+        const games = [];
+        
+        try {
+          // Enumerar todas as chaves sob SOFTWARE\WOW6432Node\GOG.com\Games
+          const gameKeys = Registry.enumerateValues(
+            Registry.HKEY.LOCAL_MACHINE,
+            'SOFTWARE\\WOW6432Node\\GOG.com\\Games'
+          );
+          
+          for (const gameKey of gameKeys) {
+            try {
+              const gameValues = Registry.enumerateValues(
+                Registry.HKEY.LOCAL_MACHINE,
+                `SOFTWARE\\WOW6432Node\\GOG.com\\Games\\${gameKey.name}`
+              );
+              
+              const pathValue = gameValues.find(v => v.name === 'PATH');
+              const exeValue = gameValues.find(v => v.name === 'EXE');
+              const nameValue = gameValues.find(v => v.name === 'GAMENAME');
+              
+              if (pathValue && exeValue) {
+                const gamePath = pathValue.data;
+                const exeName = exeValue.data;
+                const gameName = nameValue ? nameValue.data : gameKey.name;
+                
+                // Calcular tamanho do jogo
+                let sizeInGB = 0;
+                try {
+                  const stats = await fs.stat(gamePath);
+                  sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+                } catch (sizeError) {
+                  console.warn(`Could not determine size for ${gameName}:`, sizeError);
+                }
+                
+                games.push({
+                  id: gameKey.name,
+                  name: gameName,
+                  platform: 'GOG',
+                  installPath: gamePath,
+                  executablePath: path.join(gamePath, exeName),
+                  process_name: exeName,
+                  size: sizeInGB,
+                  iconUrl: null
+                });
+                
+                console.log(`Found GOG game: ${gameName}`);
+              }
+            } catch (gameError) {
+              console.error(`Error processing GOG game ${gameKey.name}:`, gameError);
+            }
+          }
+        } catch (registryError) {
+          console.error('Error reading GOG games from registry:', registryError);
+        }
+        
+        console.log(`Scan complete. Found ${games.length} GOG games`);
+        return games;
+      }
+      
+      console.log('GOG games path found at:', gamesPath);
+      
+      // Escanear diretório de jogos
+      const games = [];
+      
+      try {
+        const entries = await fs.readdir(gamesPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            try {
+              const gamePath = path.join(gamesPath, entry.name);
+              console.log(`Checking GOG game directory: ${gamePath}`);
+              
+              // Procurar por executáveis
+              const gameFiles = await fs.readdir(gamePath);
+              const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
+              
+              if (exeFiles.length > 0) {
+                // Tentar encontrar o executável principal
+                // Geralmente é o que tem o mesmo nome do jogo ou contém "launcher"
+                let mainExe = exeFiles.find(file => 
+                  file.toLowerCase().includes(entry.name.toLowerCase()) ||
+                  file.toLowerCase().includes('launcher')
+                );
+                
+                if (!mainExe) {
+                  // Se não encontrar, pegar o primeiro
+                  mainExe = exeFiles[0];
+                }
+                
+                // Calcular tamanho do jogo
+                let sizeInGB = 0;
+                try {
+                  const stats = await fs.stat(gamePath);
+                  sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+                } catch (sizeError) {
+                  console.warn(`Could not determine size for ${entry.name}:`, sizeError);
+                }
+                
+                games.push({
+                  id: entry.name.replace(/[^a-zA-Z0-9]/g, ''),
+                  name: entry.name,
+                  platform: 'GOG',
+                  installPath: gamePath,
+                  executablePath: path.join(gamePath, mainExe),
+                  process_name: mainExe,
+                  size: sizeInGB,
+                  iconUrl: null
+                });
+                
+                console.log(`Found GOG game: ${entry.name}`);
+              }
+            } catch (error) {
+              console.error(`Error processing GOG game directory ${entry.name}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error reading GOG games directory:', error);
       }
       
       console.log(`Scan complete. Found ${games.length} GOG games`);
       return games;
-    }
-    
-    console.log('GOG games path found at:', gamesPath);
-    
-    // Escanear diretório de jogos
-    const games = [];
-    
-    try {
-      const entries = await fs.readdir(gamesPath, { withFileTypes: true });
-      
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
-          try {
-            const gamePath = path.join(gamesPath, entry.name);
-            console.log(`Checking GOG game directory: ${gamePath}`);
-            
-            // Procurar por executáveis
-            const gameFiles = await fs.readdir(gamePath);
-            const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
-            
-            if (exeFiles.length > 0) {
-              // Tentar encontrar o executável principal
-              // Geralmente é o que tem o mesmo nome do jogo ou contém "launcher"
-              let mainExe = exeFiles.find(file => 
-                file.toLowerCase().includes(entry.name.toLowerCase()) ||
-                file.toLowerCase().includes('launcher')
-              );
-              
-              if (!mainExe) {
-                // Se não encontrar, pegar o primeiro
-                mainExe = exeFiles[0];
-              }
-              
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${entry.name}:`, sizeError);
-              }
-              
-              games.push({
-                id: entry.name.replace(/[^a-zA-Z0-9]/g, ''),
-                name: entry.name,
-                platform: 'GOG',
-                installPath: gamePath,
-                executablePath: path.join(gamePath, mainExe),
-                process_name: mainExe,
-                size: sizeInGB,
-                iconUrl: null
-              });
-              
-              console.log(`Found GOG game: ${entry.name}`);
-            }
-          } catch (error) {
-            console.error(`Error processing GOG game directory ${entry.name}:`, error);
-          }
-        }
-      }
     } catch (error) {
-      console.error('Error reading GOG games directory:', error);
+      console.error('Error scanning GOG games:', error);
+      return [];
     }
-    
-    console.log(`Scan complete. Found ${games.length} GOG games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning GOG games:', error);
-    return [];
-  }
+  };
 }
 
-async function getUplayGames() {
-  console.log('Scanning for Ubisoft Connect (Uplay) games...');
-  try {
-    if (process.platform !== 'win32') {
-      console.log('Ubisoft Connect Games scanning is only supported on Windows');
-      return [];
-    }
-    
-    // Tentar encontrar o caminho de instalação do Ubisoft Connect
-    let uplayPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher',
-      'InstallDir'
-    );
-    
-    if (!uplayPath) {
-      // Tentar caminhos padrão
-      const defaultPaths = [
-        'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher',
-        'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher',
-        'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Connect',
-        'C:\\Program Files\\Ubisoft\\Ubisoft Connect'
-      ];
-      
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          uplayPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
-      }
-    }
-    
-    if (!uplayPath) {
-      console.log('Ubisoft Connect installation not found');
-      return [];
-    }
-    
-    console.log('Ubisoft Connect installation found at:', uplayPath);
-    
-    // Tentar encontrar o caminho de instalação dos jogos
-    // Ubisoft Connect armazena os jogos em um arquivo de configuração
-    const configPath = path.join(uplayPath, 'cache', 'configuration.json');
-    
-    let gamesPath = '';
+if (!getUplayGames) {
+  getUplayGames = async function() {
+    console.log('Using internal Ubisoft Connect (Uplay) Games scanner');
     try {
-      await fs.access(configPath);
-      const configContent = await fs.readFile(configPath, 'utf8');
-      const config = JSON.parse(configContent);
-      
-      if (config && config.installationPaths && config.installationPaths.length > 0) {
-        gamesPath = config.installationPaths[0];
+      if (process.platform !== 'win32') {
+        console.log('Ubisoft Connect Games scanning is only supported on Windows');
+        return [];
       }
-    } catch (configError) {
-      console.warn('Could not read Ubisoft Connect configuration:', configError);
-    }
-    
-    if (!gamesPath) {
-      // Tentar caminhos padrão para jogos
-      const defaultGamesPaths = [
-        'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games',
-        'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\games',
-        'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Connect\\games',
-        'C:\\Program Files\\Ubisoft\\Ubisoft Connect\\games'
-      ];
       
-      for (const defaultPath of defaultGamesPaths) {
-        try {
-          await fs.access(defaultPath);
-          gamesPath = defaultPath;
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
-      }
-    }
-    
-    if (!gamesPath) {
-      console.log('Ubisoft Connect games path not found');
-      return [];
-    }
-    
-    console.log('Ubisoft Connect games path found at:', gamesPath);
-    
-    // Escanear diretório de jogos
-    const games = [];
-    
-    try {
-      const entries = await fs.readdir(gamesPath, { withFileTypes: true });
+      // Tentar encontrar o caminho de instalação do Ubisoft Connect
+      let uplayPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher',
+        'InstallDir'
+      );
       
-      for (const entry of entries) {
-        if (entry.isDirectory()) {
+      if (!uplayPath) {
+        // Tentar caminhos padrão
+        const defaultPaths = [
+          'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher',
+          'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher',
+          'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Connect',
+          'C:\\Program Files\\Ubisoft\\Ubisoft Connect'
+        ];
+        
+        for (const defaultPath of defaultPaths) {
           try {
-            const gamePath = path.join(gamesPath, entry.name);
-            console.log(`Checking Ubisoft Connect game directory: ${gamePath}`);
-            
-            // Procurar por executáveis
-            const gameFiles = await fs.readdir(gamePath);
-            const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
-            
-            if (exeFiles.length > 0) {
-              // Tentar encontrar o executável principal
-              // Geralmente é o que tem o mesmo nome do jogo ou contém "launcher"
-              let mainExe = exeFiles.find(file => 
-                file.toLowerCase().includes(entry.name.toLowerCase()) ||
-                file.toLowerCase().includes('game') ||
-                !file.toLowerCase().includes('launcher') // Evitar launchers secundários
-              );
-              
-              if (!mainExe) {
-                // Se não encontrar, pegar o primeiro
-                mainExe = exeFiles[0];
-              }
-              
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${entry.name}:`, sizeError);
-              }
-              
-              games.push({
-                id: entry.name.replace(/[^a-zA-Z0-9]/g, ''),
-                name: entry.name,
-                platform: 'Ubisoft Connect',
-                installPath: gamePath,
-                executablePath: path.join(gamePath, mainExe),
-                process_name: mainExe,
-                size: sizeInGB,
-                iconUrl: null
-              });
-              
-              console.log(`Found Ubisoft Connect game: ${entry.name}`);
-            }
-          } catch (error) {
-            console.error(`Error processing Ubisoft Connect game directory ${entry.name}:`, error);
+            await fs.access(defaultPath);
+            uplayPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
           }
         }
       }
+      
+      if (!uplayPath) {
+        console.log('Ubisoft Connect installation not found');
+        return [];
+      }
+      
+      console.log('Ubisoft Connect installation found at:', uplayPath);
+      
+      // Tentar encontrar o caminho de instalação dos jogos
+      // Ubisoft Connect armazena os jogos em um arquivo de configuração
+      const configPath = path.join(uplayPath, 'cache', 'configuration.json');
+      
+      let gamesPath = '';
+      try {
+        await fs.access(configPath);
+        const configContent = await fs.readFile(configPath, 'utf8');
+        const config = JSON.parse(configContent);
+        
+        if (config && config.installationPaths && config.installationPaths.length > 0) {
+          gamesPath = config.installationPaths[0];
+        }
+      } catch (configError) {
+        console.warn('Could not read Ubisoft Connect configuration:', configError);
+      }
+      
+      if (!gamesPath) {
+        // Tentar caminhos padrão para jogos
+        const defaultGamesPaths = [
+          'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games',
+          'C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher\\games',
+          'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Connect\\games',
+          'C:\\Program Files\\Ubisoft\\Ubisoft Connect\\games'
+        ];
+        
+        for (const defaultPath of defaultGamesPaths) {
+          try {
+            await fs.access(defaultPath);
+            gamesPath = defaultPath;
+            break;
+          } catch (err) {
+            // Caminho não existe, continuar para o próximo
+          }
+        }
+      }
+      
+      if (!gamesPath) {
+        console.log('Ubisoft Connect games path not found');
+        return [];
+      }
+      
+      console.log('Ubisoft Connect games path found at:', gamesPath);
+      
+      // Escanear diretório de jogos
+      const games = [];
+      
+      try {
+        const entries = await fs.readdir(gamesPath, { withFileTypes: true });
+        
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            try {
+              const gamePath = path.join(gamesPath, entry.name);
+              console.log(`Checking Ubisoft Connect game directory: ${gamePath}`);
+              
+              // Procurar por executáveis
+              const gameFiles = await fs.readdir(gamePath);
+              const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
+              
+              if (exeFiles.length > 0) {
+                // Tentar encontrar o executável principal
+                // Geralmente é o que tem o mesmo nome do jogo ou contém "launcher"
+                let mainExe = exeFiles.find(file => 
+                  file.toLowerCase().includes(entry.name.toLowerCase()) ||
+                  file.toLowerCase().includes('game') ||
+                  !file.toLowerCase().includes('launcher') // Evitar launchers secundários
+                );
+                
+                if (!mainExe) {
+                  // Se não encontrar, pegar o primeiro
+                  mainExe = exeFiles[0];
+                }
+                
+                // Calcular tamanho do jogo
+                let sizeInGB = 0;
+                try {
+                  const stats = await fs.stat(gamePath);
+                  sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
+                } catch (sizeError) {
+                  console.warn(`Could not determine size for ${entry.name}:`, sizeError);
+                }
+                
+                games.push({
+                  id: entry.name.replace(/[^a-zA-Z0-9]/g, ''),
+                  name: entry.name,
+                  platform: 'Ubisoft Connect',
+                  installPath: gamePath,
+                  executablePath: path.join(gamePath, mainExe),
+                  process_name: mainExe,
+                  size: sizeInGB,
+                  iconUrl: null
+                });
+                
+                console.log(`Found Ubisoft Connect game: ${entry.name}`);
+              }
+            } catch (error) {
+              console.error(`Error processing Ubisoft Connect game directory ${entry.name}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error reading Ubisoft Connect games directory:', error);
+      }
+      
+      console.log(`Scan complete. Found ${games.length} Ubisoft Connect games`);
+      return games;
     } catch (error) {
-      console.error('Error reading Ubisoft Connect games directory:', error);
+      console.error('Error scanning Ubisoft Connect games:', error);
+      return [];
     }
-    
-    console.log(`Scan complete. Found ${games.length} Ubisoft Connect games`);
-    return games;
-  } catch (error) {
-    console.error('Error scanning Ubisoft Connect games:', error);
-    return [];
-  }
+  };
 }
 
 // System monitoring functions
@@ -2156,22 +2191,132 @@ async function testVpnSpeed() {
 }
 
 // IPC handlers for communication with renderer process
+// Atualizar o handler 'scan-games' para chamar os scanners específicos
 ipcMain.handle('scan-games', async () => {
   console.log('Received scan-games request from renderer');
   try {
-    const results = await scanForGames();
-    console.log('Scan-games completed successfully');
-    return results;
+    // Chamar todos os scanners em paralelo
+    const [steamGames, epicGames, xboxGames, originGames] = await Promise.all([
+      getSteamGames().catch(error => {
+        console.error('Error scanning Steam games:', error);
+        return [];
+      }),
+      getEpicGames().catch(error => {
+        console.error('Error scanning Epic games:', error);
+        return [];
+      }),
+      getXboxGames().catch(error => {
+        console.error('Error scanning Xbox games:', error);
+        return [];
+      }),
+      getOriginGames().catch(error => {
+        console.error('Error scanning Origin games:', error);
+        return [];
+      })
+    ]);
+    
+    // Unir todos os resultados
+    const allGames = [
+      ...steamGames,
+      ...epicGames,
+      ...xboxGames,
+      ...originGames
+    ];
+    
+    console.log(`Found a total of ${allGames.length} games`);
+    
+    return {
+      success: true,
+      data: allGames,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in scan-games handler:', error);
-    return { 
-      steam: [], 
-      epic: [], 
-      xbox: [],
-      origin: [],
-      battlenet: [],
-      gog: [],
-      uplay: []
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during scan']
+    };
+  }
+});
+
+// Handlers IPC para plataformas específicas
+ipcMain.handle('scan-steam', async () => {
+  console.log('Received scan-steam request from renderer');
+  try {
+    const games = await getSteamGames();
+    console.log(`Found ${games.length} Steam games`);
+    return {
+      success: true,
+      data: games,
+      errors: []
+    };
+  } catch (error) {
+    console.error('Error scanning Steam games:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during Steam scan']
+    };
+  }
+});
+
+ipcMain.handle('scan-epic', async () => {
+  console.log('Received scan-epic request from renderer');
+  try {
+    const games = await getEpicGames();
+    console.log(`Found ${games.length} Epic games`);
+    return {
+      success: true,
+      data: games,
+      errors: []
+    };
+  } catch (error) {
+    console.error('Error scanning Epic games:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during Epic scan']
+    };
+  }
+});
+
+ipcMain.handle('scan-xbox', async () => {
+  console.log('Received scan-xbox request from renderer');
+  try {
+    const games = await getXboxGames();
+    console.log(`Found ${games.length} Xbox games`);
+    return {
+      success: true,
+      data: games,
+      errors: []
+    };
+  } catch (error) {
+    console.error('Error scanning Xbox games:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during Xbox scan']
+    };
+  }
+});
+
+ipcMain.handle('scan-origin', async () => {
+  console.log('Received scan-origin request from renderer');
+  try {
+    const games = await getOriginGames();
+    console.log(`Found ${games.length} Origin games`);
+    return {
+      success: true,
+      data: games,
+      errors: []
+    };
+  } catch (error) {
+    console.error('Error scanning Origin games:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during Origin scan']
     };
   }
 });
@@ -2181,10 +2326,18 @@ ipcMain.handle('get-system-info', async () => {
   try {
     const info = await getSystemInfo();
     console.log('Get-system-info completed successfully');
-    return info;
+    return {
+      success: true,
+      data: info,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in get-system-info handler:', error);
-    return { cpu: {}, memory: {}, gpu: {}, os: {} };
+    return {
+      success: false,
+      data: { cpu: {}, memory: {}, gpu: {}, os: {} },
+      errors: [error.message || 'Unknown error getting system info']
+    };
   }
 });
 
@@ -2193,12 +2346,17 @@ ipcMain.handle('launch-game', async (event, game) => {
   try {
     const result = await launchGame(game);
     console.log('Launch-game completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in launch-game handler:', error);
     return {
       success: false,
-      error: error.message || 'Unknown error'
+      data: {},
+      errors: [error.message || 'Unknown error launching game']
     };
   }
 });
@@ -2208,14 +2366,20 @@ ipcMain.handle('optimize-game', async (event, game, profile, settings) => {
   try {
     const result = await optimizeGame(game, profile, settings);
     console.log('Optimize-game completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in optimize-game handler:', error);
     return {
       success: false,
-      improvements: { fps: 0, latency: 0, stability: 0 },
-      appliedSettings: {},
-      error: error.message || 'Unknown error'
+      data: {
+        improvements: { fps: 0, latency: 0, stability: 0 },
+        appliedSettings: {}
+      },
+      errors: [error.message || 'Unknown error optimizing game']
     };
   }
 });
@@ -2225,10 +2389,18 @@ ipcMain.handle('optimize-cpu', async (event, options) => {
   try {
     const result = await optimizeCPU(options);
     console.log('Optimize-cpu completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in optimize-cpu handler:', error);
-    return { success: false, improvement: 0, error: error.message };
+    return {
+      success: false,
+      data: { improvement: 0 },
+      errors: [error.message || 'Unknown error optimizing CPU']
+    };
   }
 });
 
@@ -2237,10 +2409,18 @@ ipcMain.handle('optimize-memory', async (event, options) => {
   try {
     const result = await optimizeMemory(options);
     console.log('Optimize-memory completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in optimize-memory handler:', error);
-    return { success: false, improvement: 0, error: error.message };
+    return {
+      success: false,
+      data: { improvement: 0 },
+      errors: [error.message || 'Unknown error optimizing memory']
+    };
   }
 });
 
@@ -2249,10 +2429,18 @@ ipcMain.handle('optimize-gpu', async (event, options) => {
   try {
     const result = await optimizeGPU(options);
     console.log('Optimize-gpu completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in optimize-gpu handler:', error);
-    return { success: false, improvement: 0, error: error.message };
+    return {
+      success: false,
+      data: { improvement: 0 },
+      errors: [error.message || 'Unknown error optimizing GPU']
+    };
   }
 });
 
@@ -2261,10 +2449,18 @@ ipcMain.handle('measure-network-performance', async () => {
   try {
     const result = await measureNetworkPerformance();
     console.log('Measure-network-performance completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in measure-network-performance handler:', error);
-    return { latency: 0, jitter: 0, packetLoss: 0, bandwidth: 0, routeHops: [] };
+    return {
+      success: false,
+      data: { latency: 0, jitter: 0, packetLoss: 0, bandwidth: 0, routeHops: [] },
+      errors: [error.message || 'Unknown error measuring network performance']
+    };
   }
 });
 
@@ -2273,10 +2469,18 @@ ipcMain.handle('get-available-routes', async () => {
   try {
     const routes = await getAvailableRoutes();
     console.log('Get-available-routes completed successfully');
-    return routes;
+    return {
+      success: true,
+      data: routes,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in get-available-routes handler:', error);
-    return [];
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error getting available routes']
+    };
   }
 });
 
@@ -2285,10 +2489,18 @@ ipcMain.handle('connect-to-route', async (event, route) => {
   try {
     const result = await connectToRoute(route);
     console.log('Connect-to-route completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in connect-to-route handler:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      data: {},
+      errors: [error.message || 'Unknown error connecting to route']
+    };
   }
 });
 
@@ -2297,10 +2509,18 @@ ipcMain.handle('disconnect-from-route', async () => {
   try {
     const result = await disconnectFromRoute();
     console.log('Disconnect-from-route completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in disconnect-from-route handler:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      data: {},
+      errors: [error.message || 'Unknown error disconnecting from route']
+    };
   }
 });
 
@@ -2309,10 +2529,18 @@ ipcMain.handle('get-vpn-servers', async () => {
   try {
     const servers = await getVpnServers();
     console.log('Get-vpn-servers completed successfully');
-    return servers;
+    return {
+      success: true,
+      data: servers,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in get-vpn-servers handler:', error);
-    return [];
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error getting VPN servers']
+    };
   }
 });
 
@@ -2321,10 +2549,18 @@ ipcMain.handle('connect-to-vpn', async (event, server) => {
   try {
     const result = await connectToVpn(server);
     console.log('Connect-to-vpn completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in connect-to-vpn handler:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      data: {},
+      errors: [error.message || 'Unknown error connecting to VPN']
+    };
   }
 });
 
@@ -2333,20 +2569,36 @@ ipcMain.handle('disconnect-from-vpn', async () => {
   try {
     const result = await disconnectFromVpn();
     console.log('Disconnect-from-vpn completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in disconnect-from-vpn handler:', error);
-    return { success: false, error: error.message };
+    return {
+      success: false,
+      data: {},
+      errors: [error.message || 'Unknown error disconnecting from VPN']
+    };
   }
 });
 
 ipcMain.handle('get-vpn-status', async () => {
   try {
     const status = await getVpnStatus();
-    return status;
+    return {
+      success: true,
+      data: status,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in get-vpn-status handler:', error);
-    return { isConnected: false };
+    return {
+      success: false,
+      data: { isConnected: false },
+      errors: [error.message || 'Unknown error getting VPN status']
+    };
   }
 });
 
@@ -2355,10 +2607,18 @@ ipcMain.handle('test-vpn-speed', async () => {
   try {
     const result = await testVpnSpeed();
     console.log('Test-vpn-speed completed successfully');
-    return result;
+    return {
+      success: true,
+      data: result,
+      errors: []
+    };
   } catch (error) {
     console.error('Error in test-vpn-speed handler:', error);
-    return { download: 0, upload: 0, latency: 0 };
+    return {
+      success: false,
+      data: { download: 0, upload: 0, latency: 0 },
+      errors: [error.message || 'Unknown error testing VPN speed']
+    };
   }
 });
 

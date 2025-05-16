@@ -8,6 +8,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   launchGame: (game) => ipcRenderer.invoke('launch-game', game),
   optimizeGame: (game, profile, settings) => ipcRenderer.invoke('optimize-game', game, profile, settings),
   
+  // Platform-specific scanning functions
+  scanSteam: () => ipcRenderer.invoke('scan-steam'),
+  scanEpic: () => ipcRenderer.invoke('scan-epic'),
+  scanXbox: () => ipcRenderer.invoke('scan-xbox'),
+  scanOrigin: () => ipcRenderer.invoke('scan-origin'),
+  
   // System functions
   getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
   optimizeCPU: (options) => ipcRenderer.invoke('optimize-cpu', options),
