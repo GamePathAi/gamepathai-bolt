@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
@@ -208,6 +208,118 @@ try {
 // Variável para a janela principal
 let mainWindow;
 
+// Variável para armazenar a referência ao Tray
+let tray = null;
+
+// Função para criar o ícone da bandeja do sistema
+function createTray(mainWindow) {
+  console.log('Criando ícone na bandeja do sistema...');
+  
+  // Carregar ícone da bandeja
+  const iconPath = path.join(__dirname, '../public/icons/tray-icon.png'); // Ajuste o caminho conforme necessário
+  let trayIcon;
+  
+  try {
+    trayIcon = nativeImage.createFromPath(iconPath);
+    console.log('Ícone da bandeja carregado com sucesso');
+  } catch (error) {
+    console.error('Erro ao carregar ícone da bandeja:', error);
+    // Usar um ícone alternativo ou criar um ícone vazio
+    trayIcon = nativeImage.createEmpty();
+  }
+  
+  // Ajustar tamanho do ícone para diferentes plataformas
+  if (process.platform === 'win32') {
+    trayIcon = trayIcon.resize({ width: 16, height: 16 });
+  }
+  
+  // Criar o Tray
+  tray = new Tray(trayIcon);
+  tray.setToolTip('GamePath AI');
+  
+  // Armazenar estado dos jogos
+  let detectedGames = [];
+  
+  // Atualizar o menu da bandeja com os jogos detectados
+  function updateTrayMenu(games = detectedGames) {
+    detectedGames = games;
+    
+    const gameItems = games.map(game => ({
+      label: game.name,
+      submenu: [
+        {
+          label: 'Launch',
+          click: () => {
+            mainWindow.webContents.send('launch-game-from-tray', game.id);
+          },
+        },
+        {
+          label: game.optimized ? 'Optimized ✓' : 'Optimize',
+          enabled: !game.optimized,
+          click: () => {
+            mainWindow.webContents.send('optimize-game-from-tray', game.id);
+          },
+        },
+      ],
+    }));
+    
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'GamePath AI', type: 'normal', enabled: false },
+      { type: 'separator' },
+      ...(games.length > 0 
+        ? [
+            { label: 'Detected Games', enabled: false },
+            ...gameItems,
+            { type: 'separator' },
+          ] 
+        : [{ label: 'No Games Detected', enabled: false }]
+      ),
+      { 
+        label: 'Scan for Games', 
+        click: () => {
+          console.log('Iniciando scan de jogos a partir da bandeja');
+          mainWindow.webContents.send('scan-games-from-tray');
+        } 
+      },
+      { type: 'separator' },
+      { 
+        label: 'Show App', 
+        click: () => {
+          mainWindow.show();
+        } 
+      },
+      { 
+        label: 'Quit', 
+        click: () => {
+          app.quit();
+        } 
+      },
+    ]);
+    
+    tray.setContextMenu(contextMenu);
+  }
+  
+  // Configurar comportamento ao clicar
+  tray.on('click', () => {
+    // Mostrar a janela principal ao clicar no ícone
+    mainWindow.show();
+  });
+  
+  // Menu inicial sem jogos
+  updateTrayMenu([]);
+  
+  // Expor função para atualizar lista de jogos
+  ipcMain.handle('update-tray-games', async (event, games) => {
+    console.log('Atualizando lista de jogos na bandeja:', games.length);
+    updateTrayMenu(games);
+    return true;
+  });
+  
+  return {
+    updateTrayMenu,
+  };
+}
+
 // Verifica se um caminho existe com tratamento de erro
 async function pathExists(pathToCheck) {
   try {
@@ -393,10 +505,16 @@ async function createWindow() {
     }
   }
 
-  // Mostra a janela quando estiver pronta
+  // Criar tray depois que a janela estiver pronta
   mainWindow.once('ready-to-show', () => {
     console.log('Window is ready to show');
     mainWindow.show();
+    
+    // Criar o tray
+    const { updateTrayMenu } = createTray(mainWindow);
+    
+    // Armazenar a função no objeto global para uso posterior
+    global.updateTrayMenu = updateTrayMenu;
   });
   
   // Log de diagnóstico quando a janela é fechada
@@ -415,12 +533,18 @@ app.whenReady().then(() => {
   app.quit();
 });
 
-// Fecha a aplicação quando todas as janelas forem fechadas (exceto no macOS)
+// Modifica o comportamento do app quando todas as janelas são fechadas
 app.on('window-all-closed', () => {
   console.log('All windows closed');
+  // Se estamos no macOS, não sair do app ao fechar todas as janelas
   if (process.platform !== 'darwin') {
-    console.log('Quitting application');
-    app.quit();
+    // No Windows/Linux, se temos um tray, não sair do app
+    if (!tray) {
+      console.log('No tray, quitting application');
+      app.quit();
+    } else {
+      console.log('Tray still active, app remains running in background');
+    }
   }
 });
 
@@ -1550,6 +1674,70 @@ if (!getUplayGames) {
   };
 }
 
+// Função auxiliar para obter jogos
+async function handleScanGames() {
+  console.log('Scanning for games...');
+  try {
+    // Chamar todos os scanners em paralelo
+    const [steamGames, epicGames, xboxGames, originGames, battleNetGames, gogGames, uplayGames] = await Promise.all([
+      getSteamGames ? getSteamGames().catch(error => {
+        console.error('Error scanning Steam games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getEpicGames ? getEpicGames().catch(error => {
+        console.error('Error scanning Epic games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getXboxGames ? getXboxGames().catch(error => {
+        console.error('Error scanning Xbox games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getOriginGames ? getOriginGames().catch(error => {
+        console.error('Error scanning Origin games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getBattleNetGames ? getBattleNetGames().catch(error => {
+        console.error('Error scanning Battle.net games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getGOGGames ? getGOGGames().catch(error => {
+        console.error('Error scanning GOG games:', error);
+        return [];
+      }) : Promise.resolve([]),
+      getUplayGames ? getUplayGames().catch(error => {
+        console.error('Error scanning Uplay games:', error);
+        return [];
+      }) : Promise.resolve([])
+    ]);
+    
+    // Unir todos os resultados
+    const allGames = [
+      ...steamGames,
+      ...epicGames,
+      ...xboxGames,
+      ...originGames,
+      ...battleNetGames,
+      ...gogGames,
+      ...uplayGames
+    ];
+    
+    console.log(`Found a total of ${allGames.length} games`);
+    
+    return {
+      success: true,
+      data: allGames,
+      errors: []
+    };
+  } catch (error) {
+    console.error('Error in scan-games handler:', error);
+    return {
+      success: false,
+      data: [],
+      errors: [error.message || 'Unknown error during scan']
+    };
+  }
+}
+
 // System monitoring functions
 async function getSystemInfo() {
   console.log('Getting system information...');
@@ -2191,6 +2379,19 @@ async function testVpnSpeed() {
 }
 
 // IPC handlers for communication with renderer process
+// Adicionar handler para obter jogos para o tray
+ipcMain.handle('get-games-for-tray', async () => {
+  console.log('Recebido pedido para obter jogos para a bandeja');
+  try {
+    // Obter jogos usando a função handleScanGames
+    const result = await handleScanGames();
+    return result.data || [];
+  } catch (error) {
+    console.error('Erro ao obter jogos para a bandeja:', error);
+    return [];
+  }
+});
+
 // Atualizar o handler 'scan-games' para chamar os scanners específicos
 ipcMain.handle('scan-games', async () => {
   console.log('Received scan-games request from renderer');

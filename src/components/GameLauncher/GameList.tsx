@@ -4,18 +4,20 @@ import type { GameInfo } from '../../lib/gameDetection/types';
 
 // Interface para comunicação com o Electron
 interface ElectronAPI {
-  getInstalledGames: () => Promise<GameInfo[]>;
-  scanGames: () => Promise<{ success: boolean; errors: string[] }>;
-  validateGameFiles: (gameId: string) => Promise<boolean>;
-  launchGame: (gameId: string) => Promise<boolean>;
-  optimizeGame: (gameId: string) => Promise<boolean>;
+  getInstalledGames?: () => Promise<GameInfo[]>;
+  scanGames?: () => Promise<{ success: boolean; data: GameInfo[]; errors: string[] }>;
+  validateGameFiles?: (gameId: string) => Promise<boolean>;
+  launchGame?: (gameId: string) => Promise<boolean>;
+  optimizeGame?: (gameId: string) => Promise<boolean>;
 }
 
 // Função segura para acessar a API do Electron
-const electron = (): ElectronAPI | null => {
-  if (typeof window !== 'undefined' && window.electron) {
-    return window.electron as unknown as ElectronAPI;
+const getElectronAPI = (): ElectronAPI | null => {
+  if (typeof window !== 'undefined' && window.electronAPI) {
+    console.log('Electron API disponível:', Object.keys(window.electronAPI));
+    return window.electronAPI as unknown as ElectronAPI;
   }
+  console.log('Electron API não disponível, usando mock data');
   return null;
 };
 
@@ -28,7 +30,8 @@ const mockGameScanner = {
         id: 'cs2',
         name: 'Counter-Strike 2',
         platform: 'Steam',
-        installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike 2',
+        process_name: 'cs2.exe',
+        install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike 2',
         size: 35 * 1024, // 35 GB em MB
         icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg',
       },
@@ -36,7 +39,8 @@ const mockGameScanner = {
         id: 'cyberpunk',
         name: 'Cyberpunk 2077',
         platform: 'Steam',
-        installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
+        process_name: 'Cyberpunk2077.exe',
+        install_path: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
         size: 100 * 1024, // 100 GB em MB
         icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg',
       },
@@ -44,7 +48,8 @@ const mockGameScanner = {
         id: 'fortnite',
         name: 'Fortnite',
         platform: 'Epic',
-        installPath: 'C:\\Program Files\\Epic Games\\Fortnite',
+        process_name: 'FortniteClient-Win64-Shipping.exe',
+        install_path: 'C:\\Program Files\\Epic Games\\Fortnite',
         size: 26 * 1024, // 26 GB em MB
         icon_url: 'https://cdn2.unrealengine.com/24br-s24-egs-launcher-productart-1920x1080-1920x1080-ec04a20bd189.jpg',
       },
@@ -52,7 +57,8 @@ const mockGameScanner = {
         id: 'lol',
         name: 'League of Legends',
         platform: 'Riot',
-        installPath: 'C:\\Riot Games\\League of Legends',
+        process_name: 'LeagueClient.exe',
+        install_path: 'C:\\Riot Games\\League of Legends',
         size: 15 * 1024, // 15 GB em MB
         icon_url: 'https://www.leagueoflegends.com/static/open-graph-2e582ae9fae8b0b396ca46ff21fd47a8.jpg',
       }
@@ -63,18 +69,19 @@ const mockGameScanner = {
     return { data: mockGames, error: null };
   },
   
-  scanForGames: async (): Promise<{ success: boolean; errors: string[] }> => {
+  scanForGames: async (): Promise<{ success: boolean; data: GameInfo[]; errors: string[] }> => {
     // Simular um scan
     await new Promise(resolve => setTimeout(resolve, 2000));
-    return { success: true, errors: [] };
+    const mockGames = await mockGameScanner.getInstalledGames();
+    return { success: true, data: mockGames.data || [], errors: [] };
   },
   
   validateGameFiles: async (): Promise<boolean> => {
     return true;
   },
   
-  launchGame: async (): Promise<boolean> => {
-    console.log('Mock: Game would be launched if in Electron');
+  launchGame: async (gameId: string): Promise<boolean> => {
+    console.log('Mock: Game would be launched if in Electron', gameId);
     return true;
   },
   
@@ -88,13 +95,15 @@ const mockGameScanner = {
 const gameScanner = {
   getInstalledGames: async (): Promise<{ data: GameInfo[] | null; error: Error | null }> => {
     try {
-      const api = electron();
-      if (api) {
+      const api = getElectronAPI();
+      if (api && api.getInstalledGames) {
         // Estamos no Electron
+        console.log('Chamando api.getInstalledGames() do Electron');
         const games = await api.getInstalledGames();
         return { data: games, error: null };
       } else {
         // Estamos em ambiente de desenvolvimento sem Electron
+        console.log('Usando mockGameScanner.getInstalledGames()');
         return await mockGameScanner.getInstalledGames();
       }
     } catch (error) {
@@ -103,20 +112,23 @@ const gameScanner = {
     }
   },
   
-  scanForGames: async (): Promise<{ success: boolean; errors: string[] }> => {
+  scanForGames: async (): Promise<{ success: boolean; data: GameInfo[]; errors: string[] }> => {
     try {
-      const api = electron();
-      if (api) {
+      const api = getElectronAPI();
+      if (api && api.scanGames) {
         // Estamos no Electron
+        console.log('Chamando api.scanGames() do Electron');
         return await api.scanGames();
       } else {
         // Estamos em ambiente de desenvolvimento sem Electron
+        console.log('Usando mockGameScanner.scanForGames()');
         return await mockGameScanner.scanForGames();
       }
     } catch (error) {
       console.error('Error scanning for games:', error);
       return { 
         success: false, 
+        data: [],
         errors: [error instanceof Error ? error.message : 'Unknown error during scan'] 
       };
     }
@@ -124,13 +136,15 @@ const gameScanner = {
   
   validateGameFiles: async (gameId: string): Promise<boolean> => {
     try {
-      const api = electron();
-      if (api) {
+      const api = getElectronAPI();
+      if (api && api.validateGameFiles) {
         // Estamos no Electron
+        console.log(`Chamando api.validateGameFiles(${gameId}) do Electron`);
         return await api.validateGameFiles(gameId);
       } else {
         // Estamos em ambiente de desenvolvimento sem Electron
-        return await mockGameScanner.validateGameFiles(gameId);
+        console.log(`Usando mockGameScanner.validateGameFiles(${gameId})`);
+        return await mockGameScanner.validateGameFiles();
       }
     } catch (error) {
       console.error('Error validating game files:', error);
@@ -140,12 +154,14 @@ const gameScanner = {
   
   launchGame: async (gameId: string): Promise<boolean> => {
     try {
-      const api = electron();
-      if (api) {
+      const api = getElectronAPI();
+      if (api && api.launchGame) {
         // Estamos no Electron
+        console.log(`Chamando api.launchGame(${gameId}) do Electron`);
         return await api.launchGame(gameId);
       } else {
         // Estamos em ambiente de desenvolvimento sem Electron
+        console.log(`Usando mockGameScanner.launchGame(${gameId})`);
         return await mockGameScanner.launchGame(gameId);
       }
     } catch (error) {
@@ -156,12 +172,14 @@ const gameScanner = {
   
   optimizeGame: async (gameId: string): Promise<boolean> => {
     try {
-      const api = electron();
-      if (api) {
+      const api = getElectronAPI();
+      if (api && api.optimizeGame) {
         // Estamos no Electron
+        console.log(`Chamando api.optimizeGame(${gameId}) do Electron`);
         return await api.optimizeGame(gameId);
       } else {
         // Estamos em ambiente de desenvolvimento sem Electron
+        console.log(`Usando mockGameScanner.optimizeGame(${gameId})`);
         return await mockGameScanner.optimizeGame(gameId);
       }
     } catch (error) {
@@ -180,8 +198,17 @@ export const GameList: React.FC = () => {
   const [errors, setErrors] = useState<string[]>([]);
   const [scanCompleted, setScanCompleted] = useState(false);
 
-  // Load games on mount
+  // Verificar API do Electron no início
   useEffect(() => {
+    console.log('GameList: Verificando APIs disponíveis:');
+    console.log('- window.electron existe:', typeof window.electron !== 'undefined');
+    console.log('- window.electronAPI existe:', typeof window.electronAPI !== 'undefined');
+    
+    if (window.electronAPI) {
+      console.log('- Métodos disponíveis em electronAPI:', Object.keys(window.electronAPI));
+    }
+    
+    // Carregar jogos ao iniciar
     loadGames();
   }, []);
 
@@ -210,12 +237,20 @@ export const GameList: React.FC = () => {
       const result = await gameScanner.scanForGames();
       console.log('Scan result:', result);
       
-      if (result.errors.length > 0) {
+      if (result.errors && result.errors.length > 0) {
         setErrors(result.errors);
       }
       
-      // Always reload games after scan, even if there were errors
-      await loadGames();
+      // Use data from scan result if available
+      if (result.data && result.data.length > 0) {
+        console.log('Setting games from scan result:', result.data);
+        setGames(result.data);
+      } else {
+        // Otherwise reload games
+        console.log('Recarregando jogos após scan');
+        await loadGames();
+      }
+      
       setScanCompleted(true);
       
       // Show success message for 3 seconds

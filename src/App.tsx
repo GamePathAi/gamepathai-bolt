@@ -25,6 +25,8 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { PerformanceReport } from './components/analysis/PerformanceReport';
 import { DownloadPage } from './pages/DownloadPage';
+// Importar o TrayManager
+import { TrayManager } from './components/TrayManager';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -149,12 +151,16 @@ const router = createBrowserRouter(
 );
 
 function App() {
+  // Verificar se estamos no ambiente Electron
+  const isElectron = typeof window !== 'undefined' && window.electronAPI;
+
   // Only register service worker in production and when not in StackBlitz
   React.useEffect(() => {
     if (
       process.env.NODE_ENV === 'production' && 
       'serviceWorker' in navigator &&
-      !window.location.hostname.includes('stackblitz')
+      !window.location.hostname.includes('stackblitz') &&
+      !isElectron // Não registrar service worker no Electron
     ) {
       navigator.serviceWorker.register('/service-worker.js')
         .catch(error => {
@@ -163,7 +169,13 @@ function App() {
     }
   }, []);
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      {/* Renderizar TrayManager apenas no ambiente Electron */}
+      {isElectron && <TrayManager />}
+      <RouterProvider router={router} />
+    </>
+  );
 }
 
 export default App;
