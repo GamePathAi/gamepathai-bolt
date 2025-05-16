@@ -35,6 +35,7 @@ try {
     } 
   };
 }
+console.log('Using registry implementation fallback');
 
 try {
   si = require('systeminformation');
