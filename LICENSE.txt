@@ -1,0 +1,75 @@
+﻿GAMEPATH AI LICENSE AND TERMS OF USE
+
+Last updated: May 16, 2025
+
+1. ACCEPTANCE OF TERMS
+   By installing, accessing, or using the GamePath AI software ("Software"), you agree to be bound by these License and Terms of Use ("Terms"). If you do not agree to any part of these Terms, do not install, access, or use the Software.
+
+2. SERVICE DESCRIPTION
+   GamePath AI is an artificial intelligence application designed to optimize game performance, monitor system resources, and enhance the gaming experience.
+
+3. SUBSCRIPTION MODEL
+   3.1. GamePath AI operates on a subscription model that grants access to the Software upon periodic payment.
+   3.2. Subscriptions are available in monthly, quarterly, or annual periods, as available on the platform.
+   3.3. Prices are subject to change, but any changes will be communicated at least 30 days in advance.
+   3.4. Your subscription will automatically renew at the end of each period unless you cancel before the renewal date.
+
+4. PAYMENTS AND REFUNDS
+   4.1. All payments are processed through secure third-party payment services.
+   4.2. Refunds may be requested within 14 days after the initial purchase, subject to evaluation.
+   4.3. Cancellations made after the refund period will not entitle you to proportional refunds for unused time.
+
+5. LICENSE GRANT
+   5.1. Subject to these Terms and payment of applicable fees, we grant you a limited, non-exclusive, non-transferable, and revocable license to use the Software on your personal devices.
+   5.2. This license is valid only during the period of your active subscription.
+
+6. LIMITATIONS ON USE
+   You agree not to:
+   6.1. Modify, decompile, reverse engineer, or attempt to derive the source code of the Software;
+   6.2. Remove or alter any copyright or trademark notices;
+   6.3. Use the Software for illegal purposes or in violation of these Terms;
+   6.4. Redistribute, sell, rent, or transfer the Software to third parties;
+   6.5. Use the Software to develop competing products or services;
+   6.6. Use the Software to interfere with games in a way that violates the terms of service of those games.
+
+7. PRIVACY AND DATA
+   7.1. Our Software collects information about your system and installed games to provide optimization functionality.
+   7.2. All data is handled according to our Privacy Policy, available on our website.
+   7.3. We implement security measures to protect your data, but no method of transmission or storage is 100% secure.
+
+8. UPDATES AND SUPPORT
+   8.1. We provide periodic updates to improve the Software and fix issues.
+   8.2. Technical support is available to active subscribers through the official channels specified on our website.
+   8.3. We reserve the right to discontinue support for previous versions of the Software.
+
+9. TERMINATION
+   9.1. You may cancel your subscription at any time through your account.
+   9.2. We may terminate or suspend your access to the Software immediately if you violate these Terms.
+   9.3. Upon termination, you must stop using the Software and remove all copies from your devices.
+
+10. DISCLAIMERS
+    10.1. THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE," WITHOUT WARRANTIES OF ANY KIND.
+    10.2. WE DO NOT GUARANTEE THAT THE SOFTWARE WILL FUNCTION UNINTERRUPTED, BE ERROR-FREE, OR ACHIEVE SPECIFIC PERFORMANCE RESULTS.
+    10.3. The use of the Software to modify system settings is entirely at your own risk.
+
+11. LIMITATION OF LIABILITY
+    11.1. IN NO CIRCUMSTANCE WILL WE BE LIABLE FOR ANY INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE, OR CONSEQUENTIAL DAMAGES.
+    11.2. OUR TOTAL LIABILITY TO YOU WILL NOT EXCEED THE AMOUNT PAID FOR YOUR SUBSCRIPTION IN THE LAST 12 MONTHS.
+
+12. CHANGES TO TERMS
+    12.1. We reserve the right to modify these Terms at any time.
+    12.2. We will post the updated Terms and notify you of significant changes.
+    12.3. Continued use of the Software after such changes constitutes your acceptance of the new Terms.
+
+13. GOVERNING LAW
+    13.1. These Terms are governed by the laws of the United States.
+    13.2. Any dispute related to these Terms will be resolved exclusively in the competent courts of California, United States.
+
+14. GENERAL PROVISIONS
+    14.1. These Terms constitute the complete agreement between you and us regarding the Software.
+    14.2. If any provision of these Terms is deemed invalid, the remaining provisions will remain in full force and effect.
+    14.3. Our failure to exercise any right provided in these Terms does not constitute a waiver of such right.
+
+© 2025 GamePath AI. All rights reserved.
+
+Contact: contact@gamepathai.com

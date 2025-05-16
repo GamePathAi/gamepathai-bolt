@@ -1,213 +1,223 @@
 {
-    "name":  "gamepath-ai",
-    "productName":  "GamePath AI",
-    "private":  true,
-    "version":  "0.1.0",
-    "main":  "electron/main.cjs",
-    "type":  "module",
-    "description":  "GamePath AI - Inteligência artificial para gaming",
-    "author":  "GamePathAI Team",
-    "scripts":  {
-                    "dev":  "vite",
-                    "build":  "vite build",
-                    "lint":  "eslint .",
-                    "preview":  "vite preview",
-                    "test":  "vitest",
-                    "analyze":  "vite-bundle-analyzer",
-                    "electron:dev":  "cross-env ELECTRON_RUN=true concurrently \"vite\" \"electron .\"",
-                    "electron:build":  "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build \u0026\u0026 electron-builder --publish=never",
-                    "electron:build:dir":  "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build \u0026\u0026 electron-builder --dir",
-                    "electron:build:win":  "rimraf dist-electron \u0026\u0026 cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build \u0026\u0026 electron-builder --win --publish=never",
-                    "electron:build:mac":  "rimraf dist-electron \u0026\u0026 cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build \u0026\u0026 electron-builder --mac --publish=never",
-                    "electron:build:linux":  "rimraf dist-electron \u0026\u0026 cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build \u0026\u0026 electron-builder --linux --publish=never",
-                    "electron:build:safe":  "rimraf temp-dist \u0026\u0026 vite build \u0026\u0026 electron-builder --win --config.asar=false --config.directories.output=temp-dist --publish=never",
-                    "electron:build:safe:nsis":  "rimraf temp-build temp-dist \u0026\u0026 mkdir temp-build \u0026\u0026 mkdir temp-dist \u0026\u0026 xcopy /E /I /Y electron temp-build\\electron \u0026\u0026 vite build --outDir temp-build \u0026\u0026 electron-builder --win --config.asar=false --config.directories.output=temp-dist --config.files=temp-build/**/* --target=nsis --publish=never",
-                    "deploy":  "vite build \u0026\u0026 netlify deploy --prod",
-                    "postinstall":  "node -e \"if(process.env.ELECTRON_RUN === \u0027true\u0027) { require(\u0027electron-builder/out/cli/install-app-deps\u0027).installAppDeps() }\""
+    "name": "gamepath-ai",
+    "productName": "GamePath AI",
+    "private": true,
+    "version": "0.1.17",
+    "main": "electron/main.cjs",
+    "type": "module",
+    "description": "GamePath AI - Inteligência artificial para gaming",
+    "author": "GamePathAI Team",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "lint": "eslint .",
+        "preview": "vite preview",
+        "test": "vitest",
+        "analyze": "vite-bundle-analyzer",
+        "electron:dev": "cross-env ELECTRON_RUN=true concurrently \"vite\" \"electron .\"",
+        "electron:build": "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --publish=never",
+        "electron:build:dir": "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --dir",
+        "electron:build:win": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --win --publish=never",
+        "electron:build:mac": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --mac --publish=never",
+        "electron:build:linux": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --linux --publish=never",
+        "electron:build:safe": "rimraf temp-dist && vite build && electron-builder --win --target=nsis --config.asar=false --config.directories.output=temp-dist --publish=never",
+        "electron:build:safe:nsis": "rimraf temp-build temp-dist && mkdir temp-build && mkdir temp-dist && xcopy /E /I /Y electron temp-build\\electron && vite build --outDir temp-build && electron-builder --win --config.asar=false --config.directories.output=temp-dist --config.files=temp-build/**/* --target=nsis --publish=never",
+        "electron:build:installer": "rimraf temp-dist && vite build && electron-builder --win --config.directories.output=temp-dist --target=nsis --publish=never",
+        "deploy": "vite build && netlify deploy --prod",
+        "postinstall": "node -e \"if(process.env.ELECTRON_RUN === 'true') { require('electron-builder/out/cli/install-app-deps').installAppDeps() }\""
+    },
+    "build": {
+        "appId": "ai.gamepath.app",
+        "productName": "GamePath AI",
+        "directories": {
+            "output": "dist-electron",
+            "buildResources": "public"
+        },
+        "asar": true,
+        "files": [
+            "dist/**/*",
+            "electron/**/*",
+            "package.json"
+        ],
+        "extraResources": [
+            {
+                "from": "public",
+                "to": "public"
+            }
+        ],
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64"
+                    ]
                 },
-    "build":  {
-                  "appId":  "ai.gamepath.app",
-                  "productName":  "GamePath AI",
-                  "directories":  {
-                                      "output":  "dist-electron",
-                                      "buildResources":  "public"
-                                  },
-                  "asar":  false,
-                  "files":  [
-                                "dist/**/*",
-                                "electron/**/*",
-                                "package.json"
-                            ],
-                  "extraResources":  [
-                                         {
-                                             "from":  "public",
-                                             "to":  "public"
-                                         }
-                                     ],
-                  "win":  {
-                              "target":  [
-                                             {
-                                                 "target":  "nsis",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             },
-                                             {
-                                                 "target":  "portable",
-                                                 "arch":  [
-                                                              "x64"
-                                                          ]
-                                             }
-                                         ],
-                              "icon":  "public/icons/icon.ico",
-                              "artifactName":  "${productName}-${version}-${arch}.${ext}"
-                          },
-                  "mac":  {
-                              "target":  [
-                                             {
-                                                 "target":  "dmg",
-                                                 "arch":  [
-                                                              "x64",
-                                                              "arm64"
-                                                          ]
-                                             },
-                                             {
-                                                 "target":  "zip",
-                                                 "arch":  [
-                                                              "x64",
-                                                              "arm64"
-                                                          ]
-                                             }
-                                         ],
-                              "icon":  "public/icons/icon.icns",
-                              "artifactName":  "${productName}-${version}-${arch}.${ext}",
-                              "category":  "public.app-category.developer-tools"
-                          },
-                  "linux":  {
-                                "target":  [
-                                               {
-                                                   "target":  "AppImage",
-                                                   "arch":  [
-                                                                "x64"
-                                                            ]
-                                               },
-                                               {
-                                                   "target":  "deb",
-                                                   "arch":  [
-                                                                "x64"
-                                                            ]
-                                               }
-                                           ],
-                                "icon":  "public/icons/icon.png",
-                                "artifactName":  "${productName}-${version}-${arch}.${ext}",
-                                "category":  "Development"
-                            },
-                  "nsis":  {
-                               "oneClick":  false,
-                               "allowToChangeInstallationDirectory":  true,
-                               "createDesktopShortcut":  true,
-                               "createStartMenuShortcut":  true,
-                               "shortcutName":  "GamePath AI"
-                           },
-                  "dmg":  {
-                              "contents":  [
-                                               {
-                                                   "x":  130,
-                                                   "y":  220
-                                               },
-                                               {
-                                                   "x":  410,
-                                                   "y":  220,
-                                                   "type":  "link",
-                                                   "path":  "/Applications"
-                                               }
-                                           ],
-                              "window":  {
-                                             "width":  540,
-                                             "height":  400
-                                         }
-                          },
-                  "publish":  [
-                                  {
-                                      "provider":  "github",
-                                      "owner":  "GamePathAi",
-                                      "repo":  "gamepathai-bolt",
-                                      "releaseType":  "release"
-                                  }
-                              ],
-                  "npmRebuild":  false
-              },
-    "dependencies":  {
-                         "@supabase/supabase-js":  "^2.39.3",
-                         "@tensorflow/tfjs":  "^4.17.0",
-                         "@tensorflow/tfjs-backend-wasm":  "^4.17.0",
-                         "@tensorflow/tfjs-core":  "^4.17.0",
-                         "comlink":  "^4.4.1",
-                         "crypto-js":  "^4.2.0",
-                         "csurf":  "^1.11.0",
-                         "dompurify":  "^3.0.9",
-                         "electron-store":  "^8.2.0",
-                         "express-rate-limit":  "^7.1.5",
-                         "helmet":  "^7.1.0",
-                         "i18next":  "^23.10.1",
-                         "i18next-browser-languagedetector":  "^7.2.0",
-                         "i18next-http-backend":  "^2.5.0",
-                         "idb-keyval":  "^6.2.1",
-                         "intl-messageformat":  "^10.5.11",
-                         "lucide-react":  "^0.344.0",
-                         "node-os-utils":  "^1.3.7",
-                         "react":  "^18.3.1",
-                         "react-dom":  "^18.3.1",
-                         "react-i18next":  "^14.1.0",
-                         "react-router-dom":  "^6.22.3",
-                         "registry-js":  "^1.15.1",
-                         "sharp":  "^0.33.2",
-                         "systeminformation":  "^5.22.0",
-                         "vite-plugin-image-optimizer":  "^1.1.7",
-                         "vite-plugin-pwa":  "^0.19.2",
-                         "workbox-window":  "^7.0.0",
-                         "ws":  "^8.16.0",
-                         "zod":  "^3.22.4",
-                         "zustand":  "^4.5.2",
-                         "ping":  "^0.4.4",
-                         "tcp-ping":  "^0.1.1",
-                         "find-process":  "^1.4.7",
-                         "vdf-parser":  "^1.2.1"
-                     },
-    "optionalDependencies":  {
-                                 "unix-dgram":  "^2.0.6"
-                             },
-    "devDependencies":  {
-                            "@eslint/js":  "^9.9.1",
-                            "@testing-library/jest-dom":  "^6.4.2",
-                            "@testing-library/react":  "^14.2.1",
-                            "@types/crypto-js":  "^4.2.2",
-                            "@types/dompurify":  "^3.0.5",
-                            "@types/node-os-utils":  "^1.3.4",
-                            "@types/react":  "^18.3.5",
-                            "@types/react-dom":  "^18.3.0",
-                            "@types/ws":  "^8.5.10",
-                            "@vitejs/plugin-react":  "^4.3.1",
-                            "autoprefixer":  "^10.4.18",
-                            "concurrently":  "^8.2.2",
-                            "cross-env":  "^7.0.3",
-                            "electron":  "^29.1.4",
-                            "electron-builder":  "^24.13.3",
-                            "eslint":  "^9.9.1",
-                            "eslint-plugin-react-hooks":  "^5.1.0-rc.0",
-                            "eslint-plugin-react-refresh":  "^0.4.11",
-                            "globals":  "^15.9.0",
-                            "netlify-cli":  "^17.19.4",
-                            "postcss":  "^8.4.35",
-                            "rimraf":  "^5.0.10",
-                            "rollup-plugin-visualizer":  "^5.12.0",
-                            "tailwindcss":  "^3.4.1",
-                            "typescript":  "^5.5.3",
-                            "typescript-eslint":  "^8.3.0",
-                            "vite":  "^5.4.2",
-                            "vite-bundle-analyzer":  "^0.8.3",
-                            "vite-plugin-compression":  "^0.5.1",
-                            "vitest":  "^1.3.1",
-                            "workbox-cli":  "^7.0.0"
-                        }
+                {
+                    "target": "portable",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "public/icons/icon.ico",
+            "artifactName": "${productName}-${version}-setup-${arch}.${ext}"
+        },
+        "mac": {
+            "target": [
+                {
+                    "target": "dmg",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                },
+                {
+                    "target": "zip",
+                    "arch": [
+                        "x64",
+                        "arm64"
+                    ]
+                }
+            ],
+            "icon": "public/icons/icon.icns",
+            "artifactName": "${productName}-${version}-${arch}.${ext}",
+            "category": "public.app-category.developer-tools"
+        },
+        "linux": {
+            "target": [
+                {
+                    "target": "AppImage",
+                    "arch": [
+                        "x64"
+                    ]
+                },
+                {
+                    "target": "deb",
+                    "arch": [
+                        "x64"
+                    ]
+                }
+            ],
+            "icon": "public/icons/icon.png",
+            "artifactName": "${productName}-${version}-${arch}.${ext}",
+            "category": "Development"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "GamePath AI",
+            "uninstallDisplayName": "GamePath AI",
+            "deleteAppDataOnUninstall": false,
+            "displayLanguageSelector": true,
+            "installerIcon": "public/icons/icon.ico",
+            "uninstallerIcon": "public/icons/icon.ico",
+            "installerHeaderIcon": "public/icons/icon.ico",
+            "license": "LICENSE.txt",
+            "menuCategory": "GamePath AI",
+            "runAfterFinish": true
+        },
+        "dmg": {
+            "contents": [
+                {
+                    "x": 130,
+                    "y": 220
+                },
+                {
+                    "x": 410,
+                    "y": 220,
+                    "type": "link",
+                    "path": "/Applications"
+                }
+            ],
+            "window": {
+                "width": 540,
+                "height": 400
+            }
+        },
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "GamePathAi",
+                "repo": "gamepathai-bolt",
+                "releaseType": "release"
+            }
+        ],
+        "npmRebuild": false
+    },
+    "dependencies": {
+        "@supabase/supabase-js": "^2.39.3",
+        "@tensorflow/tfjs": "^4.17.0",
+        "@tensorflow/tfjs-backend-wasm": "^4.17.0",
+        "@tensorflow/tfjs-core": "^4.17.0",
+        "comlink": "^4.4.1",
+        "crypto-js": "^4.2.0",
+        "csurf": "^1.11.0",
+        "dompurify": "^3.0.9",
+        "electron-store": "^8.2.0",
+        "express-rate-limit": "^7.1.5",
+        "helmet": "^7.1.0",
+        "i18next": "^23.10.1",
+        "i18next-browser-languagedetector": "^7.2.0",
+        "i18next-http-backend": "^2.5.0",
+        "idb-keyval": "^6.2.1",
+        "intl-messageformat": "^10.5.11",
+        "lucide-react": "^0.344.0",
+        "node-os-utils": "^1.3.7",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "react-i18next": "^14.1.0",
+        "react-router-dom": "^6.22.3",
+        "registry-js": "^1.15.1",
+        "sharp": "^0.33.2",
+        "systeminformation": "^5.22.0",
+        "vite-plugin-image-optimizer": "^1.1.7",
+        "vite-plugin-pwa": "^0.19.2",
+        "workbox-window": "^7.0.0",
+        "ws": "^8.16.0",
+        "zod": "^3.22.4",
+        "zustand": "^4.5.2",
+        "ping": "^0.4.4",
+        "tcp-ping": "^0.1.1",
+        "find-process": "^1.4.7",
+        "vdf-parser": "^1.2.1"
+    },
+    "optionalDependencies": {
+        "unix-dgram": "^2.0.6"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.9.1",
+        "@testing-library/jest-dom": "^6.4.2",
+        "@testing-library/react": "^14.2.1",
+        "@types/crypto-js": "^4.2.2",
+        "@types/dompurify": "^3.0.5",
+        "@types/node-os-utils": "^1.3.4",
+        "@types/react": "^18.3.5",
+        "@types/react-dom": "^18.3.0",
+        "@types/ws": "^8.5.10",
+        "@vitejs/plugin-react": "^4.3.1",
+        "autoprefixer": "^10.4.18",
+        "concurrently": "^8.2.2",
+        "cross-env": "^7.0.3",
+        "electron": "^29.1.4",
+        "electron-builder": "^24.13.3",
+        "eslint": "^9.9.1",
+        "eslint-plugin-react-hooks": "^5.1.0-rc.0",
+        "eslint-plugin-react-refresh": "^0.4.11",
+        "globals": "^15.9.0",
+        "netlify-cli": "^17.19.4",
+        "postcss": "^8.4.35",
+        "rimraf": "^5.0.10",
+        "rollup-plugin-visualizer": "^5.12.0",
+        "tailwindcss": "^3.4.1",
+        "typescript": "^5.5.3",
+        "typescript-eslint": "^8.3.0",
+        "vite": "^5.4.2",
+        "vite-bundle-analyzer": "^0.8.3",
+        "vite-plugin-compression": "^0.5.1",
+        "vitest": "^1.3.1",
+        "workbox-cli": "^7.0.0"
+    }
 }

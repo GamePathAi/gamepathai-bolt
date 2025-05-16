@@ -717,121 +717,172 @@ async function getEpicGames() {
   }
 }
 
+/**
+ * Escaneia e encontra jogos do Xbox/Microsoft Store instalados em um sistema Windows.
+ * Esta função verifica diretórios específicos onde jogos do Xbox são instalados,
+ * lê seus manifestos e extrai informações relevantes.
+ * 
+ * @returns {Promise<Array>} Um array de objetos contendo informações dos jogos do Xbox encontrados
+ */
 async function getXboxGames() {
   console.log('Scanning for Xbox Games...');
   try {
+    // Verificar se a plataforma é Windows, já que o Xbox Games só está disponível no Windows
     if (process.platform !== 'win32') {
       console.log('Xbox Games scanning is only supported on Windows');
       return [];
     }
-    
-    // Verificar chaves de registro do Windows Gaming
-    let gamingPath = Registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      'SOFTWARE\\Microsoft\\GamingServices',
-      'GamingInstallPath'
-    );
-    
-    if (!gamingPath && process.env.ProgramFiles) {
-      // Caminho padrão se não encontrado no registro
-      gamingPath = path.join(process.env.ProgramFiles, 'WindowsApps');
-    }
-    
-    if (!gamingPath) {
-      console.log('Xbox Gaming Services not found in registry');
-      return [];
-    }
-    
-    console.log('Xbox Gaming Services found at:', gamingPath);
-    
-    // Jogos do Xbox geralmente são instalados no diretório WindowsApps
-    const windowsAppsPath = gamingPath;
-    const games = [];
-    
-    console.log('Scanning for Xbox games in:', windowsAppsPath);
+
+    // Obter o caminho de instalação do Windows Apps por diferentes métodos
+    let windowsAppsPath;
     
     try {
-      // Verificar se temos acesso ao diretório
-      try {
-        await fs.access(windowsAppsPath);
-      } catch (accessError) {
-        console.error('No access to WindowsApps directory. This requires admin privileges:', accessError);
-        return [];
+      // Primeira tentativa: Chave de registro do GamingServices (mais confiável)
+      windowsAppsPath = Registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\Microsoft\\GamingServices',
+        'GamingInstallPath'
+      );
+      
+      if (windowsAppsPath) {
+        console.log('Found Windows Apps path in GamingServices registry:', windowsAppsPath);
       }
       
-      const entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
-      console.log(`Found ${entries.length} entries in WindowsApps directory`);
-      
-      for (const entry of entries) {
-        if (entry.isDirectory() && (
-          entry.name.includes('Microsoft.Xbox') || 
-          entry.name.includes('Microsoft.GamingApp') ||
-          entry.name.includes('Microsoft.Game')
-        )) {
-          try {
-            const gamePath = path.join(windowsAppsPath, entry.name);
-            
-            // Tentar encontrar o manifesto do aplicativo
-            const manifestPath = path.join(gamePath, 'AppxManifest.xml');
-            
-            try {
-              await fs.access(manifestPath);
-            } catch (manifestError) {
-              console.log(`No manifest found for ${entry.name}, skipping`);
-              continue;
-            }
-            
-            console.log(`Processing potential Xbox game: ${entry.name}`);
-            
-            // Ler e analisar o arquivo AppxManifest.xml
-            const manifestContent = await fs.readFile(manifestPath, 'utf8');
-            
-            // Extrair informações do jogo do manifesto
-            const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
-            const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
-            
-            if (nameMatch) {
-              const name = nameMatch[1];
-              const executableName = executableMatch ? executableMatch[1] : '';
-              
-              console.log(`Found Xbox game: ${name}`);
-              
-              // Calcular tamanho do jogo
-              let sizeInGB = 0;
-              try {
-                const stats = await fs.stat(gamePath);
-                sizeInGB = Math.round((stats.size || 0) / (1024 * 1024 * 1024) * 100) / 100;
-              } catch (sizeError) {
-                console.warn(`Could not determine size for ${name}:`, sizeError);
-              }
-              
-              // Gerar um ID único a partir do nome do diretório
-              const id = entry.name.split('_')[0];
-              
-              games.push({
-                id,
-                name,
-                platform: 'Xbox',
-                installPath: gamePath,
-                executablePath: executableName ? path.join(gamePath, executableName) : '',
-                process_name: executableName || '',
-                size: sizeInGB,
-                iconUrl: null // Jogos do Xbox não têm URLs consistentes para imagens
-              });
-            }
-          } catch (error) {
-            console.error(`Error processing Xbox game ${entry.name}:`, error);
-          }
+      // Segunda tentativa: Chave de registro alternativa
+      if (!windowsAppsPath) {
+        windowsAppsPath = Registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Appx\\PackageRoot',
+          'Path'
+        );
+        
+        if (windowsAppsPath) {
+          console.log('Found Windows Apps path in Appx PackageRoot registry:', windowsAppsPath);
         }
       }
     } catch (error) {
-      console.error('Error reading WindowsApps directory:', error);
+      console.log('Registry access error:', error.message);
+    }
+
+    // Se a pesquisa no registro falhar, usar caminhos padrão
+    if (!windowsAppsPath && process.env.ProgramFiles) {
+      windowsAppsPath = path.join(process.env.ProgramFiles, 'WindowsApps');
+      console.log('Using default Windows Apps path from ProgramFiles:', windowsAppsPath);
+    } else if (!windowsAppsPath) {
+      // Fallback absoluto se ProgramFiles não estiver disponível
+      windowsAppsPath = 'C:\\Program Files\\WindowsApps';
+      console.log('Using hardcoded default Windows Apps path:', windowsAppsPath);
+    }
+
+    console.log('Scanning for Xbox games in:', windowsAppsPath);
+
+    // Verificar se podemos acessar o diretório WindowsApps (requer privilégios elevados)
+    try {
+      await fs.access(windowsAppsPath);
+    } catch (error) {
+      console.error('No access to WindowsApps directory. This requires admin privileges:', error.message);
+      return [];
+    }
+
+    // Ler o diretório WindowsApps
+    let entries;
+    try {
+      entries = await fs.readdir(windowsAppsPath, { withFileTypes: true });
+      console.log(`Found ${entries.length} entries in WindowsApps directory`);
+    } catch (error) {
+      console.error('Error reading WindowsApps directory:', error.message);
+      return [];
+    }
+
+    // Filtrar diretórios que possam conter jogos do Xbox
+    const potentialGameDirs = entries.filter(entry => 
+      entry.isDirectory() && (
+        entry.name.includes('Microsoft.Xbox') || 
+        entry.name.includes('Microsoft.GamingApp') ||
+        entry.name.includes('Microsoft.Game')
+      )
+    );
+
+    console.log(`Found ${potentialGameDirs.length} potential Xbox game directories`);
+
+    const games = [];
+
+    // Processar cada diretório de jogo potencial
+    for (const dir of potentialGameDirs) {
+      try {
+        const gamePath = path.join(windowsAppsPath, dir.name);
+        console.log(`Processing potential Xbox game: ${dir.name}`);
+        
+        // Procurar pelo manifesto do aplicativo
+        const manifestPath = path.join(gamePath, 'AppxManifest.xml');
+        
+        // Verificar se o manifesto existe
+        try {
+          await fs.access(manifestPath);
+        } catch (manifestError) {
+          console.log(`No manifest found for ${dir.name}, skipping`);
+          continue;
+        }
+        
+        // Ler e analisar o arquivo AppxManifest.xml
+        const manifestContent = await fs.readFile(manifestPath, 'utf8');
+        
+        // Extrair nome do jogo do manifesto
+        const nameMatch = /<DisplayName>(.*?)<\/DisplayName>/.exec(manifestContent);
+        if (!nameMatch || !nameMatch[1]) {
+          console.log(`No display name found for ${dir.name}, skipping`);
+          continue;
+        }
+        
+        const gameName = nameMatch[1];
+        
+        // Extrair caminho do executável do manifesto
+        const executableMatch = /<Application.*?Executable="(.*?)"/.exec(manifestContent);
+        const executableName = executableMatch ? executableMatch[1] : '';
+        
+        if (!executableName) {
+          console.log(`No executable found for ${gameName}, skipping`);
+          continue;
+        }
+        
+        console.log(`Found Xbox game: ${gameName} (executable: ${executableName})`);
+        
+        // Gerar um ID único a partir do nome do diretório
+        // Extrair a parte "Microsoft.XYZ" do nome, sem a versão
+        const idMatch = dir.name.match(/^(Microsoft\.[^_]+)/);
+        const gameId = idMatch ? idMatch[1] : dir.name.split('_')[0];
+        
+        // Calcular tamanho do jogo
+        let gameSize = 0;
+        try {
+          const stats = await fs.stat(gamePath);
+          // Converter bytes para GB com 2 casas decimais
+          gameSize = Math.round((stats.size / (1024 * 1024 * 1024)) * 100) / 100;
+          console.log(`Size of ${gameName}: ${gameSize} GB`);
+        } catch (sizeError) {
+          console.warn(`Could not determine size for ${gameName}: ${sizeError.message}`);
+        }
+        
+        // Adicionar jogo à lista com todas as propriedades necessárias
+        games.push({
+          id: gameId,
+          name: gameName,
+          platform: 'Xbox',
+          installPath: gamePath,
+          executablePath: executableName ? path.join(gamePath, executableName) : '',
+          process_name: path.basename(executableName) || executableName,
+          size: gameSize,
+          iconUrl: null // Jogos do Xbox não têm URLs consistentes para imagens
+        });
+      } catch (error) {
+        console.error(`Error processing Xbox game ${dir.name}:`, error.message);
+      }
     }
     
     console.log(`Scan complete. Found ${games.length} Xbox games`);
     return games;
   } catch (error) {
-    console.error('Error scanning Xbox games:', error);
+    console.error('Error scanning Xbox games:', error.message);
     return [];
   }
 }
