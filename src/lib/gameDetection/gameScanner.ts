@@ -1,6 +1,7 @@
 import type { GameInfo } from './types';
 import { getSteamGames, getEpicGames, getXboxGames, getOriginGames, 
   mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames } from './platforms';
+import { filterAndDeduplicateGames, prioritizeGames, enhanceGameInfo } from './gameDetectionUtils';
 
 // Interface para comunicação com o Electron
 interface ElectronAPI {
@@ -31,7 +32,16 @@ class GameScannerWeb {
         ...originGames
       ];
       
-      return { data: allGames, error: null };
+      // Filtrar, deduplicate e priorizar jogos
+      const processedGames = prioritizeGames(
+        filterAndDeduplicateGames(
+          allGames.map(enhanceGameInfo)
+        )
+      );
+      
+      console.log(`GameScannerWeb: Processed ${processedGames.length} games from ${allGames.length} total detected`);
+      
+      return { data: processedGames, error: null };
     } catch (error) {
       console.error('Error getting installed games:', error);
       return { data: null, error: error instanceof Error ? error : new Error('Unknown error') };
@@ -94,15 +104,27 @@ class GameScannerElectron {
   
   async getInstalledGames(): Promise<{ data: GameInfo[] | null; error: Error | null }> {
     try {
+      let games: GameInfo[] = [];
+      
       if (this.api.getInstalledGames) {
-        const games = await this.api.getInstalledGames();
-        return { data: games, error: null };
+        games = await this.api.getInstalledGames();
       } else if (this.api.scanGames) {
         const result = await this.api.scanGames();
-        return { data: result.data, error: null };
+        games = result.data;
       } else {
         throw new Error('No method available to get installed games');
       }
+      
+      // Processar os jogos para filtrar não-jogos e melhorar a qualidade dos dados
+      const processedGames = prioritizeGames(
+        filterAndDeduplicateGames(
+          games.map(enhanceGameInfo)
+        )
+      );
+      
+      console.log(`GameScannerElectron: Processed ${processedGames.length} games from ${games.length} total detected`);
+      
+      return { data: processedGames, error: null };
     } catch (error) {
       console.error('Error getting installed games:', error);
       return { data: null, error: error instanceof Error ? error : new Error('Unknown error') };
@@ -112,7 +134,22 @@ class GameScannerElectron {
   async scanForGames(): Promise<{ success: boolean; data: GameInfo[]; errors: string[] }> {
     try {
       if (this.api.scanGames) {
-        return await this.api.scanGames();
+        const result = await this.api.scanGames();
+        
+        // Processar os jogos para filtrar não-jogos e melhorar a qualidade dos dados
+        const processedGames = prioritizeGames(
+          filterAndDeduplicateGames(
+            result.data.map(enhanceGameInfo)
+          )
+        );
+        
+        console.log(`GameScannerElectron: Processed ${processedGames.length} games from ${result.data.length} total detected`);
+        
+        return {
+          success: result.success,
+          data: processedGames,
+          errors: result.errors
+        };
       } else {
         throw new Error('scanGames method not available');
       }

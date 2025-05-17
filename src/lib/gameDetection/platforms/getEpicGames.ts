@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
 interface EpicGame {
   id: string;
@@ -113,9 +114,27 @@ export async function getEpicGames(): Promise<EpicGame[]> {
         const installLocation = installation.InstallLocation;
         const launchExecutable = installation.LaunchExecutable;
         
+        // Verificar se é realmente um jogo (não um aplicativo ou ferramenta)
+        if (appName && (
+          appName.includes("UE_") || 
+          appName.includes("Editor") || 
+          appName.includes("Launcher") ||
+          appName.includes("Tool") ||
+          appName.includes("SDK")
+        )) {
+          console.log(`Skipping Epic non-game application: ${name}`);
+          continue;
+        }
+        
         let executablePath = "";
         if (launchExecutable) {
           executablePath = path.join(installLocation, launchExecutable);
+          
+          // Verificar se o executável parece ser um jogo
+          if (!isLikelyGameExecutable(executablePath)) {
+            console.log(`Skipping Epic non-game executable: ${executablePath}`);
+            continue;
+          }
         }
         
         // Calcular tamanho do jogo
@@ -127,16 +146,22 @@ export async function getEpicGames(): Promise<EpicGame[]> {
           console.warn(`Could not determine size for Epic game ${name}:`, error);
         }
         
+        // Tentar encontrar um ícone para o jogo
+        let iconUrl;
+        if (appName) {
+          // Usar o CDN da Epic para ícones (formato aproximado)
+          iconUrl = `https://cdn1.epicgames.com/offer/store/item/${appName}/landscape-2560x1440`;
+        }
+        
         games.push({
-          id: appName,
+          id: appName || name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
           name,
           platform: "Epic",
           installPath: installLocation,
           executablePath,
           process_name: launchExecutable ? path.basename(launchExecutable) : "",
           size: sizeInMB,
-          // Epic não oferece URLs consistentes para imagens
-          icon_url: undefined,
+          icon_url: iconUrl,
           last_played: undefined
         });
         

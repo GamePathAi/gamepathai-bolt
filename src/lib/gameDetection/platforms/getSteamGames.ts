@@ -1,6 +1,7 @@
 import * as fs from "fs/promises";
 import * as path from "path";
 import * as os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
 // Se estiver no Windows, usar o Registry
 let Registry: any;
@@ -183,10 +184,15 @@ export async function getSteamGames(): Promise<SteamGame[]> {
                 const exeFiles = gameFiles.filter(file => file.toLowerCase().endsWith(".exe"));
                 
                 if (exeFiles.length > 0) {
+                  // Filtrar executáveis que são provavelmente jogos
+                  const gameExes = exeFiles.filter(file => 
+                    isLikelyGameExecutable(path.join(installPath, file))
+                  );
+                  
                   // Preferir executável com o mesmo nome que o diretório de instalação
-                  const mainExe = exeFiles.find(file => 
+                  const mainExe = gameExes.find(file => 
                     file.toLowerCase() === `${installDir.toLowerCase()}.exe`
-                  ) || exeFiles[0];
+                  ) || gameExes[0] || exeFiles[0];
                   
                   executablePath = path.join(installPath, mainExe);
                   processName = mainExe;

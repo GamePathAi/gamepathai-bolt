@@ -4,7 +4,7 @@ import type { GameInfo } from '../../lib/gameDetection/types';
 import { useGameScanner } from '../../hooks/useGameScanner';
 
 export const GameList: React.FC = () => {
-  const { games, isScanning, error, scanGames, launchGame, optimizeGame, setGames } = useGameScanner();
+  const { games, isScanning, error, scanGames, launchGame, optimizeGame, setGames, runDiagnostic } = useGameScanner();
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
@@ -17,37 +17,42 @@ export const GameList: React.FC = () => {
   useEffect(() => {
     // Function to receive games from the main process
     const handleGamesDetected = (event: any, detectedGames: GameInfo[]) => {
-      console.log(`Recebidos ${detectedGames.length} jogos do processo principal via evento 'games-detected'`);
+      console.log(`GameList: Recebidos ${detectedGames.length} jogos do processo principal via evento 'games-detected'`);
       
       // Update games in state if setGames is available
       if (typeof setGames === 'function') {
         setGames(detectedGames);
-        console.log('Jogos atualizados no estado via evento games-detected');
+        console.log('GameList: Jogos atualizados no estado via evento games-detected');
       }
       
       // Save to localStorage for persistence
       try {
         localStorage.setItem('detected-games', JSON.stringify(detectedGames));
-        console.log('Jogos salvos no localStorage');
+        console.log('GameList: Jogos salvos no localStorage');
       } catch (error) {
-        console.error('Erro ao salvar jogos no localStorage:', error);
+        console.error('GameList: Erro ao salvar jogos no localStorage:', error);
       }
     };
     
     // Register the listener
     if (window.ipcRenderer) {
-      console.log('Registrando listener para event games-detected');
+      console.log('GameList: Registrando listener para event games-detected');
       window.ipcRenderer.on('games-detected', handleGamesDetected);
     }
     
     // Clean up listener when unmounting
     return () => {
       if (window.ipcRenderer) {
-        console.log('Removendo listener para event games-detected');
+        console.log('GameList: Removendo listener para event games-detected');
         window.ipcRenderer.removeListener('games-detected', handleGamesDetected);
       }
     };
   }, [setGames]);
+
+  // Log when games state changes
+  useEffect(() => {
+    console.log(`GameList: Rendering with ${games?.length || 0} games available`);
+  }, [games]);
 
   // Filter games based on search and platform filter
   const filteredGames = React.useMemo(() => {
@@ -71,28 +76,29 @@ export const GameList: React.FC = () => {
     return Array.from(new Set(games.map(game => game.platform)));
   }, [games]);
 
-  const runDiagnostic = async () => {
+  const runGameDiagnostic = async () => {
     try {
       setIsDiagnosticRunning(true);
-      console.log('Executando diagnóstico de detecção de jogos...');
+      console.log('GameList: Executando diagnóstico de detecção de jogos...');
       
-      const result = await window.electronAPI.listDetectedGames();
-      console.log('Resultado do diagnóstico:', result);
+      const result = await runDiagnostic();
+      console.log('GameList: Resultado do diagnóstico:', result);
       setDiagnosticResults(result);
     } catch (error) {
-      console.error('Erro ao executar diagnóstico:', error);
+      console.error('GameList: Erro ao executar diagnóstico:', error);
     } finally {
       setIsDiagnosticRunning(false);
     }
   };
 
   const handleScanForGames = async () => {
-    console.log('Starting game scan...');
+    console.log('GameList: Scan for Games button clicked');
     setErrors([]);
     setScanCompleted(false);
     
     try {
-      await scanGames();
+      const scannedGames = await scanGames();
+      console.log(`GameList: Scan completed, received ${scannedGames?.length || 0} games`);
       
       setScanCompleted(true);
       
@@ -102,7 +108,7 @@ export const GameList: React.FC = () => {
       }, 3000);
       
     } catch (error) {
-      console.error('Error during game scan:', error);
+      console.error('GameList: Error during game scan:', error);
       setErrors([error instanceof Error ? error.message : 'Failed to scan for games']);
     }
   };
@@ -110,11 +116,11 @@ export const GameList: React.FC = () => {
   const handleLaunchGame = async (gameId: string) => {
     try {
       setErrors([]);
-      console.log(`Launching game ${gameId}...`);
+      console.log(`GameList: Launching game ${gameId}...`);
       
       await launchGame(gameId);
     } catch (error) {
-      console.error('Error launching game:', error);
+      console.error('GameList: Error launching game:', error);
       setErrors([error instanceof Error ? error.message : 'Failed to launch game']);
     }
   };
@@ -124,32 +130,13 @@ export const GameList: React.FC = () => {
       setErrors([]);
       setIsOptimizing(prev => ({ ...prev, [gameId]: true }));
       
-      console.log(`Optimizing game ${gameId}...`);
+      console.log(`GameList: Optimizing game ${gameId}...`);
       await optimizeGame(gameId);
     } catch (error) {
-      console.error('Error optimizing game:', error);
+      console.error('GameList: Error optimizing game:', error);
       setErrors([error instanceof Error ? error.message : 'Failed to optimize game']);
     } finally {
       setIsOptimizing(prev => ({ ...prev, [gameId]: false }));
-    }
-  };
-
-  const loadGamesFromTray = async () => {
-    try {
-      console.log('Obtendo jogos diretamente do tray...');
-      setIsScanning(true);
-      const trayGames = await window.electronAPI.getGamesFromTray();
-      
-      if (trayGames && trayGames.length > 0) {
-        console.log(`Obtidos ${trayGames.length} jogos do tray`);
-        setGames(trayGames);
-      } else {
-        console.warn('Nenhum jogo encontrado no tray');
-      }
-    } catch (error) {
-      console.error('Erro ao obter jogos do tray:', error);
-    } finally {
-      setIsScanning(false);
     }
   };
 
@@ -216,18 +203,11 @@ export const GameList: React.FC = () => {
 
       <div className="flex space-x-4">
         <button 
-          onClick={runDiagnostic} 
+          onClick={runGameDiagnostic} 
           disabled={isDiagnosticRunning}
           className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
           {isDiagnosticRunning ? 'Diagnosticando...' : 'Diagnóstico de Detecção'}
-        </button>
-
-        <button 
-          onClick={loadGamesFromTray}
-          className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          Carregar Jogos do Tray
         </button>
       </div>
 
@@ -276,6 +256,17 @@ export const GameList: React.FC = () => {
                     src={game.icon_url} 
                     alt={game.name} 
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '';
+                      e.currentTarget.parentElement?.classList.add('bg-gray-900', 'flex', 'items-center', 'justify-center');
+                      e.currentTarget.replaceWith(
+                        Object.assign(document.createElement('div'), {
+                          className: 'flex items-center justify-center w-full h-full',
+                          innerHTML: '<div class="text-gray-700"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4a4 4 0 0 1 4 4v4H6z M14 11h4"/><rect width="20" height="14" x="2" y="3" rx="2"/></svg></div>'
+                        })
+                      );
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full bg-gray-900 flex items-center justify-center">
