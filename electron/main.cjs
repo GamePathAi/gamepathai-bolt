@@ -1153,10 +1153,307 @@ async function getSteamGamesInternal() {
   }
 }
 
+/**
+ * Detector de jogos Epic Games interno
+ * @return {Promise<Array>} - Lista de jogos detectados
+ */
+async function getEpicGamesInternal() {
+  console.log('Usando scanner de jogos Epic Games interno');
+  try {
+    let epicManifestPath = null;
+    
+    // Caminhos padrão onde o Epic Games Store armazena manifests
+    const possiblePaths = [
+      path.join(os.homedir(), 'AppData', 'Local', 'EpicGamesLauncher', 'Saved', 'Config', 'Windows'),
+      path.join('C:', 'ProgramData', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests'),
+      path.join(os.homedir(), 'Library', 'Application Support', 'Epic', 'EpicGamesLauncher', 'Data', 'Manifests') // macOS
+    ];
+    
+    // Procurar a pasta de manifests
+    for (const possiblePath of possiblePaths) {
+      try {
+        await fs.access(possiblePath);
+        epicManifestPath = possiblePath;
+        console.log(`Pasta de manifests do Epic Games encontrada: ${epicManifestPath}`);
+        break;
+      } catch (err) {
+        // Caminho não existe, continuar
+      }
+    }
+    
+    if (!epicManifestPath) {
+      console.log('Instalação do Epic Games não encontrada');
+      return [];
+    }
+    
+    // Ler todos os arquivos na pasta de manifests
+    const files = await fs.readdir(epicManifestPath);
+    const manifestFiles = files.filter(file => file.endsWith('.item') || file.endsWith('.mancpn'));
+    
+    console.log(`Encontrados ${manifestFiles.length} manifests do Epic Games`);
+    
+    const games = [];
+    
+    // Processar cada manifest
+    for (const manifestFile of manifestFiles) {
+      try {
+        const manifestPath = path.join(epicManifestPath, manifestFile);
+        const manifestContent = await fs.readFile(manifestPath, 'utf8');
+        const manifest = JSON.parse(manifestContent);
+        
+        // Verificar se é um jogo válido (ignorar DLC, etc)
+        if (manifest.AppName && manifest.InstallLocation) {
+          const name = manifest.DisplayName || manifest.AppName;
+          const installPath = manifest.InstallLocation;
+          
+          // Tentar encontrar o executável principal
+          let executablePath = '';
+          try {
+            const gameFiles = await fs.readdir(installPath);
+            // Procurar executáveis comuns
+            const exeFiles = gameFiles.filter(file => 
+              file.endsWith('.exe') && !file.includes('unins') && !file.includes('crash')
+            );
+            
+            if (exeFiles.length > 0) {
+              // Priorizar executáveis com nomes que correspondem ao nome do jogo
+              const gameNameLower = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+              const bestMatch = exeFiles.find(exe => 
+                exe.toLowerCase().includes(gameNameLower) || 
+                gameNameLower.includes(exe.toLowerCase().replace('.exe', ''))
+              ) || exeFiles[0];
+              
+              executablePath = path.join(installPath, bestMatch);
+            }
+          } catch (error) {
+            console.warn(`Não foi possível escanear executáveis para ${name}:`, error);
+          }
+          
+          games.push({
+            id: manifest.AppName,
+            name,
+            platform: 'Epic Games',
+            installPath,
+            executablePath,
+            process_name: executablePath ? path.basename(executablePath) : '',
+            size: manifest.SizeOnDisk ? Math.round(manifest.SizeOnDisk / (1024 * 1024 * 1024) * 100) / 100 : 0,
+            last_played: manifest.LastPlayedTime ? new Date(manifest.LastPlayedTime) : null
+          });
+          
+          console.log(`Jogo Epic Games encontrado: ${name} (${manifest.AppName})`);
+        }
+      } catch (error) {
+        console.error(`Erro ao processar manifest ${manifestFile}:`, error);
+      }
+    }
+    
+    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Epic Games`);
+    return games;
+  } catch (error) {
+    console.error('Erro ao escanear jogos Epic Games:', error);
+    return [];
+  }
+}
+
+/**
+ * Detector de jogos Xbox/Microsoft Store interno
+ * @return {Promise<Array>} - Lista de jogos detectados
+ */
+async function getXboxGamesInternal() {
+  console.log('Usando scanner de jogos Xbox/Microsoft Store interno');
+  try {
+    // No Windows, os jogos da Microsoft Store são instalados em uma pasta protegida
+    // Normalmente em C:\Program Files\WindowsApps
+    // É necessário acessar o registro para encontrar os jogos instalados
+    
+    if (process.platform !== 'win32') {
+      console.log('Detecção de jogos Xbox só é suportada no Windows');
+      return [];
+    }
+    
+    const games = [];
+    
+    // Tentar ler jogos do registro
+    try {
+      // Jogos UWP/Microsoft Store são registrados no registro
+      const packageFamilyNames = Registry.enumerateValues(
+        Registry.HKEY.LOCAL_MACHINE,
+        'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Package\\Index\\PackageFamily'
+      );
+      
+      for (const entry of packageFamilyNames) {
+        if (entry.type === 'REG_BINARY' || entry.type === 'REG_SZ' || entry.type === 'REG_EXPAND_SZ') {
+          try {
+            const packageFullName = Registry.getValue(
+              Registry.HKEY.LOCAL_MACHINE,
+              `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Package\\Data\\${entry.value}`,
+              'PackageFullName'
+            );
+            
+            if (!packageFullName) continue;
+            
+            // Tentar obter o nome de exibição do aplicativo
+            const displayName = Registry.getValue(
+              Registry.HKEY.LOCAL_MACHINE,
+              `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Application\\Data\\${entry.value}`,
+              'DisplayName'
+            ) || packageFullName;
+            
+            // Verificar se é um jogo
+            // Muitos jogos UWP têm nomes contendo "Game", "Xbox", ou estão em certas categorias
+            const isGame = 
+              displayName.includes('Game') || 
+              displayName.includes('Xbox') ||
+              packageFullName.includes('Game') ||
+              packageFullName.includes('Xbox');
+            
+            if (isGame) {
+              // Tentar encontrar o caminho de instalação
+              const installLocation = Registry.getValue(
+                Registry.HKEY.LOCAL_MACHINE,
+                `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\Repository\\Packages\\${packageFullName}`,
+                'PackageRootFolder'
+              );
+              
+              if (installLocation) {
+                games.push({
+                  id: packageFullName,
+                  name: displayName,
+                  platform: 'Xbox/Microsoft Store',
+                  installPath: installLocation,
+                  executablePath: '',  // Jogos UWP não têm caminhos de .exe tradicionais
+                  process_name: packageFullName,
+                });
+                
+                console.log(`Jogo Xbox/Microsoft Store encontrado: ${displayName}`);
+              }
+            }
+          } catch (innerError) {
+            // Ignorar erros individuais
+          }
+        }
+      }
+    } catch (registryError) {
+      console.error('Erro ao acessar o registro para jogos Xbox:', registryError);
+    }
+    
+    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Xbox/Microsoft Store`);
+    return games;
+  } catch (error) {
+    console.error('Erro ao escanear jogos Xbox/Microsoft Store:', error);
+    return [];
+  }
+}
+
+/**
+ * Detector de jogos independentes/sem launcher
+ * @return {Promise<Array>} - Lista de jogos detectados
+ */
+async function getStandaloneGamesInternal() {
+  console.log('Escaneando jogos independentes/instalados manualmente');
+  try {
+    const games = [];
+    const commonGameDirs = [];
+    
+    // Caminhos comuns onde os jogos costumam ser instalados
+    if (process.platform === 'win32') {
+      // Windows
+      const drives = ['C:', 'D:', 'E:', 'F:'];
+      for (const drive of drives) {
+        try {
+          await fs.access(drive);
+          commonGameDirs.push(
+            path.join(drive, 'Program Files', 'Games'),
+            path.join(drive, 'Program Files (x86)', 'Games'),
+            path.join(drive, 'Program Files'),
+            path.join(drive, 'Program Files (x86)'),
+            path.join(drive, 'Games')
+          );
+        } catch (err) {
+          // Drive não existe ou não acessível
+        }
+      }
+    } else if (process.platform === 'darwin') {
+      // macOS
+      commonGameDirs.push(
+        path.join(os.homedir(), 'Applications'),
+        '/Applications'
+      );
+    } else {
+      // Linux
+      commonGameDirs.push(
+        path.join(os.homedir(), 'Games'),
+        path.join(os.homedir(), '.local', 'share', 'games'),
+        '/usr/games',
+        '/opt/games'
+      );
+    }
+    
+    // Escanear cada diretório por pastas que possam conter jogos
+    for (const dir of commonGameDirs) {
+      try {
+        await fs.access(dir);
+        
+        // Ler diretório
+        const items = await fs.readdir(dir, { withFileTypes: true });
+        
+        // Filtrar diretórios (potenciais jogos)
+        const subDirs = items.filter(item => item.isDirectory());
+        
+        for (const subDir of subDirs) {
+          const gamePath = path.join(dir, subDir.name);
+          
+          // Verificar se existem executáveis neste diretório
+          try {
+            const gameFiles = await fs.readdir(gamePath);
+            const exeFiles = gameFiles.filter(file => 
+              file.endsWith('.exe') && 
+              !file.includes('unins') && 
+              !file.includes('setup') &&
+              !file.includes('launcher')
+            );
+            
+            if (exeFiles.length > 0) {
+              // Este diretório provavelmente contém um jogo
+              const gameName = subDir.name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
+              
+              // Escolher o executável principal
+              let mainExe = exeFiles.find(exe => exe.toLowerCase().includes(subDir.name.toLowerCase())) || exeFiles[0];
+              const executablePath = path.join(gamePath, mainExe);
+              
+              games.push({
+                id: `standalone-${Buffer.from(gamePath).toString('base64')}`,
+                name: gameName,
+                platform: 'Standalone',
+                installPath: gamePath,
+                executablePath,
+                process_name: mainExe
+              });
+              
+              console.log(`Jogo independente encontrado: ${gameName} em ${gamePath}`);
+            }
+          } catch (err) {
+            // Não foi possível ler os arquivos deste diretório
+          }
+        }
+      } catch (err) {
+        // Diretório não existe ou não acessível
+      }
+    }
+    
+    console.log(`Escaneamento completo. Encontrados ${games.length} jogos independentes`);
+    return games;
+  } catch (error) {
+    console.error('Erro ao escanear jogos independentes:', error);
+    return [];
+  }
+}
+
 // Fornecer implementações internas de fallback para detectores não carregados
 if (!gameDetectors.steam) gameDetectors.steam = getSteamGamesInternal;
-// As outras implementações internas como getEpicGames, getXboxGames, etc. foram omitidas para 
-// brevidade, mas seriam similares ao código original
+if (!gameDetectors.epic) gameDetectors.epic = getEpicGamesInternal;
+if (!gameDetectors.xbox) gameDetectors.xbox = getXboxGamesInternal;
+gameDetectors.standalone = getStandaloneGamesInternal;
 
 // Implementar handlers IPC para comunicação com o processo de renderização
 /**
@@ -1179,29 +1476,62 @@ function registerIpcHandlers() {
   ipcMain.handle('scan-games', async () => {
     console.log('Recebida solicitação scan-games do renderer');
     try {
+      // Melhorar o log para ajudar no diagnóstico
+      console.log('Iniciando escaneamento de jogos em todas as plataformas...');
+      
       // Obter jogos de todas as plataformas em paralelo
-      const allPlatforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay'];
-      const results = await Promise.all(
-        allPlatforms.map(platform => {
+      const allPlatforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
+      
+      const platformResults = {};
+      const errors = [];
+      
+      // Escanear cada plataforma individualmente para melhor rastreamento
+      for (const platform of allPlatforms) {
+        console.log(`Escaneando jogos da plataforma: ${platform}`);
+        
+        try {
           if (gameDetectors[platform]) {
-            return gameDetectors[platform]().catch(error => {
-              console.error(`Erro ao escanear jogos ${platform}:`, error);
-              return [];
-            });
+            const platformGames = await gameDetectors[platform]();
+            console.log(`✓ Encontrados ${platformGames.length} jogos na plataforma ${platform}`);
+            platformResults[platform] = platformGames;
+          } else {
+            console.warn(`⚠ Detector da plataforma ${platform} não disponível`);
+            platformResults[platform] = [];
+            errors.push(`Detector da plataforma ${platform} não disponível`);
           }
-          return Promise.resolve([]);
-        })
+        } catch (platformError) {
+          console.error(`❌ Erro ao escanear jogos ${platform}:`, platformError);
+          platformResults[platform] = [];
+          errors.push(`Erro ao escanear jogos ${platform}: ${platformError.message}`);
+        }
+      }
+      
+      // Combinar todos os resultados e adicionar propriedade 'platform' para identificar origem
+      const allGames = Object.entries(platformResults).flatMap(([platform, games]) => 
+        games.map(game => ({
+          ...game,
+          platform: game.platform || platform.charAt(0).toUpperCase() + platform.slice(1) // Garantir que tenha plataforma
+        }))
       );
       
-      // Combinar todos os resultados
-      const allGames = results.flat();
+      // Log detalhado dos resultados
+      console.log('='.repeat(50));
+      console.log(`Escaneamento completo! Resultados:`);
+      Object.entries(platformResults).forEach(([platform, games]) => {
+        console.log(`- ${platform}: ${games.length} jogos`);
+      });
+      console.log(`Total: ${allGames.length} jogos encontrados`);
       
-      console.log(`Escaneamento encontrou um total de ${allGames.length} jogos`);
+      if (errors.length > 0) {
+        console.warn(`⚠ ${errors.length} erros ocorreram durante o escaneamento`);
+      }
+      console.log('='.repeat(50));
       
       return {
         success: true,
         data: allGames,
-        errors: []
+        platformResults, // Incluir resultados detalhados por plataforma
+        errors
       };
     } catch (error) {
       console.error('Erro no handler scan-games:', error);
@@ -1243,7 +1573,8 @@ function registerIpcHandlers() {
     { id: 'origin', name: 'Origin' },
     { id: 'battlenet', name: 'Battle.net' },
     { id: 'gog', name: 'GOG' },
-    { id: 'uplay', name: 'Ubisoft Connect' }
+    { id: 'uplay', name: 'Ubisoft Connect' },
+    { id: 'standalone', name: 'Standalone' }
   ];
   
   platforms.forEach(platform => {
