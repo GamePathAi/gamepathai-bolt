@@ -1,5 +1,5 @@
 // electron/main.cjs
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, Notification } = require('electron');
 const path = require('path');
 const { spawn } = require('child_process');
 const fs = require('fs').promises;
@@ -704,12 +704,36 @@ async function createMainWindow() {
       window.hide();
       // Mostrar notificação na primeira vez que o usuário fecha a janela
       if (!store.get('windowCloseNotificationShown')) {
-        const notification = {
+        const notificationOptions = {
           title: APP_NAME,
           body: 'A aplicação continua rodando na bandeja do sistema',
           icon: appPaths.icons.app
         };
-        new Notification(notification).show();
+        
+        // Verificar se Notification existe antes de usá-la
+        if (Notification) {
+          try {
+            new Notification(notificationOptions).show();
+          } catch (error) {
+            console.error('Erro ao mostrar notificação:', error);
+            // Fallback para dialog se a notificação falhar
+            dialog.showMessageBox({
+              type: 'info',
+              title: APP_NAME,
+              message: 'A aplicação continua rodando na bandeja do sistema',
+              buttons: ['OK']
+            });
+          }
+        } else {
+          console.log('Notification não está disponível, usando dialog como alternativa');
+          dialog.showMessageBox({
+            type: 'info',
+            title: APP_NAME,
+            message: 'A aplicação continua rodando na bandeja do sistema',
+            buttons: ['OK']
+          });
+        }
+        
         store.set('windowCloseNotificationShown', true);
       }
       return;
@@ -1393,12 +1417,12 @@ function registerIpcHandlers() {
         data: info,
         errors: []
       };
-    } catch (error) {
-      console.error('Erro no handler get-system-info:', error);
+    } catch (err) {
+      console.error('Erro no handler get-system-info:', err);
       return {
         success: false,
         data: { cpu: {}, memory: {}, gpu: {}, os: {} },
-        errors: [error.message || 'Erro ao obter informações do sistema']
+        errors: [err.message || 'Erro ao obter informações do sistema']
       };
     }
   });
