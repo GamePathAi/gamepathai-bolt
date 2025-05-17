@@ -55,39 +55,10 @@ try {
   Registry = { 
     getValue: (hkey, path, name) => {
       console.log(`[Registry Fallback] Tentativa de leitura: ${hkey}\\${path}\\${name}`);
-      
-      // Retornar valores simulados para caminhos comuns
-      if (path === 'SOFTWARE\\Valve\\Steam' && name === 'SteamPath') {
-        return process.platform === 'win32' ? 'C:\\Program Files (x86)\\Steam' : null;
-      }
-      
-      if (path === 'SOFTWARE\\WOW6432Node\\Valve\\Steam' && name === 'InstallPath') {
-        return process.platform === 'win32' ? 'C:\\Program Files (x86)\\Steam' : null;
-      }
-      
-      if (path === 'SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher' && name === 'AppDataPath') {
-        return process.platform === 'win32' ? path.join(os.homedir(), 'AppData', 'Local', 'EpicGamesLauncher') : null;
-      }
-      
       return null; 
     },
     enumerateValues: (hkey, path) => {
       console.log(`[Registry Fallback] Tentativa de enumerar: ${hkey}\\${path}`);
-      
-      // Retornar dados simulados para caminhos comuns
-      if (path === 'SOFTWARE\\Valve\\Steam\\Apps') {
-        return [
-          { name: 'InstallPath', type: 1, data: 'C:\\Program Files (x86)\\Steam' },
-          { name: 'Language', type: 1, data: 'english' }
-        ];
-      }
-      
-      if (path === 'SOFTWARE\\Epic Games\\EpicGamesLauncher') {
-        return [
-          { name: 'AppDataPath', type: 1, data: path.join(os.homedir(), 'AppData', 'Local', 'EpicGamesLauncher') }
-        ];
-      }
-      
       return []; 
     },
     HKEY: { 
@@ -104,102 +75,10 @@ try {
 } catch (e) {
   console.warn('⚠ systeminformation não disponível:', e.message);
   si = { 
-    cpu: async () => ({ 
-      brand: 'CPU Desconhecida', 
-      manufacturer: 'Desconhecido', 
-      speed: 0, 
-      cores: 0,
-      processors: 1,
-      physicalCores: 2,
-      performanceCores: 2,
-      efficiencyCores: 0,
-      speedMax: 3.5,
-      speedMin: 1.5
-    }),
-    mem: async () => ({ 
-      total: 8 * 1024 * 1024 * 1024, 
-      free: 4 * 1024 * 1024 * 1024, 
-      used: 4 * 1024 * 1024 * 1024,
-      active: 4 * 1024 * 1024 * 1024,
-      available: 4 * 1024 * 1024 * 1024,
-      swaptotal: 2 * 1024 * 1024 * 1024,
-      swapused: 512 * 1024 * 1024,
-      swapfree: 1.5 * 1024 * 1024 * 1024
-    }), 
-    graphics: async () => ({ 
-      controllers: [{ 
-        model: 'GPU Desconhecida', 
-        vram: 4 * 1024, 
-        vendor: 'Desconhecido',
-        vramDynamic: false,
-        bus: 'PCIe',
-        utilizationGpu: 30,
-        memoryTotal: 4 * 1024,
-        memoryUsed: 1 * 1024,
-        temperatureGpu: 65
-      }] 
-    }),
-    osInfo: async () => ({ 
-      platform: process.platform, 
-      distro: 'Desconhecido', 
-      release: 'Desconhecido',
-      arch: process.arch,
-      hostname: 'localhost',
-      codename: '',
-      serial: ''
-    }),
-    processes: async () => ({
-      all: 100,
-      running: 70,
-      blocked: 0,
-      sleeping: 30,
-      list: [
-        { pid: 1, name: 'System', cpu: 0.5, memory: 100 * 1024 * 1024, path: '' },
-        { pid: 100, name: 'steam.exe', cpu: 2.0, memory: 200 * 1024 * 1024, path: 'C:\\Program Files (x86)\\Steam\\steam.exe' },
-        { pid: 200, name: 'LeagueClient.exe', cpu: 5.0, memory: 500 * 1024 * 1024, path: 'C:\\Riot Games\\League of Legends\\LeagueClient.exe' }
-      ]
-    }),
-    processLoad: async (pid) => ({
-      cpu: Math.random() * 10,
-      mem: Math.random() * 500 * 1024 * 1024,
-      uptime: 3600
-    }),
-    cpuTemperature: async () => ({
-      main: 65,
-      cores: [64, 65, 66, 67],
-      max: 70
-    }),
-    diskLayout: async () => ([
-      {
-        device: 'C:',
-        type: 'SSD',
-        name: 'Samsung SSD',
-        vendor: 'Samsung',
-        size: 500 * 1024 * 1024 * 1024,
-        interfaceType: 'SATA',
-        temperature: 40
-      }
-    ]),
-    networkStats: async () => ([
-      {
-        iface: 'eth0',
-        rx_bytes: 1024 * 1024 * 100,
-        tx_bytes: 1024 * 1024 * 50,
-        rx_sec: 1024 * 10,
-        tx_sec: 1024 * 5
-      }
-    ]),
-    fsSize: async () => ([
-      {
-        fs: 'C:',
-        type: 'NTFS',
-        size: 500 * 1024 * 1024 * 1024,
-        used: 250 * 1024 * 1024 * 1024,
-        available: 250 * 1024 * 1024 * 1024,
-        use: 50,
-        mount: 'C:'
-      }
-    ])
+    cpu: async () => ({ brand: 'CPU Desconhecida', manufacturer: 'Desconhecido', speed: 0, cores: 0 }),
+    mem: async () => ({ total: 0, free: 0, used: 0 }), 
+    graphics: async () => ({ controllers: [{ model: 'GPU Desconhecida', vram: 0 }] }),
+    osInfo: async () => ({ platform: process.platform, distro: 'Desconhecido', release: 'Desconhecido' })
   };
 }
 
@@ -217,11 +96,6 @@ try {
     }
     get(key) { return this.data[key]; }
     set(key, value) { this.data[key] = value; }
-    delete(key) { delete this.data[key]; }
-    clear() { this.data = {}; }
-    has(key) { return key in this.data; }
-    onDidChange(key, callback) { /* No-op */ }
-    store = {};
   };
 }
 
@@ -1417,12 +1291,12 @@ function registerIpcHandlers() {
         data: info,
         errors: []
       };
-    } catch (err) {
-      console.error('Erro no handler get-system-info:', err);
+    } catch (error) {
+      console.error('Erro no handler get-system-info:', error);
       return {
         success: false,
         data: { cpu: {}, memory: {}, gpu: {}, os: {} },
-        errors: [err.message || 'Erro ao obter informações do sistema']
+        errors: [error.message || 'Erro ao obter informações do sistema']
       };
     }
   });
