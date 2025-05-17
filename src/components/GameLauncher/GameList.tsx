@@ -10,6 +10,8 @@ export const GameList: React.FC = () => {
   const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [scanCompleted, setScanCompleted] = useState(false);
+  const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
+  const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
 
   // Filter games based on search and platform filter
   const filteredGames = React.useMemo(() => {
@@ -32,6 +34,21 @@ export const GameList: React.FC = () => {
     }
     return Array.from(new Set(games.map(game => game.platform)));
   }, [games]);
+
+  const runDiagnostic = async () => {
+    try {
+      setIsDiagnosticRunning(true);
+      console.log('Executando diagnóstico de detecção de jogos...');
+      
+      const result = await window.electronAPI.listDetectedGames();
+      console.log('Resultado do diagnóstico:', result);
+      setDiagnosticResults(result);
+    } catch (error) {
+      console.error('Erro ao executar diagnóstico:', error);
+    } finally {
+      setIsDiagnosticRunning(false);
+    }
+  };
 
   const handleScanForGames = async () => {
     console.log('Starting game scan...');
@@ -78,6 +95,25 @@ export const GameList: React.FC = () => {
       setErrors([error instanceof Error ? error.message : 'Failed to optimize game']);
     } finally {
       setIsOptimizing(prev => ({ ...prev, [gameId]: false }));
+    }
+  };
+
+  const loadGamesFromTray = async () => {
+    try {
+      console.log('Obtendo jogos diretamente do tray...');
+      setIsScanning(true);
+      const trayGames = await window.electronAPI.getGamesFromTray();
+      
+      if (trayGames && trayGames.length > 0) {
+        console.log(`Obtidos ${trayGames.length} jogos do tray`);
+        setGames(trayGames);
+      } else {
+        console.warn('Nenhum jogo encontrado no tray');
+      }
+    } catch (error) {
+      console.error('Erro ao obter jogos do tray:', error);
+    } finally {
+      setIsScanning(false);
     }
   };
 
@@ -139,6 +175,23 @@ export const GameList: React.FC = () => {
           ) : (
             'Scan for Games'
           )}
+        </button>
+      </div>
+
+      <div className="flex space-x-4">
+        <button 
+          onClick={runDiagnostic} 
+          disabled={isDiagnosticRunning}
+          className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {isDiagnosticRunning ? 'Diagnosticando...' : 'Diagnóstico de Detecção'}
+        </button>
+
+        <button 
+          onClick={loadGamesFromTray}
+          className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          Carregar Jogos do Tray
         </button>
       </div>
 
@@ -249,6 +302,35 @@ export const GameList: React.FC = () => {
                   </button>
                 </div>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {diagnosticResults && (
+        <div className="bg-gray-800 p-4 mt-4 rounded-lg overflow-auto max-h-96">
+          <h3 className="text-white font-medium mb-3">Resultados do Diagnóstico</h3>
+          <p className="text-gray-300 mb-4">
+            Total de jogos detectados: <span className="font-bold text-cyan-400">{diagnosticResults.totalGames}</span>
+          </p>
+          
+          {Object.entries(diagnosticResults.detailedResults).map(([platform, games]) => (
+            <div key={platform} className="mb-4">
+              <h4 className="text-white font-medium mb-2">
+                {platform} ({games.length} jogos)
+              </h4>
+              {games.length > 0 ? (
+                <ul className="space-y-2">
+                  {games.map((game, index) => (
+                    <li key={index} className="bg-gray-700/50 p-2 rounded">
+                      <div className="text-white font-medium">{game.name}</div>
+                      <div className="text-gray-400 text-sm truncate">{game.installPath || game.executablePath}</div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-gray-400">Nenhum jogo encontrado nesta plataforma</p>
+              )}
             </div>
           ))}
         </div>

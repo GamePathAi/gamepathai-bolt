@@ -85,6 +85,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showNotification: (options) => {
     console.log('Preload: Mostrando notificação', options);
     return ipcRenderer.invoke('show-notification', options);
+  },
+
+  // Diagnostic function
+  listDetectedGames: () => {
+    console.log('Preload: Solicitando lista detalhada de jogos detectados');
+    return ipcRenderer.invoke('list-detected-games');
   }
 });
 
@@ -103,7 +109,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     
     if (allowedChannels.includes(channel)) {
       // Verificar se esse listener já está registrado
-      if (registeredListeners[channel] && registeredListeners[channel].has(listener)) {
+      if (registeredListeners[channel].has(listener)) {
         console.log(`Preload: Listener já registrado para ${channel}, ignorando`);
         return;
       }
