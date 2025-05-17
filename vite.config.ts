@@ -24,6 +24,16 @@ export default defineConfig({
           ui: ['react-router-dom', 'lucide-react'],
         },
       },
+      // Exclude native modules and problematic dependencies
+      external: [
+        'registry-js',
+        'systeminformation',
+        'electron',
+        'electron-store',
+        'node-os-utils',
+        'unix-dgram',
+        /^node:/
+      ]
     },
     // Importante para Electron: preserva os diretórios originais
     assetsDir: 'assets',
@@ -31,7 +41,14 @@ export default defineConfig({
     sourcemap: true,
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: [
+      'lucide-react',
+      'registry-js',
+      'systeminformation',
+      'electron-store',
+      'node-os-utils',
+      'unix-dgram'
+    ],
   },
   server: {
     fs: {
@@ -46,4 +63,9 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
     },
   },
+  // Define environment variables to control behavior
+  define: {
+    'process.env.VITE_IGNORE_NODE_IMPORTS': JSON.stringify('true'),
+    'process.env.ELECTRON_RUN': JSON.stringify(process.env.ELECTRON_RUN || 'false')
+  }
 });
