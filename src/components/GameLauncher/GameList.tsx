@@ -4,7 +4,7 @@ import type { GameInfo } from '../../lib/gameDetection/types';
 import { useGameScanner } from '../../hooks/useGameScanner';
 
 export const GameList: React.FC = () => {
-  const { games, isScanning, error, scanGames, launchGame, optimizeGame } = useGameScanner();
+  const { games, isScanning, error, scanGames, launchGame, optimizeGame, setGames } = useGameScanner();
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
@@ -12,6 +12,42 @@ export const GameList: React.FC = () => {
   const [scanCompleted, setScanCompleted] = useState(false);
   const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
   const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
+
+  // Add event listener for games-detected event
+  useEffect(() => {
+    // Function to receive games from the main process
+    const handleGamesDetected = (event: any, detectedGames: GameInfo[]) => {
+      console.log(`Recebidos ${detectedGames.length} jogos do processo principal via evento 'games-detected'`);
+      
+      // Update games in state if setGames is available
+      if (typeof setGames === 'function') {
+        setGames(detectedGames);
+        console.log('Jogos atualizados no estado via evento games-detected');
+      }
+      
+      // Save to localStorage for persistence
+      try {
+        localStorage.setItem('detected-games', JSON.stringify(detectedGames));
+        console.log('Jogos salvos no localStorage');
+      } catch (error) {
+        console.error('Erro ao salvar jogos no localStorage:', error);
+      }
+    };
+    
+    // Register the listener
+    if (window.ipcRenderer) {
+      console.log('Registrando listener para event games-detected');
+      window.ipcRenderer.on('games-detected', handleGamesDetected);
+    }
+    
+    // Clean up listener when unmounting
+    return () => {
+      if (window.ipcRenderer) {
+        console.log('Removendo listener para event games-detected');
+        window.ipcRenderer.removeListener('games-detected', handleGamesDetected);
+      }
+    };
+  }, [setGames]);
 
   // Filter games based on search and platform filter
   const filteredGames = React.useMemo(() => {
