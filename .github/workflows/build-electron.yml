@@ -20,40 +20,95 @@ jobs:
         with:
           node-version: 18
           cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Extrair versão da tag
+        id: get_version
+        shell: pwsh
+        run: |
+          $version = "${{ github.ref }}".Substring(11)  # Remove 'refs/tags/v'
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Versão extraída: $version"
+
+      - name: Verificar recursos para o tray
+        shell: pwsh
+        run: |
+          if (!(Test-Path "public\icons\tray-icon.png")) {
+            Write-Host "Ícone do tray não encontrado, copiando de icon.ico..."
+            if (Test-Path "public\icons\icon.ico") {
+              Copy-Item "public\icons\icon.ico" -Destination "public\icons\tray-icon.png" -ErrorAction SilentlyContinue
+              Write-Host "Ícone copiado com sucesso"
+            } else {
+              Write-Host "Atenção: Ícone icon.ico não encontrado. Bandeja do sistema pode não exibir ícone."
+            }
+          } else {
+            Write-Host "Ícone da bandeja encontrado: public\icons\tray-icon.png"
+          }
+
+      - name: Configurar package.json para build
+        shell: pwsh
+        run: |
+          $packageJson = Get-Content -Path package.json -Raw | ConvertFrom-Json
+          $packageJson.version = "${{ steps.get_version.outputs.VERSION }}"
+          $packageJson.build.publish = @(@{provider="github"; owner="GamePathAi"; repo="gamepathai-bolt"; private=$false})
+          $packageJson.postinstall = "echo ""Skipping postinstall script in CI environment"""
+          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
+          Write-Host "package.json modificado com sucesso:"
+          Write-Host "- Versão: $($packageJson.version)"
+          Write-Host "- Script postinstall atualizado"
+          Write-Host "- Configuração de publicação definida para GitHub"
 
       - name: Instalar dependências
         run: npm install --ignore-scripts
         env:
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
 
-      # Modificar temporariamente o package.json para evitar problemas com dependências nativas
-      - name: Configurar para build
-        shell: pwsh
+      - name: Reconstruir módulos nativos
         run: |
-          $packageJson = Get-Content -Path package.json -Raw | ConvertFrom-Json
-          $packageJson.build.publish = @(@{provider="github"; owner="GamePathAi"; repo="gamepathai-bolt"; private=$false})
-          $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
-          
+          npm rebuild --platform=win32 --arch=x64
+          npm rebuild registry-js --platform=win32 --arch=x64
+        continue-on-error: true
+
+      - name: Executar testes
+        run: npm test
+        continue-on-error: true
+
       - name: Build com método seguro
         shell: pwsh
         run: |
           if (Test-Path temp-dist) { Remove-Item -Recurse -Force temp-dist }
+          Write-Host "Iniciando build do aplicativo..."
           npm run build
+          Write-Host "Build concluído. Criando instalador..."
           npx electron-builder --win nsis --config.asar=false --config.directories.output=temp-dist --publish=never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
           USE_HARD_LINKS: "false"
-          ELECTRON_RUN: "true"
+          ELECTRON_RUN: "false"
 
       - name: Verificar saída do build
         shell: pwsh
         run: |
           Write-Host "Conteúdo da pasta temp-dist (onde está nosso build seguro):"
-          if (Test-Path temp-dist) { Get-ChildItem -Path temp-dist -Recurse | Format-Table FullName, Length -AutoSize }
+          if (Test-Path temp-dist) { 
+            Get-ChildItem -Path temp-dist -Recurse | Format-Table FullName, Length -AutoSize 
+          } else {
+            Write-Host "Erro: Pasta temp-dist não encontrada!"
+          }
           
           Write-Host "Verificando diretamente os executáveis criados:"
           Get-ChildItem -Path temp-dist -Recurse -Filter "*.exe" | Select-Object FullName, Length | Format-Table -AutoSize
+
+      - name: Verificar presença dos arquivos do tray
+        shell: pwsh
+        run: |
+          $trayIcons = Get-ChildItem -Path temp-dist -Recurse -Filter "tray-icon.png" | Select-Object FullName
+          Write-Host "Ícones do tray encontrados:"
+          $trayIcons | Format-Table -AutoSize
+          if ($trayIcons.Count -eq 0) {
+            Write-Host "Aviso: Nenhum ícone de bandeja encontrado na build final."
+          }
 
       - name: Upload Windows artifacts
         uses: actions/upload-artifact@v4
@@ -65,16 +120,116 @@ jobs:
           retention-days: 5
           if-no-files-found: warn
 
+  build-macos:
+    runs-on: macos-latest
+    name: Build for macOS
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+
+      - name: Extrair versão da tag
+        id: get_version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Versão extraída: $VERSION"
+
+      - name: Verificar recursos para o tray
+        run: |
+          if [ ! -f "public/icons/tray-icon.png" ]; then
+            echo "Ícone do tray não encontrado, copiando de icon.icns..."
+            if [ -f "public/icons/icon.icns" ]; then
+              cp "public/icons/icon.icns" "public/icons/tray-icon.png" || true
+              echo "Ícone copiado com sucesso"
+            else
+              echo "Atenção: Ícone icon.icns não encontrado. Bandeja do sistema pode não exibir ícone."
+            fi
+          else
+            echo "Ícone da bandeja encontrado: public/icons/tray-icon.png"
+          fi
+
+      - name: Configurar package.json para build
+        run: |
+          node -e "
+            const fs = require('fs');
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = '${{ steps.get_version.outputs.VERSION }}';
+            pkg.build.publish = [{provider:'github', owner:'GamePathAi', repo:'gamepathai-bolt', private:false}];
+            pkg.postinstall = 'echo \"Skipping postinstall script in CI environment\"';
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
+            console.log('package.json modificado com sucesso:');
+            console.log('- Versão:', pkg.version);
+            console.log('- Script postinstall atualizado');
+            console.log('- Configuração de publicação definida para GitHub');
+          "
+
+      - name: Instalar dependências
+        run: npm install --ignore-scripts
+        env:
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
+
+      - name: Executar testes
+        run: npm test
+        continue-on-error: true
+
+      - name: Build com método seguro
+        run: |
+          rm -rf temp-dist || true
+          echo "Iniciando build do aplicativo..."
+          npm run build
+          echo "Build concluído. Criando instalador..."
+          npx electron-builder --mac --config.asar=false --config.directories.output=temp-dist --publish=never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
+          ELECTRON_RUN: "false"
+
+      - name: Verificar saída do build
+        run: |
+          echo "Conteúdo da pasta temp-dist:"
+          ls -la temp-dist || echo "Pasta temp-dist não encontrada!"
+          
+          echo "Verificando arquivos DMG criados:"
+          find temp-dist -name "*.dmg" -type f
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-build
+          path: |
+            temp-dist/*.dmg
+          retention-days: 5
+          if-no-files-found: warn
+
   create-release:
-    needs: [build-windows]
+    needs: [build-windows, build-macos]
     runs-on: ubuntu-latest
     name: Create GitHub Release
     steps:
+      - name: Checkout código para changelog
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Download Windows artifacts
         uses: actions/download-artifact@v4
         with:
           name: windows-build
           path: artifacts/windows
+
+      - name: Download macOS artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-build
+          path: artifacts/macos
+        continue-on-error: true
 
       - name: Display artifacts structure
         run: |
@@ -82,15 +237,53 @@ jobs:
           find artifacts -type f | sort
           echo "Tamanho dos arquivos:"
           du -h artifacts/*/* || echo "Não foi possível verificar o tamanho dos arquivos"
+          echo "Arquivos Windows:"
           ls -la artifacts/windows/
+          echo "Arquivos macOS:"
+          ls -la artifacts/macos/ || echo "Nenhum artefato macOS encontrado"
+
+      - name: Gerar changelog
+        id: generate_changelog
+        run: |
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 `git rev-list --tags --skip=1 --max-count=1`)
+          
+          echo "Gerando changelog entre $PREVIOUS_TAG e $LATEST_TAG"
+          
+          CHANGELOG=$(git log $PREVIOUS_TAG..$LATEST_TAG --pretty=format:"- %s" --reverse)
+          
+          # Criar cabeçalho do changelog
+          echo "## Alterações nesta versão" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "$CHANGELOG" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Instruções de instalação" >> CHANGELOG.md
+          echo "1. Baixe o instalador apropriado para seu sistema operacional" >> CHANGELOG.md
+          echo "2. Execute o instalador e siga as instruções na tela" >> CHANGELOG.md
+          echo "3. Após a instalação, inicie o GamePath AI pelo ícone criado" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## Notas" >> CHANGELOG.md
+          echo "- Esta versão inclui suporte para bandeja do sistema" >> CHANGELOG.md
+          echo "- Aprimoramentos na detecção de jogos instalados" >> CHANGELOG.md
+          
+          cat CHANGELOG.md > changelog_content.txt
+          echo "CHANGELOG_CONTENT<<EOF" >> $GITHUB_OUTPUT
+          cat changelog_content.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Criar release no GitHub
         uses: softprops/action-gh-release@v2
         with:
           files: |
             artifacts/windows/*.exe
-          generate_release_notes: true
+            artifacts/macos/*.dmg
+          body: ${{ steps.generate_changelog.outputs.CHANGELOG_CONTENT }}
+          generate_release_notes: false
           draft: false
           fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notificar conclusão
+        run: |
+          echo "::notice::Release ${{ github.ref_name }} concluída com sucesso! 🚀"

@@ -2,7 +2,7 @@
     "name": "gamepath-ai",
     "productName": "GamePath AI",
     "private": true,
-    "version": "0.1.20",
+    "version": "0.1.21",
     "main": "electron/main.cjs",
     "type": "module",
     "description": "GamePath AI - Inteligência artificial para gaming",
@@ -24,7 +24,7 @@
         "electron:build:safe:nsis": "rimraf temp-build temp-dist && mkdir temp-build && mkdir temp-dist && xcopy /E /I /Y electron temp-build\\electron && vite build --outDir temp-build && electron-builder --win --config.asar=false --config.directories.output=temp-dist --config.files=temp-build/**/* --target=nsis --publish=never",
         "electron:build:installer": "rimraf temp-dist && vite build && electron-builder --win --config.directories.output=temp-dist --target=nsis --publish=never",
         "deploy": "vite build && netlify deploy --prod",
-        "postinstall": "node -e \"if(process.env.ELECTRON_RUN === 'true') { require('electron-builder/out/cli/install-app-deps').installAppDeps() }\""
+        "postinstall": "echo \"Skipping postinstall\""
     },
     "build": {
         "appId": "ai.gamepath.app",
