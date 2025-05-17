@@ -24,15 +24,42 @@ try {
   );
 }
 
+// Criar um armazenamento compatível com ambos os ambientes
+const createStorage = () => {
+  // Verificar se estamos em um ambiente de navegador
+  if (typeof window !== 'undefined' && window.localStorage) {
+    return window.localStorage;
+  }
+
+  // Criar uma implementação em memória para ambientes Node.js (testes)
+  return {
+    getItem: (key: string) => {
+      return null;
+    },
+    setItem: (key: string, value: string) => {
+      // Não faz nada em ambientes de teste
+    },
+    removeItem: (key: string) => {
+      // Não faz nada em ambientes de teste
+    },
+    clear: () => {
+      // Não faz nada em ambientes de teste
+    },
+    key: (index: number) => null,
+    length: 0
+  };
+};
+
+// Criar o cliente Supabase
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
     flowType: 'pkce',
-    storage: window.localStorage,
+    storage: createStorage(),
     storageKey: 'gamepath-auth',
-    debug: import.meta.env.DEV
+    debug: typeof import.meta !== 'undefined' && import.meta.env?.DEV === true
   },
   global: {
     headers: {
