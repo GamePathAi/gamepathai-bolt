@@ -20,9 +20,11 @@
         "electron:build:win": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --win --publish=never",
         "electron:build:mac": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --mac --publish=never",
         "electron:build:linux": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --linux --publish=never",
-        "electron:build:safe": "rimraf temp-dist && vite build && electron-builder --win --target=nsis --config.asar=false --config.directories.output=temp-dist --publish=never",
-        "electron:build:safe:nsis": "rimraf temp-build temp-dist && mkdir temp-build && mkdir temp-dist && xcopy /E /I /Y electron temp-build\\electron && vite build --outDir temp-build && electron-builder --win --config.asar=false --config.directories.output=temp-dist --config.files=temp-build/**/* --target=nsis --publish=never",
-        "electron:build:installer": "rimraf temp-dist && vite build && electron-builder --win --config.directories.output=temp-dist --target=nsis --publish=never",
+        "electron:build:safe": "rimraf temp-dist && vite build && electron-builder --win nsis --config.directories.output=temp-dist --publish=never",
+        "electron:build:safe:nsis": "rimraf temp-build temp-dist && mkdir temp-build && mkdir temp-dist && xcopy /E /I /Y electron temp-build\\electron && vite build --outDir temp-build && electron-builder --win nsis --config.directories.output=temp-dist --config.files=temp-build/**/* --publish=never",
+        "electron:build:installer": "rimraf temp-dist && vite build && electron-builder --win nsis --config.directories.output=temp-dist --publish=never",
+        "electron:build:portable": "rimraf temp-dist && vite build && electron-builder --win portable --config.directories.output=temp-dist --publish=never",
+        "electron:debug": "rimraf temp-dist && vite build && electron-builder --win dir --config.directories.output=temp-dist",
         "deploy": "vite build && netlify deploy --prod",
         "postinstall": "echo \"Skipping postinstall\""
     },
@@ -34,6 +36,15 @@
             "buildResources": "public"
         },
         "asar": true,
+        "asarUnpack": [
+            "node_modules/registry-js/**/*",
+            "node_modules/systeminformation/**/*",
+            "node_modules/find-process/**/*",
+            "node_modules/ping/**/*",
+            "node_modules/tcp-ping/**/*",
+            "node_modules/**/*.node",
+            "public/icons/**/*"
+        ],
         "files": [
             "dist/**/*",
             "electron/**/*",
