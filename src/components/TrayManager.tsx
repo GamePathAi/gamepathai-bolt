@@ -1,9 +1,10 @@
 // src/components/TrayManager.tsx
 import { useEffect } from 'react';
-import { useGameScanner } from '../hooks/useGameScanner'; // ou o hook que você usa para gerenciar jogos
+import { useGameStore } from '../stores/gameStore';
+import { gameScanner } from '../lib/gameDetection/gameScanner';
 
 export const TrayManager: React.FC = () => {
-  const { games, scanGames, launchGame, optimizeGame } = useGameScanner(); // ajuste conforme seu hook existente
+  const { games } = useGameStore();
   
   // Atualizar jogos no tray quando a lista mudar
   useEffect(() => {
@@ -35,28 +36,46 @@ export const TrayManager: React.FC = () => {
     // Handler para escanear jogos a partir do tray
     const handleScanFromTray = () => {
       console.log('TrayManager: Recebido comando para escanear jogos a partir do tray');
-      scanGames();
+      if (typeof gameScanner.scanForGames === 'function') {
+        gameScanner.scanForGames().catch(err => {
+          console.error('Erro ao escanear jogos:', err);
+        });
+      } else {
+        console.error('gameScanner.scanForGames não é uma função');
+      }
     };
     
     // Handler para lançar jogos a partir do tray
     const handleLaunchFromTray = (event: any, gameId: string) => {
       console.log('TrayManager: Recebido comando para lançar jogo a partir do tray', gameId);
-      const game = games.find(g => g.id === gameId);
-      if (game) {
-        launchGame(game);
+      if (games && Array.isArray(games)) {
+        const game = games.find(g => g.id === gameId);
+        if (game && typeof gameScanner.launchGame === 'function') {
+          gameScanner.launchGame(gameId).catch(err => {
+            console.error('Erro ao lançar jogo:', err);
+          });
+        } else {
+          console.error('Jogo não encontrado ou gameScanner.launchGame não é uma função:', gameId);
+        }
       } else {
-        console.error('Jogo não encontrado:', gameId);
+        console.error('Lista de jogos não disponível ou não é um array');
       }
     };
     
     // Handler para otimizar jogos a partir do tray
     const handleOptimizeFromTray = (event: any, gameId: string) => {
       console.log('TrayManager: Recebido comando para otimizar jogo a partir do tray', gameId);
-      const game = games.find(g => g.id === gameId);
-      if (game) {
-        optimizeGame(game);
+      if (games && Array.isArray(games)) {
+        const game = games.find(g => g.id === gameId);
+        if (game && typeof gameScanner.optimizeGame === 'function') {
+          gameScanner.optimizeGame(gameId).catch(err => {
+            console.error('Erro ao otimizar jogo:', err);
+          });
+        } else {
+          console.error('Jogo não encontrado ou gameScanner.optimizeGame não é uma função:', gameId);
+        }
       } else {
-        console.error('Jogo não encontrado:', gameId);
+        console.error('Lista de jogos não disponível ou não é um array');
       }
     };
     
@@ -72,7 +91,7 @@ export const TrayManager: React.FC = () => {
       window.ipcRenderer.removeListener('launch-game-from-tray', handleLaunchFromTray);
       window.ipcRenderer.removeListener('optimize-game-from-tray', handleOptimizeFromTray);
     };
-  }, [games, scanGames, launchGame, optimizeGame]);
+  }, [games]);
   
   // Inicializar tray com jogos já carregados
   useEffect(() => {
@@ -82,7 +101,13 @@ export const TrayManager: React.FC = () => {
           const trayGames = await window.electronAPI.getGamesForTray();
           if (!trayGames || trayGames.length === 0) {
             console.log('TrayManager: Não há jogos no tray, carregando jogos iniciais');
-            scanGames();
+            if (typeof gameScanner.scanForGames === 'function') {
+              gameScanner.scanForGames().catch(err => {
+                console.error('Erro ao escanear jogos:', err);
+              });
+            } else {
+              console.error('gameScanner.scanForGames não é uma função');
+            }
           } else {
             console.log('TrayManager: Jogos já carregados no tray:', trayGames.length);
           }
@@ -93,7 +118,7 @@ export const TrayManager: React.FC = () => {
     };
     
     initTray();
-  }, [scanGames]);
+  }, []);
   
   // Mostrar notificação quando o aplicativo é minimizado para o tray
   useEffect(() => {

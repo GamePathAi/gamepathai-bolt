@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { GameInfo } from '../lib/gameDetection/types';
 
 interface GameState {
   credits: number;
   upgrades: Upgrade[];
+  userGames: GameInfo[];
+  games: GameInfo[];
   addCredits: (amount: number) => void;
   spendCredits: (amount: number) => boolean;
   purchaseUpgrade: (upgradeId: string) => void;
   getPlayerLevel: () => number;
+  setGames: (games: GameInfo[]) => void;
+  updateGame: (gameId: string, updates: Partial<GameInfo>) => void;
 }
 
 export interface Upgrade {
@@ -78,6 +83,8 @@ export const useGameStore = create<GameState>()(
     (set, get) => ({
       credits: 1000,
       upgrades: initialUpgrades,
+      userGames: [],
+      games: [],
 
       addCredits: (amount: number) => 
         set(state => ({ credits: state.credits + amount })),
@@ -118,6 +125,18 @@ export const useGameStore = create<GameState>()(
       getPlayerLevel: () => {
         const state = get();
         return Math.floor(state.upgrades.reduce((sum, upgrade) => sum + upgrade.level, 0) / 3);
+      },
+
+      setGames: (games: GameInfo[]) => {
+        set({ games });
+      },
+
+      updateGame: (gameId: string, updates: Partial<GameInfo>) => {
+        set(state => ({
+          games: state.games.map(game => 
+            game.id === gameId ? { ...game, ...updates } : game
+          )
+        }));
       }
     }),
     {
