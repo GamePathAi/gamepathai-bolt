@@ -4,6 +4,16 @@ const { contextBridge, ipcRenderer } = require('electron');
 // Log para saber que o preload está sendo executado
 console.log('Preload script está carregando...');
 
+// Rastreamento de listeners registrados para evitar duplicatas
+const registeredListeners = {
+  'scan-games-from-tray': new Set(),
+  'launch-game-from-tray': new Set(),
+  'optimize-game-from-tray': new Set(),
+  'optimize-memory-from-tray': new Set(),
+  'optimize-cpu-from-tray': new Set(),
+  'optimize-network-from-tray': new Set()
+};
+
 // Expõe APIs do Electron para o processo de renderização de forma segura
 contextBridge.exposeInMainWorld('electronAPI', {
   // Game functions
@@ -85,26 +95,44 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const allowedChannels = [
       'scan-games-from-tray',
       'launch-game-from-tray',
-      'optimize-game-from-tray'
+      'optimize-game-from-tray',
+      'optimize-memory-from-tray',
+      'optimize-cpu-from-tray',
+      'optimize-network-from-tray'
     ];
     
     if (allowedChannels.includes(channel)) {
+      // Verificar se esse listener já está registrado
+      if (registeredListeners[channel] && registeredListeners[channel].has(listener)) {
+        console.log(`Preload: Listener já registrado para ${channel}, ignorando`);
+        return;
+      }
+      
       console.log(`Preload: Registrando listener para ${channel}`);
+      registeredListeners[channel].add(listener);
       ipcRenderer.on(channel, listener);
     }
   },
+  
   removeListener: (channel, listener) => {
     const allowedChannels = [
       'scan-games-from-tray',
       'launch-game-from-tray',
-      'optimize-game-from-tray'
+      'optimize-game-from-tray',
+      'optimize-memory-from-tray',
+      'optimize-cpu-from-tray',
+      'optimize-network-from-tray'
     ];
     
     if (allowedChannels.includes(channel)) {
       console.log(`Preload: Removendo listener para ${channel}`);
+      if (registeredListeners[channel]) {
+        registeredListeners[channel].delete(listener);
+      }
       ipcRenderer.removeListener(channel, listener);
     }
   },
+  
   send: (channel, ...args) => {
     const allowedChannels = [
       'request-scan-games',

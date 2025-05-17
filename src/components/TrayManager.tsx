@@ -1,11 +1,14 @@
 // src/components/TrayManager.tsx
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useGameStore } from '../stores/gameStore';
 import { useGameScanner } from '../hooks/useGameScanner';
 
 export const TrayManager: React.FC = () => {
   const { games } = useGameStore();
   const { scanGames, launchGame, optimizeGame } = useGameScanner();
+  const listenersConfigured = useRef(false);
+  const gamesLoaded = useRef(false);
+  const isLoadingGames = useRef(false);
   
   // Atualizar jogos no tray quando a lista mudar
   useEffect(() => {
@@ -27,12 +30,13 @@ export const TrayManager: React.FC = () => {
   
   // Configurar listeners para eventos do tray
   useEffect(() => {
-    if (!window.ipcRenderer) {
-      console.log('ipcRenderer não disponível, TrayManager não será inicializado');
+    if (!window.ipcRenderer || listenersConfigured.current) {
+      console.log('ipcRenderer não disponível ou listeners já configurados');
       return;
     }
     
     console.log('TrayManager: Configurando listeners para eventos do tray');
+    listenersConfigured.current = true;
     
     // Handler para escanear jogos a partir do tray
     const handleScanFromTray = () => {
@@ -87,34 +91,44 @@ export const TrayManager: React.FC = () => {
     
     // Limpar listeners quando o componente for desmontado
     return () => {
-      console.log('TrayManager: Removendo listeners de eventos do tray');
-      window.ipcRenderer.removeListener('scan-games-from-tray', handleScanFromTray);
-      window.ipcRenderer.removeListener('launch-game-from-tray', handleLaunchFromTray);
-      window.ipcRenderer.removeListener('optimize-game-from-tray', handleOptimizeFromTray);
+      if (listenersConfigured.current) {
+        console.log('TrayManager: Removendo listeners de eventos do tray');
+        window.ipcRenderer.removeListener('scan-games-from-tray', handleScanFromTray);
+        window.ipcRenderer.removeListener('launch-game-from-tray', handleLaunchFromTray);
+        window.ipcRenderer.removeListener('optimize-game-from-tray', handleOptimizeFromTray);
+        listenersConfigured.current = false;
+      }
     };
   }, [games, scanGames, launchGame, optimizeGame]);
   
   // Inicializar tray com jogos já carregados
   useEffect(() => {
     const initTray = async () => {
-      if (window.electronAPI?.getGamesForTray) {
-        try {
-          const trayGames = await window.electronAPI.getGamesForTray();
-          if (!trayGames || trayGames.length === 0) {
-            console.log('TrayManager: Não há jogos no tray, carregando jogos iniciais');
-            if (typeof scanGames === 'function') {
-              scanGames().catch(err => {
-                console.error('Erro ao escanear jogos:', err);
-              });
-            } else {
-              console.error('scanGames não é uma função');
-            }
+      if (!window.electronAPI?.getGamesForTray || gamesLoaded.current || isLoadingGames.current) {
+        return;
+      }
+      
+      try {
+        isLoadingGames.current = true;
+        console.log('TrayManager: Obtendo jogos para o tray');
+        const trayGames = await window.electronAPI.getGamesForTray();
+        
+        if (!trayGames || trayGames.length === 0) {
+          console.log('TrayManager: Não há jogos no tray, carregando jogos iniciais');
+          if (typeof scanGames === 'function') {
+            await scanGames();
           } else {
-            console.log('TrayManager: Jogos já carregados no tray:', trayGames.length);
+            console.error('scanGames não é uma função');
           }
-        } catch (error) {
-          console.error('Erro ao obter jogos para o tray:', error);
+        } else {
+          console.log('TrayManager: Jogos já carregados no tray:', trayGames.length);
         }
+        
+        gamesLoaded.current = true;
+      } catch (error) {
+        console.error('Erro ao obter jogos para o tray:', error);
+      } finally {
+        isLoadingGames.current = false;
       }
     };
     

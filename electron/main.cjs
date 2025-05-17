@@ -585,7 +585,7 @@ async function createMainWindow() {
         };
         
         // Verificar se Notification existe antes de usá-la
-        if (Notification) {
+        if (typeof Notification !== 'undefined') {
           try {
             new Notification(notificationOptions).show();
           } catch (error) {
