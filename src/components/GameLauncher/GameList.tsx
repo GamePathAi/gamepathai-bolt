@@ -1,124 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Gamepad2, Search, Filter, ChevronDown, AlertTriangle, Zap } from 'lucide-react';
 import type { GameInfo } from '../../lib/gameDetection/types';
-import { gameScanner } from '../../lib/gameDetection/gameScanner';
+import { useGameScanner } from '../../hooks/useGameScanner';
 
 export const GameList: React.FC = () => {
-  const [games, setGames] = useState<GameInfo[]>([]);
+  const { games, isScanning, error, scanGames, launchGame, optimizeGame } = useGameScanner();
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
-  const [isScanning, setIsScanning] = useState(false);
   const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<string[]>([]);
   const [scanCompleted, setScanCompleted] = useState(false);
-
-  // Verificar API do Electron no início
-  useEffect(() => {
-    console.log('GameList: Verificando APIs disponíveis:');
-    console.log('- window.electron existe:', typeof window.electron !== 'undefined');
-    console.log('- window.electronAPI existe:', typeof window.electronAPI !== 'undefined');
-    
-    if (window.electronAPI) {
-      console.log('- Métodos disponíveis em electronAPI:', Object.keys(window.electronAPI));
-    }
-    
-    // Carregar jogos ao iniciar
-    loadGames();
-  }, []);
-
-  const loadGames = async () => {
-    try {
-      setErrors([]);
-      const { data, error } = await gameScanner.getInstalledGames();
-      if (error) throw error;
-      if (data) {
-        console.log('Loaded games:', data);
-        setGames(data);
-      }
-    } catch (error) {
-      console.error('Error loading games:', error);
-      setErrors([error instanceof Error ? error.message : 'Failed to load games']);
-    }
-  };
-
-  const scanForGames = async () => {
-    console.log('Starting game scan...');
-    setIsScanning(true);
-    setErrors([]);
-    setScanCompleted(false);
-    
-    try {
-      const result = await gameScanner.scanForGames();
-      console.log('Scan result:', result);
-      
-      if (result.errors && result.errors.length > 0) {
-        setErrors(result.errors);
-      }
-      
-      // Use data from scan result if available
-      if (result.data && Array.isArray(result.data) && result.data.length > 0) {
-        console.log('Setting games from scan result:', result.data);
-        setGames(result.data);
-      } else {
-        // Otherwise reload games
-        console.log('Recarregando jogos após scan');
-        await loadGames();
-      }
-      
-      setScanCompleted(true);
-      
-      // Show success message for 3 seconds
-      setTimeout(() => {
-        setScanCompleted(false);
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Error during game scan:', error);
-      setErrors([error instanceof Error ? error.message : 'Failed to scan for games']);
-    } finally {
-      setIsScanning(false);
-    }
-  };
-
-  const handleLaunchGame = async (gameId: string) => {
-    try {
-      setErrors([]);
-      console.log(`Launching game ${gameId}...`);
-      
-      const isValid = await gameScanner.validateGameFiles(gameId);
-      if (!isValid) {
-        setErrors(['Game files are corrupted or missing. Please verify the installation.']);
-        return;
-      }
-      
-      await gameScanner.launchGame(gameId);
-    } catch (error) {
-      console.error('Error launching game:', error);
-      setErrors([error instanceof Error ? error.message : 'Failed to launch game']);
-    }
-  };
-
-  const handleOptimizeGame = async (gameId: string) => {
-    try {
-      setErrors([]);
-      setIsOptimizing(prev => ({ ...prev, [gameId]: true }));
-      
-      console.log(`Optimizing game ${gameId}...`);
-      const result = await gameScanner.optimizeGame(gameId);
-      
-      if (result) {
-        // Update the game as optimized
-        setGames(prev => prev.map(game => 
-          game.id === gameId ? { ...game, optimized: true } : game
-        ));
-      }
-    } catch (error) {
-      console.error('Error optimizing game:', error);
-      setErrors([error instanceof Error ? error.message : 'Failed to optimize game']);
-    } finally {
-      setIsOptimizing(prev => ({ ...prev, [gameId]: false }));
-    }
-  };
 
   // Filter games based on search and platform filter
   const filteredGames = React.useMemo(() => {
@@ -141,6 +32,54 @@ export const GameList: React.FC = () => {
     }
     return Array.from(new Set(games.map(game => game.platform)));
   }, [games]);
+
+  const handleScanForGames = async () => {
+    console.log('Starting game scan...');
+    setErrors([]);
+    setScanCompleted(false);
+    
+    try {
+      await scanGames();
+      
+      setScanCompleted(true);
+      
+      // Show success message for 3 seconds
+      setTimeout(() => {
+        setScanCompleted(false);
+      }, 3000);
+      
+    } catch (error) {
+      console.error('Error during game scan:', error);
+      setErrors([error instanceof Error ? error.message : 'Failed to scan for games']);
+    }
+  };
+
+  const handleLaunchGame = async (gameId: string) => {
+    try {
+      setErrors([]);
+      console.log(`Launching game ${gameId}...`);
+      
+      await launchGame(gameId);
+    } catch (error) {
+      console.error('Error launching game:', error);
+      setErrors([error instanceof Error ? error.message : 'Failed to launch game']);
+    }
+  };
+
+  const handleOptimizeGame = async (gameId: string) => {
+    try {
+      setErrors([]);
+      setIsOptimizing(prev => ({ ...prev, [gameId]: true }));
+      
+      console.log(`Optimizing game ${gameId}...`);
+      await optimizeGame(gameId);
+    } catch (error) {
+      console.error('Error optimizing game:', error);
+      setErrors([error instanceof Error ? error.message : 'Failed to optimize game']);
+    } finally {
+      setIsOptimizing(prev => ({ ...prev, [gameId]: false }));
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -181,7 +120,7 @@ export const GameList: React.FC = () => {
         </div>
 
         <button
-          onClick={scanForGames}
+          onClick={handleScanForGames}
           disabled={isScanning}
           className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-medium hover:bg-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
@@ -204,15 +143,18 @@ export const GameList: React.FC = () => {
       </div>
 
       {/* Error Messages */}
-      {errors.length > 0 && (
+      {(errors.length > 0 || error) && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
           <div className="flex items-center text-red-400 mb-2">
             <AlertTriangle size={20} className="mr-2" />
             <h3 className="font-medium">Errors Found</h3>
           </div>
           <ul className="list-disc list-inside space-y-1">
-            {errors.map((error, index) => (
-              <li key={index} className="text-sm text-red-400">{error}</li>
+            {error && (
+              <li className="text-sm text-red-400">{error}</li>
+            )}
+            {errors.map((errorMsg, index) => (
+              <li key={index} className="text-sm text-red-400">{errorMsg}</li>
             ))}
           </ul>
         </div>
