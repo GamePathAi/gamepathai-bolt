@@ -51,11 +51,24 @@ jobs:
           $packageJson = Get-Content -Path package.json -Raw | ConvertFrom-Json
           $packageJson.version = "${{ steps.get_version.outputs.VERSION }}"
           $packageJson.build.publish = @(@{provider="github"; owner="GamePathAi"; repo="gamepathai-bolt"; private=$false})
-          $packageJson.postinstall = "echo ""Skipping postinstall script in CI environment"""
+          
+          # Verifica se scripts existe
+          if (-not (Get-Member -InputObject $packageJson -Name "scripts" -MemberType NoteProperty)) {
+            Write-Host "Propriedade scripts não encontrada no package.json"
+            $packageJson | Add-Member -NotePropertyName "scripts" -NotePropertyValue @{}
+          }
+          
+          # Verifica se postinstall existe em scripts
+          if (Get-Member -InputObject $packageJson.scripts -Name "postinstall" -MemberType NoteProperty) {
+            Write-Host "Propriedade postinstall já existe, mantendo o valor atual: $($packageJson.scripts.postinstall)"
+          } else {
+            $packageJson.scripts.postinstall = "echo ""Skipping postinstall script in CI environment"""
+            Write-Host "Script postinstall adicionado"
+          }
+          
           $packageJson | ConvertTo-Json -Depth 100 | Set-Content -Path package.json
           Write-Host "package.json modificado com sucesso:"
           Write-Host "- Versão: $($packageJson.version)"
-          Write-Host "- Script postinstall atualizado"
           Write-Host "- Configuração de publicação definida para GitHub"
 
       - name: Instalar dependências
@@ -162,11 +175,24 @@ jobs:
             const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
             pkg.version = '${{ steps.get_version.outputs.VERSION }}';
             pkg.build.publish = [{provider:'github', owner:'GamePathAi', repo:'gamepathai-bolt', private:false}];
-            pkg.postinstall = 'echo \"Skipping postinstall script in CI environment\"';
+            
+            // Verifica se scripts existe
+            if (!pkg.scripts) {
+              console.log('Propriedade scripts não encontrada no package.json');
+              pkg.scripts = {};
+            }
+            
+            // Verifica se postinstall existe em scripts
+            if (pkg.scripts.postinstall) {
+              console.log('- Script postinstall existente mantido: ' + pkg.scripts.postinstall);
+            } else {
+              pkg.scripts.postinstall = 'echo \"Skipping postinstall script in CI environment\"';
+              console.log('- Script postinstall adicionado');
+            }
+            
             fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
             console.log('package.json modificado com sucesso:');
             console.log('- Versão:', pkg.version);
-            console.log('- Script postinstall atualizado');
             console.log('- Configuração de publicação definida para GitHub');
           "
 
