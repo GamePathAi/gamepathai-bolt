@@ -11,7 +11,8 @@ const registeredListeners = {
   'optimize-game-from-tray': new Set(),
   'optimize-memory-from-tray': new Set(),
   'optimize-cpu-from-tray': new Set(),
-  'optimize-network-from-tray': new Set()
+  'optimize-network-from-tray': new Set(),
+  'games-detected': new Set()  // Adicionado
 };
 
 // Expõe APIs do Electron para o processo de renderização de forma segura
@@ -104,7 +105,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
       'optimize-game-from-tray',
       'optimize-memory-from-tray',
       'optimize-cpu-from-tray',
-      'optimize-network-from-tray'
+      'optimize-network-from-tray',
+      'games-detected'  // Adicionado
     ];
     
     if (allowedChannels.includes(channel)) {
@@ -127,7 +129,8 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
       'optimize-game-from-tray',
       'optimize-memory-from-tray',
       'optimize-cpu-from-tray',
-      'optimize-network-from-tray'
+      'optimize-network-from-tray',
+      'games-detected'  // Adicionado
     ];
     
     if (allowedChannels.includes(channel)) {
