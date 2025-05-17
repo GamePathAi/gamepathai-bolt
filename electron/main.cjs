@@ -73,8 +73,10 @@ const store = new Store();
 let getSteamGames, getEpicGames, getXboxGames, getOriginGames, 
     getBattleNetGames, getGOGGames, getUplayGames;
 
+// Caminhos atualizados para os módulos de detecção de jogos
 try {
-  getSteamGames = require('./src/lib/getSteamGames').default || require('./src/lib/getSteamGames');
+  getSteamGames = require('./src/lib/gameDetection/platforms/getSteamGames').default || 
+                 require('./src/lib/gameDetection/platforms/getSteamGames');
   console.log('Successfully loaded Steam games module');
 } catch (e) {
   console.warn('Steam games module not available:', e.message);
@@ -83,7 +85,8 @@ try {
 }
 
 try {
-  getEpicGames = require('./src/lib/getEpicGames').default || require('./src/lib/getEpicGames');
+  getEpicGames = require('./src/lib/gameDetection/platforms/getEpicGames').default || 
+                require('./src/lib/gameDetection/platforms/getEpicGames');
   console.log('Successfully loaded Epic games module');
 } catch (e) {
   console.warn('Epic games module not available:', e.message);
@@ -91,7 +94,8 @@ try {
 }
 
 try {
-  getXboxGames = require('./src/lib/getXboxGames').default || require('./src/lib/getXboxGames');
+  getXboxGames = require('./src/lib/gameDetection/platforms/getXboxGames').default || 
+                require('./src/lib/gameDetection/platforms/getXboxGames');
   console.log('Successfully loaded Xbox games module');
 } catch (e) {
   console.warn('Xbox games module not available:', e.message);
@@ -99,7 +103,8 @@ try {
 }
 
 try {
-  getOriginGames = require('./src/lib/getOriginGames').default || require('./src/lib/getOriginGames');
+  getOriginGames = require('./src/lib/gameDetection/platforms/getOriginGames').default || 
+                  require('./src/lib/gameDetection/platforms/getOriginGames');
   console.log('Successfully loaded Origin games module');
 } catch (e) {
   console.warn('Origin games module not available:', e.message);
@@ -107,7 +112,8 @@ try {
 }
 
 try {
-  getBattleNetGames = require('./src/lib/getBattleNetGames').default || require('./src/lib/getBattleNetGames');
+  getBattleNetGames = require('./src/lib/gameDetection/platforms/getBattleNetGames').default || 
+                      require('./src/lib/gameDetection/platforms/getBattleNetGames');
   console.log('Successfully loaded Battle.net games module');
 } catch (e) {
   console.warn('Battle.net games module not available:', e.message);
@@ -115,7 +121,8 @@ try {
 }
 
 try {
-  getGOGGames = require('./src/lib/getGOGGames').default || require('./src/lib/getGOGGames');
+  getGOGGames = require('./src/lib/gameDetection/platforms/getGOGGames').default || 
+               require('./src/lib/gameDetection/platforms/getGOGGames');
   console.log('Successfully loaded GOG games module');
 } catch (e) {
   console.warn('GOG games module not available:', e.message);
@@ -123,7 +130,8 @@ try {
 }
 
 try {
-  getUplayGames = require('./src/lib/getUplayGames').default || require('./src/lib/getUplayGames');
+  getUplayGames = require('./src/lib/gameDetection/platforms/getUplayGames').default || 
+                 require('./src/lib/gameDetection/platforms/getUplayGames');
   console.log('Successfully loaded Uplay games module');
 } catch (e) {
   console.warn('Uplay games module not available:', e.message);

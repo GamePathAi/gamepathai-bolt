@@ -71,6 +71,23 @@ jobs:
           Write-Host "- Versão: $($packageJson.version)"
           Write-Host "- Configuração de publicação definida para GitHub"
 
+      - name: Modificar main.cjs para corrigir caminhos de módulos
+        shell: pwsh
+        run: |
+          $mainCjs = Get-Content -Path electron/main.cjs -Raw
+          
+          # Corrige os caminhos dos módulos de detecção de jogos
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getSteamGames'\)", "require('./src/lib/gameDetection/platforms/getSteamGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getEpicGames'\)", "require('./src/lib/gameDetection/platforms/getEpicGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getXboxGames'\)", "require('./src/lib/gameDetection/platforms/getXboxGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getOriginGames'\)", "require('./src/lib/gameDetection/platforms/getOriginGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getBattleNetGames'\)", "require('./src/lib/gameDetection/platforms/getBattleNetGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getGOGGames'\)", "require('./src/lib/gameDetection/platforms/getGOGGames')"
+          $mainCjs = $mainCjs -replace "require\('./src/lib/getUplayGames'\)", "require('./src/lib/gameDetection/platforms/getUplayGames')"
+          
+          Set-Content -Path electron/main.cjs -Value $mainCjs
+          Write-Host "Corrigido caminhos de módulos no main.cjs"
+
       - name: Instalar dependências
         run: npm install --ignore-scripts
         env:
@@ -91,6 +108,10 @@ jobs:
         run: |
           if (Test-Path temp-dist) { Remove-Item -Recurse -Force temp-dist }
           Write-Host "Iniciando build do aplicativo..."
+          
+          # Configurar variáveis para ignorar importações de Node.js no frontend
+          $env:VITE_IGNORE_NODE_IMPORTS = "true"
+          
           npm run build
           Write-Host "Build concluído. Criando instalador..."
           npx electron-builder --win nsis --config.asar=false --config.directories.output=temp-dist --publish=never
@@ -133,109 +154,16 @@ jobs:
           retention-days: 5
           if-no-files-found: warn
 
-  build-macos:
-    runs-on: macos-latest
-    name: Build for macOS
-    steps:
-      - name: Checkout código
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: 'npm'
-          cache-dependency-path: '**/package-lock.json'
-
-      - name: Extrair versão da tag
-        id: get_version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Versão extraída: $VERSION"
-
-      - name: Verificar recursos para o tray
-        run: |
-          if [ ! -f "public/icons/tray-icon.png" ]; then
-            echo "Ícone do tray não encontrado, copiando de icon.icns..."
-            if [ -f "public/icons/icon.icns" ]; then
-              cp "public/icons/icon.icns" "public/icons/tray-icon.png" || true
-              echo "Ícone copiado com sucesso"
-            else
-              echo "Atenção: Ícone icon.icns não encontrado. Bandeja do sistema pode não exibir ícone."
-            fi
-          else
-            echo "Ícone da bandeja encontrado: public/icons/tray-icon.png"
-          fi
-
-      - name: Configurar package.json para build
-        run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = '${{ steps.get_version.outputs.VERSION }}';
-            pkg.build.publish = [{provider:'github', owner:'GamePathAi', repo:'gamepathai-bolt', private:false}];
-            
-            // Verifica se scripts existe
-            if (!pkg.scripts) {
-              console.log('Propriedade scripts não encontrada no package.json');
-              pkg.scripts = {};
-            }
-            
-            // Verifica se postinstall existe em scripts
-            if (pkg.scripts.postinstall) {
-              console.log('- Script postinstall existente mantido: ' + pkg.scripts.postinstall);
-            } else {
-              pkg.scripts.postinstall = 'echo \"Skipping postinstall script in CI environment\"';
-              console.log('- Script postinstall adicionado');
-            }
-            
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2));
-            console.log('package.json modificado com sucesso:');
-            console.log('- Versão:', pkg.version);
-            console.log('- Configuração de publicação definida para GitHub');
-          "
-
-      - name: Instalar dependências
-        run: npm install --ignore-scripts
-        env:
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
-
-      - name: Executar testes
-        run: npm test
-        continue-on-error: true
-
-      - name: Build com método seguro
-        run: |
-          rm -rf temp-dist || true
-          echo "Iniciando build do aplicativo..."
-          npm run build
-          echo "Build concluído. Criando instalador..."
-          npx electron-builder --mac --config.asar=false --config.directories.output=temp-dist --publish=never
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "true"
-          ELECTRON_RUN: "false"
-
-      - name: Verificar saída do build
-        run: |
-          echo "Conteúdo da pasta temp-dist:"
-          ls -la temp-dist || echo "Pasta temp-dist não encontrada!"
-          
-          echo "Verificando arquivos DMG criados:"
-          find temp-dist -name "*.dmg" -type f
-
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-build
-          path: |
-            temp-dist/*.dmg
-          retention-days: 5
-          if-no-files-found: warn
+  # Build macOS temporariamente desativado
+  # build-macos:
+  #   if: false  # Desabilitado temporariamente até corrigir os problemas
+  #   runs-on: macos-latest
+  #   name: Build for macOS
+  #   ...
 
   create-release:
-    needs: [build-windows, build-macos]
+    # Depende apenas do build-windows agora
+    needs: [build-windows]
     runs-on: ubuntu-latest
     name: Create GitHub Release
     steps:
@@ -250,12 +178,13 @@ jobs:
           name: windows-build
           path: artifacts/windows
 
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-build
-          path: artifacts/macos
-        continue-on-error: true
+      # Download de macOS desativado temporariamente
+      # - name: Download macOS artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: macos-build
+      #     path: artifacts/macos
+      #   continue-on-error: true
 
       - name: Display artifacts structure
         run: |
@@ -265,8 +194,8 @@ jobs:
           du -h artifacts/*/* || echo "Não foi possível verificar o tamanho dos arquivos"
           echo "Arquivos Windows:"
           ls -la artifacts/windows/
-          echo "Arquivos macOS:"
-          ls -la artifacts/macos/ || echo "Nenhum artefato macOS encontrado"
+          # echo "Arquivos macOS:"
+          # ls -la artifacts/macos/ || echo "Nenhum artefato macOS encontrado"
 
       - name: Gerar changelog
         id: generate_changelog
@@ -302,7 +231,7 @@ jobs:
         with:
           files: |
             artifacts/windows/*.exe
-            artifacts/macos/*.dmg
+            # artifacts/macos/*.dmg  # Comentado temporariamente
           body: ${{ steps.generate_changelog.outputs.CHANGELOG_CONTENT }}
           generate_release_notes: false
           draft: false
