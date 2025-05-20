@@ -1,12 +1,32 @@
-const fs = require('fs').promises;
-const path = require('path');
-const os = require('os');
-const { Registry } = require('registry-js');
+import * as fs from "fs/promises";
+import * as path from "path";
+import * as os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
+
+// Se estiver no Windows, usar o Registry
+let Registry: any;
+try {
+  Registry = require("registry-js").Registry;
+} catch {
+  Registry = undefined;
+}
+
+interface XboxGame {
+  id: string;
+  name: string;
+  platform: string;
+  installPath: string;
+  executablePath: string;
+  process_name: string;
+  size: number; // em MB
+  icon_url?: string;
+  last_played?: Date;
+}
 
 /**
  * Busca jogos instalados via Xbox App/Microsoft Store
  */
-async function getXboxGames() {
+export async function getXboxGames(): Promise<XboxGame[]> {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -24,21 +44,23 @@ async function getXboxGames() {
     ];
     
     // Tentar encontrar caminhos adicionais pelo registro
-    try {
-      const xboxPath = Registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\Microsoft\\GamingServices",
-        "GameInstallPath"
-      );
-      
-      if (xboxPath && !possiblePaths.includes(xboxPath)) {
-        possiblePaths.push(xboxPath);
+    if (Registry?.getValue) {
+      try {
+        const xboxPath = Registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\Microsoft\\GamingServices",
+          "GameInstallPath"
+        );
+        
+        if (xboxPath && !possiblePaths.includes(xboxPath)) {
+          possiblePaths.push(xboxPath);
+        }
+      } catch (error) {
+        console.warn("Could not read Xbox game path from registry:", error);
       }
-    } catch (error) {
-      console.warn("Could not read Xbox game path from registry:", error);
     }
     
-    const games = [];
+    const games: XboxGame[] = [];
     
     // Escanear cada caminho possível
     for (const basePath of possiblePaths) {
@@ -144,7 +166,7 @@ async function getXboxGames() {
 /**
  * Verifica se um diretório contém arquivos de jogo
  */
-async function containsGameFiles(dirPath) {
+async function containsGameFiles(dirPath: string): Promise<boolean> {
   try {
     const files = await fs.readdir(dirPath);
     
@@ -167,12 +189,12 @@ async function containsGameFiles(dirPath) {
 /**
  * Encontra executáveis recursivamente em um diretório
  */
-async function findExecutablesRecursively(dirPath, maxDepth = 3) {
+async function findExecutablesRecursively(dirPath: string, maxDepth = 3): Promise<string[]> {
   if (maxDepth <= 0) return [];
   
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
-    let executables = [];
+    let executables: string[] = [];
     
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
@@ -192,38 +214,4 @@ async function findExecutablesRecursively(dirPath, maxDepth = 3) {
   }
 }
 
-/**
- * Determina se um executável é provavelmente um jogo
- */
-function isLikelyGameExecutable(executablePath) {
-  if (!executablePath) return false;
-  
-  const fileName = path.basename(executablePath).toLowerCase();
-  
-  // Lista de programas comuns que NÃO são jogos
-  const nonGameExecutables = [
-    'chrome.exe', 'firefox.exe', 'msedge.exe', 'explorer.exe', 'cmd.exe',
-    'powershell.exe', 'notepad.exe', 'calc.exe', 'mspaint.exe', 'winword.exe',
-    'excel.exe', 'outlook.exe', 'code.exe', 'devenv.exe', 'git.exe',
-    'node.exe', 'npm.exe', 'python.exe', 'discord.exe', 'slack.exe',
-    'teams.exe', 'zoom.exe', 'skype.exe', 'svchost.exe', 'rundll32.exe',
-    'conhost.exe', 'setup.exe', 'installer.exe', 'uninstall.exe', 'update.exe'
-  ];
-  
-  // Verificar se está na lista de não-jogos
-  if (nonGameExecutables.includes(fileName)) {
-    return false;
-  }
-  
-  // Verificar padrões comuns de jogos
-  const gamePatterns = [
-    /game/i, /play/i, /launcher/i, /client/i, /engine/i,
-    /steam/i, /epic/i, /origin/i, /galaxy/i, /uplay/i, /battle\.net/i,
-    /rpg/i, /fps/i, /mmo/i, /moba/i, /rts/i, /racing/i, /sport/i
-  ];
-  
-  // Verificar se corresponde a algum padrão de jogo
-  return gamePatterns.some(pattern => pattern.test(fileName));
-}
-
-module.exports = { getXboxGames };
+export default getXboxGames;
