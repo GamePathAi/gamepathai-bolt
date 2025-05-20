@@ -1,1446 +1,906 @@
-// electron/main.cjs
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, dialog, shell, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog, nativeImage } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
 const fs = require('fs').promises;
 const os = require('os');
-const url = require('url');
+const { Registry } = require('registry-js');
+const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
+const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
+const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
+const { getOriginGames } = require('./src/lib/gameDetection/platforms/getOriginGames');
+const { getBattleNetGames } = require('./src/lib/gameDetection/platforms/getBattleNetGames');
+const { getGOGGames } = require('./src/lib/gameDetection/platforms/getGOGGames');
+const { getUplayGames } = require('./src/lib/gameDetection/platforms/getUplayGames');
+const systemMonitor = require('./electron/system-monitor.cjs');
+const networkMetrics = require('./electron/network-metrics.cjs');
+const fpsOptimizer = require('./electron/fps-optimizer.cjs');
+const vpnManager = require('./electron/vpn-manager.cjs');
+const { CONFIG_DIR } = require('./electron/config.cjs');
+const { spawn } = require('child_process');
 
-// Constantes para caminhos de aplicação
-const APP_NAME = 'GamePath AI';
-const APP_VERSION = '1.0.0';
-
-// Log para diagnóstico inicial com separador visual para facilitar visualização
-console.log('='.repeat(80));
-console.log(`Iniciando ${APP_NAME} v${APP_VERSION}`);
-console.log('='.repeat(80));
-console.log('Ambiente:');
-console.log(`- Diretório atual: ${process.cwd()}`);
-console.log(`- __dirname: ${__dirname}`);
-console.log(`- Node.js: ${process.versions.node}`);
-console.log(`- Electron: ${process.versions.electron}`);
-console.log(`- Chromium: ${process.versions.chrome}`);
-console.log(`- Plataforma: ${process.platform} (${os.release()})`);
-console.log(`- Arquitetura: ${process.arch}`);
-console.log('='.repeat(80));
-
-// Configurações da aplicação
-const isDevelopment = process.env.NODE_ENV === 'development';
-const isProduction = !isDevelopment;
-let mainWindow = null;
-let tray = null;
-let forceQuit = false;
-
-// Armazenar caminhos importantes para a aplicação
-const appPaths = {
-  // Armazenar todos os possíveis caminhos para recursos críticos
-  root: path.resolve(__dirname, '..'),
-  icons: {
-    app: null,
-    tray: null,
-  },
-  html: null
+// Variáveis globais
+let mainWindow;
+let tray;
+let isQuitting = false;
+let gameDetectors = {
+  steam: getSteamGames,
+  epic: getEpicGames,
+  xbox: getXboxGames,
+  origin: getOriginGames,
+  battlenet: getBattleNetGames,
+  gog: getGOGGames,
+  uplay: getUplayGames,
+  standalone: getStandaloneGamesInternal
 };
 
-// Carregar módulos nativos com fallback
-let Registry, si, Store;
-
-// Registry.js (para acessar o registro do Windows)
-try {
-  Registry = require('registry-js').Registry;
-  console.log('✓ Módulo registry-js carregado com sucesso');
-} catch (e) {
-  console.warn('⚠ registry-js não disponível:', e.message);
-  console.warn('  Usando implementação fallback');
-  Registry = { 
-    getValue: (hkey, path, name) => {
-      console.log(`[Registry Fallback] Tentativa de leitura: ${hkey}\\${path}\\${name}`);
-      return null; 
-    },
-    enumerateValues: (hkey, path) => {
-      console.log(`[Registry Fallback] Tentativa de enumerar: ${hkey}\\${path}`);
-      return []; 
-    },
-    HKEY: { 
-      LOCAL_MACHINE: 0,
-      CURRENT_USER: 1
-    } 
-  };
-}
-
-// Systeminformation (para informações de hardware)
-try {
-  si = require('systeminformation');
-  console.log('✓ Módulo systeminformation carregado com sucesso');
-} catch (e) {
-  console.warn('⚠ systeminformation não disponível:', e.message);
-  si = { 
-    cpu: async () => ({ brand: 'CPU Desconhecida', manufacturer: 'Desconhecido', speed: 0, cores: 0 }),
-    mem: async () => ({ total: 0, free: 0, used: 0 }), 
-    graphics: async () => ({ controllers: [{ model: 'GPU Desconhecida', vram: 0 }] }),
-    osInfo: async () => ({ platform: process.platform, distro: 'Desconhecido', release: 'Desconhecido' })
-  };
-}
-
-// Electron-store (para armazenamento persistente)
-try {
-  const StoreModule = require('electron-store');
-  Store = StoreModule;
-  console.log('✓ Módulo electron-store carregado com sucesso');
-} catch (e) {
-  console.warn('⚠ electron-store não disponível:', e.message);
-  Store = class FakeStore { 
-    constructor() { 
-      this.data = {}; 
-      console.log('  Usando armazenamento em memória como fallback');
-    }
-    get(key) { return this.data[key]; }
-    set(key, value) { this.data[key] = value; }
-  };
-}
-
-// Inicializar o store
-const store = new Store();
-
-/**
- * Verifica se um caminho existe
- * @param {string} pathToCheck - Caminho a ser verificado
- * @return {Promise<boolean>} - Verdadeiro se existir
- */
-async function pathExists(pathToCheck) {
-  try {
-    await fs.access(pathToCheck);
-    return true;
-  } catch (e) {
-    return false;
-  }
-}
-
-/**
- * Carrega um ícone com fallback para vários formatos e locais
- * @param {string} iconName - Nome base do ícone sem extensão
- * @param {string[]} [extraPaths=[]] - Caminhos adicionais para procurar
- * @return {Promise<string|null>} - Caminho para o ícone encontrado
- */
-async function findIconPath(iconName, extraPaths = []) {
-  // Tenta encontrar o ícone em diferentes formatos com base na plataforma
-  const extensions = process.platform === 'win32' 
-    ? ['.ico', '.png', '.jpg'] 
-    : (process.platform === 'darwin' ? ['.icns', '.png', '.jpg'] : ['.png', '.jpg']);
-  
-  // Lista de diretórios para procurar ícones
-  const baseDirs = [
-    path.join(appPaths.root, 'public', 'icons'),
-    path.join(appPaths.root, 'assets', 'icons'),
-    path.join(appPaths.root, 'icons'),
-    path.join(appPaths.root, 'public'),
-    path.join(appPaths.root, 'assets'),
-    path.join(__dirname, 'icons'),
-    path.join(__dirname, 'assets', 'icons'),
-    path.join(__dirname, '..', 'public', 'icons'),
-    ...extraPaths
-  ];
-
-  // Tentar cada combinação de diretório + nome + extensão
-  for (const dir of baseDirs) {
-    for (const ext of extensions) {
-      const iconPath = path.join(dir, `${iconName}${ext}`);
-      if (await pathExists(iconPath)) {
-        console.log(`✓ Ícone encontrado: ${iconPath}`);
-        return iconPath;
-      }
-    }
-  }
-
-  // Se nenhum arquivo específico for encontrado, tente buscar qualquer ícone nos diretórios
-  for (const dir of baseDirs) {
-    try {
-      const files = await fs.readdir(dir);
-      // Procurar por arquivos que contêm o nome do ícone
-      const iconFile = files.find(file => 
-        file.includes(iconName) && extensions.some(ext => file.endsWith(ext))
-      );
-      
-      if (iconFile) {
-        const iconPath = path.join(dir, iconFile);
-        console.log(`✓ Ícone encontrado (busca genérica): ${iconPath}`);
-        return iconPath;
-      }
-    } catch (e) {
-      // Diretório não existe ou não pode ser lido, ignorar
-    }
-  }
-
-  console.warn(`⚠ Ícone '${iconName}' não encontrado em nenhum local`);
-  return null;
-}
-
-/**
- * Localiza index.html em vários diretórios possíveis
- * @return {Promise<string|null>} - Caminho para o index.html ou null se não encontrado
- */
-async function findIndexHtml() {
-  // Lista expandida de caminhos possíveis para procurar o index.html
-  const possiblePaths = [
-    path.join(appPaths.root, 'dist', 'index.html'),
-    path.join(appPaths.root, 'build', 'index.html'),
-    path.join(appPaths.root, 'public', 'index.html'),
-    path.join(appPaths.root, 'src', 'index.html'),
-    path.join(appPaths.root, 'index.html'),
-    path.join(__dirname, '..', 'dist', 'index.html'),
-    path.join(__dirname, '..', 'build', 'index.html'),
-    path.join(__dirname, '..', 'public', 'index.html'),
-    path.join(__dirname, 'dist', 'index.html'),
-    path.join(__dirname, 'build', 'index.html'),
-    path.join(__dirname, 'public', 'index.html'),
-    path.join(process.cwd(), 'dist', 'index.html'),
-    path.join(process.cwd(), 'build', 'index.html'),
-    path.join(process.cwd(), 'public', 'index.html'),
-    path.join(app.getAppPath(), 'dist', 'index.html'),
-    path.join(app.getAppPath(), 'build', 'index.html'),
-    path.join(app.getAppPath(), 'public', 'index.html'),
-  ];
-
-  console.log('Procurando index.html nos seguintes locais:');
-  for (const p of possiblePaths) {
-    try {
-      const exists = await pathExists(p);
-      console.log(`- ${p} [${exists ? 'ENCONTRADO' : 'NÃO ENCONTRADO'}]`);
-      if (exists) {
-        console.log(`✓ index.html encontrado em: ${p}`);
-        return p;
-      }
-    } catch (e) {
-      console.warn(`⚠ Erro ao verificar caminho ${p}:`, e.message);
-    }
-  }
-
-  // Procura recursiva em último caso
-  const searchDirectories = [
-    appPaths.root,
-    path.join(__dirname, '..'),
-    __dirname,
-    process.cwd(),
-    app.getAppPath()
-  ];
-
-  for (const baseDir of searchDirectories) {
-    try {
-      console.log(`Iniciando busca recursiva em ${baseDir}...`);
-      const foundPath = await findFileRecursive(baseDir, 'index.html', 3);
-      if (foundPath) {
-        console.log(`✓ index.html encontrado (busca recursiva): ${foundPath}`);
-        return foundPath;
-      }
-    } catch (e) {
-      console.warn(`⚠ Erro na busca recursiva em ${baseDir}:`, e.message);
-    }
-  }
-
-  console.error('❌ index.html não encontrado em nenhum local');
-  return null;
-}
-
-/**
- * Busca um arquivo recursivamente até uma certa profundidade
- * @param {string} dir - Diretório para iniciar a busca
- * @param {string} filename - Nome do arquivo a procurar
- * @param {number} maxDepth - Profundidade máxima de recursão
- * @return {Promise<string|null>} - Caminho do arquivo encontrado ou null
- */
-async function findFileRecursive(dir, filename, maxDepth = 3) {
-  if (maxDepth <= 0) return null;
-  
-  try {
-    const files = await fs.readdir(dir);
-    
-    for (const file of files) {
-      const filePath = path.join(dir, file);
-      
-      try {
-        const stat = await fs.stat(filePath);
-        
-        if (stat.isDirectory()) {
-          // Ignora diretórios de node_modules e .git para otimizar a busca
-          if (file === 'node_modules' || file === '.git') continue;
-          
-          const found = await findFileRecursive(filePath, filename, maxDepth - 1);
-          if (found) return found;
-        } else if (file === filename) {
-          return filePath;
-        }
-      } catch (e) {
-        // Ignorar erros de acesso a arquivos/diretórios específicos
-      }
-    }
-  } catch (e) {
-    // Ignorar erros de acesso ao diretório
-  }
-  
-  return null;
-}
-
-/**
- * Inicializa recursos importantes da aplicação
- * @return {Promise<boolean>} - Verdadeiro se inicialização foi bem-sucedida
- */
-async function initializeAppResources() {
-  try {
-    console.log('Inicializando recursos da aplicação...');
-    
-    // Localizar o index.html
-    appPaths.html = await findIndexHtml();
-    if (!appPaths.html) {
-      console.error('❌ Falha ao localizar index.html. A aplicação pode não carregar corretamente.');
-    } else {
-      console.log(`✓ index.html será carregado de: ${appPaths.html}`);
-    }
-    
-    // Localizar ícones
-    appPaths.icons.app = await findIconPath('icon');
-    if (!appPaths.icons.app) {
-      console.warn('⚠ Ícone do aplicativo não encontrado, usando ícone padrão');
-    }
-    
-    appPaths.icons.tray = await findIconPath('tray-icon', [
-      // Locais adicionais para o ícone da bandeja
-      path.join(appPaths.root, 'public', 'tray'),
-      path.join(appPaths.root, 'assets', 'tray')
-    ]);
-    
-    if (!appPaths.icons.tray) {
-      console.warn('⚠ Ícone da bandeja não encontrado, usando ícone do aplicativo');
-      appPaths.icons.tray = appPaths.icons.app;
-    }
-    
-    // Se ainda não tiver ícone, criar ícone vazio
-    if (!appPaths.icons.tray) {
-      console.warn('⚠ Nenhum ícone encontrado, usando ícone vazio para a bandeja');
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('❌ Erro ao inicializar recursos da aplicação:', error);
-    return false;
-  }
-}
-
-/**
- * Carrega os módulos de detecção de jogos
- * @return {Object} - Objeto com todos os detectores de jogos
- */
-function loadGameDetectionModules() {
-  const gameDetectors = {};
-  const platformsPath = './src/lib/gameDetection/platforms';
-  
-  // Lista de plataformas para detectar
-  const platforms = [
-    { id: 'steam', name: 'Steam', file: 'getSteamGames' },
-    { id: 'epic', name: 'Epic Games', file: 'getEpicGames' },
-    { id: 'xbox', name: 'Xbox', file: 'getXboxGames' },
-    { id: 'origin', name: 'Origin', file: 'getOriginGames' },
-    { id: 'battlenet', name: 'Battle.net', file: 'getBattleNetGames' },
-    { id: 'gog', name: 'GOG', file: 'getGOGGames' },
-    { id: 'uplay', name: 'Ubisoft Connect', file: 'getUplayGames' }
-  ];
-  
-  console.log('Carregando módulos de detecção de jogos:');
-  
-  // Para cada plataforma, tenta carregar o módulo
-  platforms.forEach(platform => {
-    try {
-      // Tenta múltiplos caminhos para cada módulo
-      const possiblePaths = [
-        path.join(platformsPath, `${platform.file}`),
-        path.join(platformsPath, `${platform.file}.js`),
-        path.join(__dirname, platformsPath, `${platform.file}`),
-        path.join(__dirname, platformsPath, `${platform.file}.js`),
-        path.join(__dirname, '..', platformsPath, `${platform.file}`),
-        path.join(__dirname, '..', platformsPath, `${platform.file}.js`),
-        path.join('src', 'lib', 'gameDetection', 'platforms', `${platform.file}`),
-        path.join('src', 'lib', 'gameDetection', 'platforms', `${platform.file}.js`)
-      ];
-      
-      let moduleLoaded = false;
-      
-      // Tenta cada caminho até encontrar o módulo
-      for (const modulePath of possiblePaths) {
-        try {
-          const module = require(modulePath);
-          gameDetectors[platform.id] = module.default || module;
-          console.log(`✓ Módulo ${platform.name} carregado com sucesso de: ${modulePath}`);
-          moduleLoaded = true;
-          break;
-        } catch (innerError) {
-          // Ignorar e tentar o próximo caminho
-        }
-      }
-      
-      // Se não conseguiu carregar o módulo, usar a implementação interna como fallback
-      if (!moduleLoaded) {
-        console.warn(`⚠ Módulo ${platform.name} não encontrado, usando implementação interna`);
-        // As implementações internas são definidas mais abaixo no código
-      }
-    } catch (error) {
-      console.warn(`⚠ Erro ao carregar módulo ${platform.name}:`, error.message);
-    }
-  });
-  
-  return gameDetectors;
-}
-
-/**
- * Carrega os módulos de funcionalidades do sistema
- * @return {Object} - Objeto com todos os módulos de funcionalidades
- */
-function loadFeatureModules() {
-  const features = {};
-  
-  // Módulos de funcionalidades a carregar
-  const modulesList = [
-    { id: 'networkMetrics', file: './network-metrics.cjs' },
-    { id: 'systemMonitor', file: './system-monitor.cjs' },
-    { id: 'fpsOptimizer', file: './fps-optimizer.cjs' },
-    { id: 'vpnManager', file: './vpn-manager.cjs' }
-  ];
-  
-  console.log('Carregando módulos de funcionalidades:');
-  
-  modulesList.forEach(module => {
-    try {
-      features[module.id] = require(module.file);
-      console.log(`✓ Módulo ${module.id} carregado com sucesso`);
-    } catch (e) {
-      console.warn(`⚠ Módulo ${module.id} não disponível:`, e.message);
-      
-      // Implementações de fallback para cada tipo de módulo
-      if (module.id === 'networkMetrics') {
-        features[module.id] = {
-          measureLatency: async () => ({ average: 50 }),
-          measureConnectionQuality: async () => ({ jitter: 5, stability: 95 }),
-          traceRoute: async () => ({ hops: [] }),
-          estimateBandwidth: async () => ({ estimatedDownload: 100, estimatedUpload: 10 }),
-          calculatePacketLoss: async () => ({ packetLoss: 0.5 }),
-          analyzeNetwork: async () => ({
-            latency: { average: 50 },
-            quality: { jitter: 5, stability: 95 },
-            bandwidth: { estimatedDownload: 100, estimatedUpload: 10 },
-            packetLoss: { packetLoss: 0.5 }
-          })
-        };
-      } else if (module.id === 'systemMonitor') {
-        features[module.id] = {
-          getSystemInfo: async () => ({
-            cpu: { usage: 50, temperature: 60, frequency: 3000, processes: [] },
-            memory: { used: 8000, available: 16000, swapUsage: 0 },
-            gpu: { usage: 40, temperature: 65, memoryUsed: 2000, memoryTotal: 8000 },
-            network: { latency: 30, bandwidth: 100, packetLoss: 0.1 }
-          }),
-          optimizeForGaming: async () => ({ success: true }),
-          optimizeProcesses: async () => ({ success: true, details: {} }),
-          optimizeMemory: async () => ({ success: true, details: {} }),
-          optimizeDisk: async () => ({ success: true, details: {} })
-        };
-      } else if (module.id === 'fpsOptimizer') {
-        features[module.id] = {
-          optimizeGame: async (game, profile) => ({
-            success: true,
-            improvements: { fps: 20, latency: 15, stability: 10 },
-            appliedSettings: {}
-          }),
-          getProfiles: () => ({
-            balanced: {},
-            performance: {},
-            extreme: {}
-          })
-        };
-      } else if (module.id === 'vpnManager') {
-        features[module.id] = {
-          connect: async (server) => ({ success: true, server }),
-          disconnect: async () => ({ success: true }),
-          getStatus: () => ({ isConnected: false }),
-          getServers: () => ([]),
-          refreshServers: async () => ([]),
-          testSpeed: async () => ({ download: 100, upload: 10, latency: 30 })
-        };
-      }
-    }
-  });
-  
-  return features;
-}
-
-// Carregar módulos de detecção de jogos
-const gameDetectors = loadGameDetectionModules();
-
-// Carregar módulos de funcionalidades
-const { 
-  networkMetrics, 
-  systemMonitor, 
-  fpsOptimizer, 
-  vpnManager 
-} = loadFeatureModules();
-
-/**
- * Cria a janela principal da aplicação
- * @return {Promise<BrowserWindow>} - A janela criada
- */
-async function createMainWindow() {
+// Configuração do Electron
+const createWindow = async () => {
   console.log('Criando janela principal...');
   
-  // Configurações da janela
-  const windowConfig = {
+  // Configurar diretório de dados
+  await setupDataDirectory();
+  
+  // Criar janela principal
+  mainWindow = new BrowserWindow({
     width: 1280,
-    height: 720,
+    height: 800,
     minWidth: 800,
     minHeight: 600,
-    title: APP_NAME,
-    backgroundColor: '#1e1e1e', // Cor de fundo durante o carregamento para evitar tela branca
     webPreferences: {
-      nodeIntegration: false,
+      preload: path.join(__dirname, 'electron/preload.cjs'),
       contextIsolation: true,
-      preload: path.join(__dirname, 'preload.cjs')
+      nodeIntegration: false,
+      sandbox: false
     },
-    show: false, // Não mostrar até carregar completamente
-    autoHideMenuBar: true // Esconde a barra de menu em todas as plataformas
-  };
-  
-  // Verificar se o preload.cjs existe antes de usá-lo
-  const preloadPath = path.join(__dirname, 'preload.cjs');
-  if (await pathExists(preloadPath)) {
-    console.log(`✓ Usando script preload: ${preloadPath}`);
-  } else {
-    console.warn('⚠ Script preload não encontrado, desativando contextIsolation');
-    windowConfig.webPreferences = {
-      nodeIntegration: true,
-      contextIsolation: false
-    };
-  }
-  
-  // Criar a janela
-  const window = new BrowserWindow(windowConfig);
-
-  // Definir ícone da janela
-  if (appPaths.icons.app) {
-    try {
-      window.setIcon(appPaths.icons.app);
-      console.log(`✓ Ícone definido para a janela: ${appPaths.icons.app}`);
-    } catch (error) {
-      console.warn('⚠ Erro ao definir ícone da janela:', error.message);
-    }
-  }
-
-  // Em modo de desenvolvimento, carrega do servidor Vite
-  if (isDevelopment) {
-    console.log('Modo de desenvolvimento detectado');
-    
-    // Tentar carregar do servidor Vite
-    try {
-      const devServerUrl = 'http://localhost:5173';
-      console.log(`Tentando carregar de: ${devServerUrl}`);
-      
-      await window.loadURL(devServerUrl);
-      console.log('✓ Carregado com sucesso do servidor de desenvolvimento');
-      
-      // Abrir DevTools automaticamente em desenvolvimento
-      window.webContents.openDevTools();
-    } catch (error) {
-      console.error('❌ Falha ao carregar do servidor de desenvolvimento:', error.message);
-      await loadFallbackContent(window);
-    }
-  } else {
-    // Modo de produção: tenta carregar o index.html
-    try {
-      if (appPaths.html) {
-        console.log(`Carregando HTML de produção: ${appPaths.html}`);
-        await window.loadFile(appPaths.html);
-        console.log('✓ HTML carregado com sucesso');
-      } else {
-        console.error('❌ index.html não encontrado. Carregando conteúdo de emergência.');
-        await loadFallbackContent(window);
-      }
-    } catch (error) {
-      console.error('❌ Erro ao carregar HTML:', error.message);
-      await loadFallbackContent(window);
-    }
-  }
-
-  // Eventos da janela
-  window.on('ready-to-show', () => {
-    console.log('Janela pronta para ser exibida');
-    window.show();
+    icon: path.join(__dirname, 'public/icons/icon.ico'),
+    show: false, // Não mostrar até que esteja pronto
+    backgroundColor: '#0d1117'
   });
-  
-  window.on('close', (event) => {
-    // Evitar fechar a aplicação se não for um forceQuit
-    if (!forceQuit && tray) {
+
+  // Carregar o conteúdo
+  if (process.env.ELECTRON_RUN === 'true') {
+    // Modo de desenvolvimento - conectar ao servidor Vite
+    console.log('Modo de desenvolvimento - conectando ao servidor Vite...');
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    // Modo de produção - carregar do diretório dist
+    console.log('Modo de produção - carregando do diretório dist...');
+    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+  }
+
+  // Mostrar janela quando estiver pronta
+  mainWindow.once('ready-to-show', () => {
+    console.log('Janela pronta para exibição');
+    mainWindow.show();
+  });
+
+  // Lidar com fechamento da janela
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
       event.preventDefault();
-      window.hide();
-      // Mostrar notificação na primeira vez que o usuário fecha a janela
-      if (!store.get('windowCloseNotificationShown')) {
-        const notificationOptions = {
-          title: APP_NAME,
-          body: 'A aplicação continua rodando na bandeja do sistema',
-          icon: appPaths.icons.app
-        };
-        
-        // Verificar se Notification existe antes de usá-la
-        if (Notification) {
-          try {
-            new Notification(notificationOptions).show();
-          } catch (error) {
-            console.error('Erro ao mostrar notificação:', error);
-            // Fallback para dialog se a notificação falhar
-            dialog.showMessageBox({
-              type: 'info',
-              title: APP_NAME,
-              message: 'A aplicação continua rodando na bandeja do sistema',
-              buttons: ['OK']
-            });
-          }
-        } else {
-          console.log('Notification não está disponível, usando dialog como alternativa');
-          dialog.showMessageBox({
-            type: 'info',
-            title: APP_NAME,
-            message: 'A aplicação continua rodando na bandeja do sistema',
-            buttons: ['OK']
-          });
-        }
-        
-        store.set('windowCloseNotificationShown', true);
-      }
-      return;
+      mainWindow.hide();
+      return false;
     }
   });
+
+  // Configurar o tray
+  setupTray();
   
-  window.on('closed', () => {
-    console.log('Janela principal fechada');
-    mainWindow = null;
-  });
+  // Registrar handlers IPC
+  registerIpcHandlers();
   
-  return window;
+  // Iniciar escaneamento de jogos em segundo plano
+  setTimeout(async () => {
+    console.log('Iniciando escaneamento de jogos em segundo plano...');
+    const games = await getAllGames();
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('games-detected', games);
+    }
+    updateTrayGames(games);
+  }, 3000);
+};
+
+// Configurar diretório de dados
+async function setupDataDirectory() {
+  try {
+    await fs.mkdir(CONFIG_DIR, { recursive: true });
+    console.log(`Diretório de configuração criado: ${CONFIG_DIR}`);
+  } catch (error) {
+    console.error('Erro ao configurar diretório de dados:', error);
+  }
 }
 
-/**
- * Cria um ícone na bandeja do sistema (tray)
- * @param {BrowserWindow} window - Referência para a janela principal
- * @return {Object} - Objeto com métodos para manipular a bandeja
- */
-function createTray(window) {
-  console.log('Criando ícone na bandeja do sistema...');
-  
-  // Tentar carregar ícone para a bandeja
-  let trayIcon;
+// Configurar o tray
+function setupTray() {
+  try {
+    console.log('Configurando tray...');
+    
+    // Tentar carregar ícone do tray
+    let trayIconPath = path.join(__dirname, 'public/icons/tray-icon.png');
+    if (!fs.existsSync(trayIconPath)) {
+      console.warn('Ícone do tray não encontrado, usando ícone padrão');
+      trayIconPath = path.join(__dirname, 'public/icons/icon.ico');
+    }
+    
+    // Criar ícone do tray
+    const trayIcon = nativeImage.createFromPath(trayIconPath);
+    tray = new Tray(trayIcon.resize({ width: 16, height: 16 }));
+    tray.setToolTip('GamePath AI');
+    
+    // Menu de contexto inicial
+    updateTrayMenu([]);
+    
+    // Evento de clique no tray
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.focus();
+        } else {
+          mainWindow.show();
+        }
+      }
+    });
+    
+    console.log('Tray configurado com sucesso');
+  } catch (error) {
+    console.error('Erro ao configurar tray:', error);
+  }
+}
+
+// Atualizar menu do tray
+function updateTrayMenu(games = []) {
+  if (!tray) return;
   
   try {
-    if (appPaths.icons.tray) {
-      trayIcon = nativeImage.createFromPath(appPaths.icons.tray);
-      console.log(`✓ Ícone da bandeja carregado: ${appPaths.icons.tray}`);
-    } else {
-      throw new Error('Nenhum ícone encontrado para a bandeja');
-    }
-  } catch (error) {
-    console.error('❌ Erro ao carregar ícone da bandeja:', error.message);
-    // Criar um ícone vazio com tamanho padrão da plataforma
-    trayIcon = nativeImage.createEmpty();
-  }
-  
-  // Ajustar tamanho do ícone com base na plataforma
-  if (process.platform === 'win32') {
-    trayIcon = trayIcon.resize({ width: 16, height: 16 });
-  } else if (process.platform === 'darwin') {
-    trayIcon = trayIcon.resize({ width: 18, height: 18 });
-  } else {
-    trayIcon = trayIcon.resize({ width: 24, height: 24 });
-  }
-  
-  // Criar a bandeja
-  const appTray = new Tray(trayIcon);
-  appTray.setToolTip(APP_NAME);
-  
-  // Estado dos jogos para a bandeja
-  let detectedGames = [];
-  
-  /**
-   * Atualiza o menu da bandeja com os jogos detectados
-   * @param {Array} games - Lista de jogos para exibir no menu
-   */
-  function updateTrayMenu(games = detectedGames) {
-    detectedGames = games;
+    console.log(`Atualizando menu do tray com ${games.length} jogos`);
     
-    // Criar itens de menu para os jogos detectados
-    const gameSubmenuLimit = 15; // Aumentar o limite para mostrar mais jogos
+    // Limitar a 10 jogos no menu
+    const displayGames = games.slice(0, 10);
     
-    // Ordenar jogos por nome para melhor navegação
-    const sortedGames = [...games].sort((a, b) => a.name.localeCompare(b.name));
-    
-    const gameItems = sortedGames.slice(0, gameSubmenuLimit).map(game => ({
-      label: `${game.name} (${game.platform || 'Desconhecido'})`,
-      icon: game.iconPath ? nativeImage.createFromPath(game.iconPath).resize({ width: 16, height: 16 }) : null,
-      submenu: [
-        {
-          label: 'Iniciar',
-          click: () => {
-            console.log(`Iniciando jogo da bandeja: ${game.name}`);
-            // Tentar iniciar o jogo diretamente
-            launchGameDirectly(game)
-              .then(success => {
-                if (success) {
-                  // Notificação de jogo iniciado
-                  if (Notification) {
-                    new Notification({
-                      title: 'Jogo Iniciado',
-                      body: `${game.name} foi iniciado com sucesso!`,
-                      icon: appPaths.icons.app
-                    }).show();
-                  }
-                }
-              })
-              .catch(err => console.error(`Erro ao iniciar ${game.name}:`, err));
-            
-            window.webContents.send('launch-game-from-tray', game.id);
-            // Se a janela está escondida, mostrar para feedback visual
-            if (!window.isVisible()) {
-              window.show();
-              window.focus();
-            }
-          },
-        },
-        {
-          label: game.optimized ? 'Otimizado ✓' : 'Otimizar',
-          enabled: !game.optimized,
-          click: () => {
-            console.log(`Otimizando jogo da bandeja: ${game.name}`);
-            window.webContents.send('optimize-game-from-tray', game.id);
-            // Mostrar janela para feedback visual
-            if (!window.isVisible()) {
-              window.show();
-              window.focus();
-            }
-          },
-        },
-        { type: 'separator' },
-        {
-          label: 'Abrir pasta do jogo',
-          click: () => {
-            if (game.installPath) {
-              shell.openPath(game.installPath)
-                .then(error => {
-                  if (error) console.error(`Erro ao abrir pasta: ${error}`);
-                });
-            }
-          }
-        }
-      ],
-    }));
-    
-    // Adicionar indicador se houver mais jogos do que o limite
-    if (games.length > gameSubmenuLimit) {
-      gameItems.push({
-        label: `+ ${games.length - gameSubmenuLimit} mais jogos...`,
-        enabled: false
-      });
-    }
-    
-    // Construir o menu completo
-    const contextMenu = Menu.buildFromTemplate([
-      { 
-        label: APP_NAME, 
-        icon: appPaths.icons.app ? nativeImage.createFromPath(appPaths.icons.app).resize({ width: 16, height: 16 }) : null,
-        enabled: false 
-      },
-      { type: 'separator' },
-      
-      // Seção de jogos
-      ...(games.length > 0 
-        ? [
-            { label: 'Jogos Detectados', enabled: false },
-            ...gameItems,
-            { type: 'separator' },
-          ] 
-        : [{ label: 'Nenhum Jogo Detectado', enabled: false }]
-      ),
-      
-      // Ações do aplicativo
-      { 
-        label: 'Escanear Jogos', 
-        click: () => {
-          console.log('Iniciando scan de jogos a partir da bandeja');
-          window.webContents.send('scan-games-from-tray');
-          // Mostrar janela para feedback visual
-          if (!window.isVisible()) {
-            window.show();
-            window.focus();
-          }
-        } 
-      },
-      { type: 'separator' },
-      
-      // Otimizações
-      {
-        label: 'Otimizações Rápidas',
+    // Criar itens de menu para jogos
+    const gameMenuItems = displayGames.map(game => {
+      return {
+        label: game.name,
         submenu: [
           {
-            label: 'Otimizar Memória',
+            label: 'Launch',
             click: () => {
-              console.log('Otimização rápida de memória da bandeja');
-              window.webContents.send('optimize-memory-from-tray');
-              // Feedback visual na bandeja
-              appTray.displayBalloon({
-                title: 'Otimização em Andamento',
-                content: 'Otimizando memória do sistema...',
-                iconType: 'info'
-              });
+              if (mainWindow) {
+                mainWindow.webContents.send('launch-game-from-tray', game.id);
+              } else {
+                launchGameInternal(game);
+              }
             }
           },
           {
-            label: 'Otimizar CPU',
+            label: 'Optimize',
             click: () => {
-              console.log('Otimização rápida de CPU da bandeja');
-              window.webContents.send('optimize-cpu-from-tray');
-              // Feedback visual na bandeja
-              appTray.displayBalloon({
-                title: 'Otimização em Andamento',
-                content: 'Ajustando configurações de CPU...',
-                iconType: 'info'
-              });
+              if (mainWindow) {
+                mainWindow.webContents.send('optimize-game-from-tray', game.id);
+              } else {
+                optimizeGameInternal(game);
+              }
+            }
+          }
+        ]
+      };
+    });
+    
+    // Menu completo
+    const contextMenu = Menu.buildFromTemplate([
+      { label: 'GamePath AI', enabled: false },
+      { type: 'separator' },
+      ...gameMenuItems,
+      { type: 'separator' },
+      {
+        label: 'Scan for Games',
+        click: async () => {
+          if (mainWindow) {
+            mainWindow.webContents.send('scan-games-from-tray');
+          } else {
+            const games = await getAllGames();
+            updateTrayGames(games);
+          }
+        }
+      },
+      {
+        label: 'Optimizations',
+        submenu: [
+          {
+            label: 'Optimize Memory',
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('optimize-memory-from-tray');
+              } else {
+                optimizeMemoryInternal();
+              }
             }
           },
           {
-            label: 'Otimizar Rede',
+            label: 'Optimize CPU',
             click: () => {
-              console.log('Otimização rápida de rede da bandeja');
-              window.webContents.send('optimize-network-from-tray');
-              // Feedback visual na bandeja
-              appTray.displayBalloon({
-                title: 'Otimização em Andamento',
-                content: 'Otimizando configurações de rede...',
-                iconType: 'info'
-              });
+              if (mainWindow) {
+                mainWindow.webContents.send('optimize-cpu-from-tray');
+              } else {
+                optimizeCPUInternal();
+              }
+            }
+          },
+          {
+            label: 'Optimize Network',
+            click: () => {
+              if (mainWindow) {
+                mainWindow.webContents.send('optimize-network-from-tray');
+              } else {
+                optimizeNetworkInternal();
+              }
             }
           }
         ]
       },
       { type: 'separator' },
-      
-      // Controles do aplicativo
-      { 
-        label: 'Mostrar Aplicativo', 
+      {
+        label: 'Show App',
         click: () => {
-          if (window) {
-            window.show();
-            window.focus();
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          } else {
+            createWindow();
           }
-        } 
+        }
       },
-      { 
-        label: 'Reiniciar Aplicativo', 
+      {
+        label: 'Quit',
         click: () => {
-          app.relaunch();
-          forceQuit = true;
+          isQuitting = true;
           app.quit();
-        } 
-      },
-      { 
-        label: 'Sair', 
-        click: () => {
-          forceQuit = true;
-          app.quit();
-        } 
-      },
+        }
+      }
     ]);
     
-    appTray.setContextMenu(contextMenu);
+    tray.setContextMenu(contextMenu);
+  } catch (error) {
+    console.error('Erro ao atualizar menu do tray:', error);
+  }
+}
+
+// Atualizar jogos no tray
+function updateTrayGames(games) {
+  if (!Array.isArray(games)) {
+    console.warn('updateTrayGames: games não é um array válido', games);
+    games = [];
   }
   
-  // Configurar comportamento ao clicar
-  appTray.on('click', () => {
-    if (window) {
-      if (window.isVisible()) {
-        window.focus();
-      } else {
-        window.show();
+  console.log(`Atualizando tray com ${games.length} jogos`);
+  updateTrayMenu(games);
+  return games;
+}
+
+// Registrar handlers IPC
+function registerIpcHandlers() {
+  console.log('Registrando handlers IPC...');
+  
+  // Game detection handlers
+  ipcMain.handle('scan-games', async () => {
+    console.log('Recebida solicitação para escanear jogos');
+    try {
+      const games = await getAllGames();
+      console.log(`Encontrados ${games.length} jogos`);
+      
+      // Notificar a interface sobre os jogos encontrados
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('games-detected', games);
       }
+      
+      // Atualizar o tray
+      updateTrayGames(games);
+      
+      return {
+        success: true,
+        data: games,
+        errors: []
+      };
+    } catch (error) {
+      console.error('Erro ao escanear jogos:', error);
+      return {
+        success: false,
+        data: [],
+        errors: [error.message || 'Erro desconhecido ao escanear jogos']
+      };
     }
   });
   
-  // Menu inicial sem jogos
-  updateTrayMenu([]);
-  
-  return {
-    updateTrayMenu,
-    tray: appTray
-  };
-}
-
-/**
- * Carrega conteúdo de emergência quando o HTML principal não pode ser carregado
- * @param {BrowserWindow} window - A janela onde carregar o conteúdo
- */
-async function loadFallbackContent(window) {
-  // Tentar encontrar uma página de erro personalizada
-  const errorHtmlPath = path.join(__dirname, 'error.html');
-  
-  try {
-    if (await pathExists(errorHtmlPath)) {
-      console.log(`Carregando página de erro de: ${errorHtmlPath}`);
-      await window.loadFile(errorHtmlPath);
-      return;
+  // Platform-specific scanning
+  ipcMain.handle('scan-steam', async () => {
+    console.log('Recebida solicitação para escanear jogos Steam');
+    try {
+      const games = await getSteamGames();
+      return {
+        success: true,
+        data: games,
+        errors: []
+      };
+    } catch (error) {
+      console.error('Erro ao escanear jogos Steam:', error);
+      return {
+        success: false,
+        data: [],
+        errors: [error.message || 'Erro desconhecido ao escanear jogos Steam']
+      };
     }
-  } catch (e) {
-    console.error('Erro ao carregar página de erro personalizada:', e.message);
-  }
+  });
   
-  // Se não encontrar, criar uma página de erro inline
-  console.log('Gerando página de erro HTML inline');
+  ipcMain.handle('scan-epic', async () => {
+    console.log('Recebida solicitação para escanear jogos Epic');
+    try {
+      const games = await getEpicGames();
+      return {
+        success: true,
+        data: games,
+        errors: []
+      };
+    } catch (error) {
+      console.error('Erro ao escanear jogos Epic:', error);
+      return {
+        success: false,
+        data: [],
+        errors: [error.message || 'Erro desconhecido ao escanear jogos Epic']
+      };
+    }
+  });
   
-  const errorHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <title>${APP_NAME} - Erro</title>
-        <style>
-          body { 
-            font-family: Arial, sans-serif; 
-            background-color: #1e1e1e; 
-            color: #ffffff; 
-            text-align: center; 
-            padding: 50px;
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-          }
-          h1 { color: #ff5555; }
-          .container { 
-            max-width: 800px; 
-            margin: 0 auto; 
-            background-color: #2d2d2d; 
-            border-radius: 8px; 
-            padding: 30px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-          }
-          .log-box {
-            background-color: #3d3d3d; 
-            padding: 15px; 
-            border-radius: 5px; 
-            font-family: monospace; 
-            margin: 20px 0;
-            text-align: left;
-            overflow: auto;
-            max-height: 250px;
-          }
-          .solutions {
-            text-align: left; 
-            margin-top: 30px;
-          }
-          button {
-            background-color: #4a4a4a;
-            color: white;
-            border: none;
-            padding: 10px 15px;
-            border-radius: 4px;
-            cursor: pointer;
-            margin: 5px;
-            transition: background-color 0.2s;
-          }
-          button:hover {
-            background-color: #5a5a5a;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>Erro na Aplicação</h1>
-          <p>${APP_NAME} não pôde iniciar corretamente porque os arquivos necessários não foram encontrados.</p>
-          
-          <div class="log-box">
-            Erro: Não foi possível localizar os arquivos da aplicação<br>
-            Diretório atual: ${process.cwd()}<br>
-            Diretório do app: ${__dirname}<br>
-            Plataforma: ${process.platform}
-          </div>
-          
-          <div class="solutions">
-            <h2>Possíveis soluções:</h2>
-            <ol>
-              <li>Certifique-se de que você compilou a aplicação com <code>npm run build</code></li>
-              <li>Verifique se a pasta <code>dist</code> existe e contém um arquivo <code>index.html</code></li>
-              <li>Tente reinstalar a aplicação</li>
-              <li>Execute a aplicação em modo de desenvolvimento com <code>npm run dev</code></li>
-            </ol>
-          </div>
-          
-          <div style="margin-top: 30px;">
-            <button onclick="window.close()">Fechar Aplicativo</button>
-            <button onclick="window.location.reload()">Tentar Novamente</button>
-          </div>
-        </div>
-      </body>
-    </html>
-  `;
+  ipcMain.handle('scan-xbox', async () => {
+    console.log('Recebida solicitação para escanear jogos Xbox');
+    try {
+      const games = await getXboxGames();
+      return {
+        success: true,
+        data: games,
+        errors: []
+      };
+    } catch (error) {
+      console.error('Erro ao escanear jogos Xbox:', error);
+      return {
+        success: false,
+        data: [],
+        errors: [error.message || 'Erro desconhecido ao escanear jogos Xbox']
+      };
+    }
+  });
   
-  await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
+  ipcMain.handle('scan-origin', async () => {
+    console.log('Recebida solicitação para escanear jogos Origin');
+    try {
+      const games = await getOriginGames();
+      return {
+        success: true,
+        data: games,
+        errors: []
+      };
+    } catch (error) {
+      console.error('Erro ao escanear jogos Origin:', error);
+      return {
+        success: false,
+        data: [],
+        errors: [error.message || 'Erro desconhecido ao escanear jogos Origin']
+      };
+    }
+  });
+  
+  // Game management handlers
+  ipcMain.handle('launch-game', async (event, game) => {
+    console.log(`Recebida solicitação para lançar jogo: ${game.name}`);
+    try {
+      return await launchGameInternal(game);
+    } catch (error) {
+      console.error(`Erro ao lançar jogo ${game.name}:`, error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao lançar jogo'
+      };
+    }
+  });
+  
+  // Handler para otimizar jogos
+  ipcMain.handle('optimize-game', async (event, game, profile = 'balanced', settings) => {
+    console.log(`Recebida solicitação para otimizar jogo: ${game.name} com perfil ${profile}`);
+    try {
+      if (!fpsOptimizer || !fpsOptimizer.optimizeGame) {
+        console.warn('Módulo de otimização não disponível');
+        return {
+          success: false,
+          error: 'Módulo de otimização não disponível'
+        };
+      }
+      
+      console.log(`Otimizando jogo: ${game.name}`);
+      const optimizationResult = await fpsOptimizer.optimizeGame(game, profile, settings);
+      
+      return optimizationResult;
+    } catch (error) {
+      console.error(`Erro ao otimizar jogo ${game.name}:`, error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao otimizar jogo'
+      };
+    }
+  });
+  
+  // Handler para validar arquivos de jogos
+  ipcMain.handle('validate-game-files', async (event, gameId) => {
+    console.log(`Recebida solicitação para validar arquivos do jogo: ${gameId}`);
+    try {
+      // Encontrar o jogo pelo ID
+      const allGames = await getAllGames();
+      const gameToValidate = allGames.find(game => game.id === gameId);
+      
+      if (!gameToValidate) {
+        console.warn(`Jogo com ID ${gameId} não encontrado`);
+        return false;
+      }
+      
+      // Verificar se o executável existe
+      if (!gameToValidate.executablePath) {
+        console.warn(`Executável não encontrado para jogo ${gameId}`);
+        return false;
+      }
+      
+      // Verificar se o caminho do executável existe
+      try {
+        await fs.access(gameToValidate.executablePath);
+        console.log(`Arquivo executável para jogo ${gameId} validado com sucesso`);
+        return true;
+      } catch (error) {
+        console.error(`Arquivo executável para jogo ${gameId} não encontrado:`, error);
+        return false;
+      }
+    } catch (error) {
+      console.error(`Erro ao validar arquivos do jogo ${gameId}:`, error);
+      return false;
+    }
+  });
+  
+  // Tray handlers
+  ipcMain.handle('update-tray-games', async (event, games) => {
+    console.log(`Recebida solicitação para atualizar jogos no tray: ${games?.length || 0} jogos`);
+    return updateTrayGames(games);
+  });
+  
+  ipcMain.handle('get-games-for-tray', async () => {
+    console.log('Recebida solicitação para obter jogos para o tray');
+    try {
+      const games = await getAllGames();
+      console.log(`Retornando ${games.length} jogos para o tray`);
+      return games;
+    } catch (error) {
+      console.error('Erro ao obter jogos para o tray:', error);
+      return [];
+    }
+  });
+  
+  // System info handlers
+  ipcMain.handle('get-system-info', async () => {
+    console.log('Recebida solicitação para obter informações do sistema');
+    try {
+      return await systemMonitor.getSystemInfo();
+    } catch (error) {
+      console.error('Erro ao obter informações do sistema:', error);
+      return {
+        error: error.message || 'Erro desconhecido ao obter informações do sistema'
+      };
+    }
+  });
+  
+  // System optimization handlers
+  ipcMain.handle('optimize-cpu', async (event, options) => {
+    console.log('Recebida solicitação para otimizar CPU');
+    try {
+      return await optimizeCPUInternal(options);
+    } catch (error) {
+      console.error('Erro ao otimizar CPU:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao otimizar CPU'
+      };
+    }
+  });
+  
+  ipcMain.handle('optimize-memory', async (event, options) => {
+    console.log('Recebida solicitação para otimizar memória');
+    try {
+      return await optimizeMemoryInternal(options);
+    } catch (error) {
+      console.error('Erro ao otimizar memória:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao otimizar memória'
+      };
+    }
+  });
+  
+  ipcMain.handle('optimize-gpu', async (event, options) => {
+    console.log('Recebida solicitação para otimizar GPU');
+    try {
+      return await optimizeGPUInternal(options);
+    } catch (error) {
+      console.error('Erro ao otimizar GPU:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao otimizar GPU'
+      };
+    }
+  });
+  
+  ipcMain.handle('optimize-network', async (event, options) => {
+    console.log('Recebida solicitação para otimizar rede');
+    try {
+      return await optimizeNetworkInternal(options);
+    } catch (error) {
+      console.error('Erro ao otimizar rede:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao otimizar rede'
+      };
+    }
+  });
+  
+  // Network handlers
+  ipcMain.handle('measure-network-performance', async () => {
+    console.log('Recebida solicitação para medir desempenho de rede');
+    try {
+      return await networkMetrics.analyzeNetwork();
+    } catch (error) {
+      console.error('Erro ao medir desempenho de rede:', error);
+      return {
+        error: error.message || 'Erro desconhecido ao medir desempenho de rede'
+      };
+    }
+  });
+  
+  ipcMain.handle('get-available-routes', async () => {
+    console.log('Recebida solicitação para obter rotas disponíveis');
+    try {
+      // Simulação - em um app real, isso seria implementado
+      return [
+        {
+          id: 'auto',
+          name: 'Auto (Melhor Localização)',
+          latency: 24,
+          bandwidth: 150,
+          load: 0.3,
+          reliability: 99.9
+        },
+        {
+          id: 'us-east',
+          name: 'US East',
+          latency: 42,
+          bandwidth: 120,
+          load: 0.5,
+          reliability: 98.5
+        },
+        {
+          id: 'eu-west',
+          name: 'Europe West',
+          latency: 28,
+          bandwidth: 140,
+          load: 0.4,
+          reliability: 99.4
+        }
+      ];
+    } catch (error) {
+      console.error('Erro ao obter rotas disponíveis:', error);
+      return [];
+    }
+  });
+  
+  // VPN handlers
+  ipcMain.handle('get-vpn-servers', async () => {
+    console.log('Recebida solicitação para obter servidores VPN');
+    try {
+      return vpnManager.getServers();
+    } catch (error) {
+      console.error('Erro ao obter servidores VPN:', error);
+      return [];
+    }
+  });
+  
+  ipcMain.handle('connect-to-vpn', async (event, server) => {
+    console.log(`Recebida solicitação para conectar à VPN: ${server.name}`);
+    try {
+      return await vpnManager.connect(server);
+    } catch (error) {
+      console.error('Erro ao conectar à VPN:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao conectar à VPN'
+      };
+    }
+  });
+  
+  ipcMain.handle('disconnect-from-vpn', async () => {
+    console.log('Recebida solicitação para desconectar da VPN');
+    try {
+      return await vpnManager.disconnect();
+    } catch (error) {
+      console.error('Erro ao desconectar da VPN:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao desconectar da VPN'
+      };
+    }
+  });
+  
+  ipcMain.handle('get-vpn-status', async () => {
+    console.log('Recebida solicitação para obter status da VPN');
+    try {
+      return vpnManager.getStatus();
+    } catch (error) {
+      console.error('Erro ao obter status da VPN:', error);
+      return {
+        isConnected: false,
+        error: error.message || 'Erro desconhecido ao obter status da VPN'
+      };
+    }
+  });
+  
+  // Notification handler
+  ipcMain.handle('show-notification', async (event, options) => {
+    console.log('Recebida solicitação para mostrar notificação');
+    try {
+      const notification = new Notification({
+        title: options.title || 'GamePath AI',
+        body: options.body || '',
+        icon: options.icon || path.join(__dirname, 'public/icons/icon.ico')
+      });
+      
+      notification.show();
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Erro ao mostrar notificação:', error);
+      return {
+        success: false,
+        error: error.message || 'Erro desconhecido ao mostrar notificação'
+      };
+    }
+  });
+  
+  // Diagnostic handler
+  ipcMain.handle('list-detected-games', async () => {
+    console.log('Recebida solicitação para listar jogos detectados');
+    try {
+      const platforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
+      const detailedResults = {};
+      let totalGames = 0;
+      
+      for (const platform of platforms) {
+        try {
+          if (gameDetectors[platform]) {
+            const games = await gameDetectors[platform]();
+            detailedResults[platform] = games;
+            totalGames += games.length;
+          } else {
+            detailedResults[platform] = [];
+          }
+        } catch (error) {
+          console.error(`Erro ao detectar jogos da plataforma ${platform}:`, error);
+          detailedResults[platform] = [];
+        }
+      }
+      
+      return {
+        totalGames,
+        detailedResults
+      };
+    } catch (error) {
+      console.error('Erro ao listar jogos detectados:', error);
+      return {
+        totalGames: 0,
+        detailedResults: {},
+        error: error.message || 'Erro desconhecido ao listar jogos'
+      };
+    }
+  });
+  
+  console.log('Handlers IPC registrados com sucesso');
 }
 
-// Implementações internas de detecção de jogos como fallback
-// Estas funções serão usadas quando os módulos externos não forem encontrados
-
-/**
- * Detector de jogos Steam interno
- * @return {Promise<Array>} - Lista de jogos detectados
- */
-async function getSteamGamesInternal() {
-  console.log('=== Escaneamento de jogos Steam iniciado ===');
+// Função para obter todos os jogos de todas as plataformas
+async function getAllGames() {
   try {
-    // Tentar obter o caminho do Steam do registro
-    let steamPath = null;
+    console.log('Obtendo jogos de todas as plataformas...');
     
-    // Tentar primeiro HKEY_CURRENT_USER
-    steamPath = Registry.getValue(
-      Registry.HKEY.CURRENT_USER,
-      'SOFTWARE\\Valve\\Steam',
-      'SteamPath'
+    const platforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
+    const results = await Promise.all(
+      platforms.map(platform => {
+        if (gameDetectors[platform]) {
+          console.log(`Escaneando plataforma: ${platform}`);
+          return gameDetectors[platform]().catch(error => {
+            console.error(`Erro ao escanear plataforma ${platform}:`, error);
+            return [];
+          });
+        }
+        return Promise.resolve([]);
+      })
     );
     
-    // Se não encontrar, tentar HKEY_LOCAL_MACHINE
-    if (!steamPath) {
-      steamPath = Registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        'SOFTWARE\\WOW6432Node\\Valve\\Steam',
-        'InstallPath'
-      );
-    }
+    // Combinar resultados e remover duplicatas
+    const allGames = results.flat();
+    console.log(`Total de jogos encontrados (antes de filtrar): ${allGames.length}`);
     
-    // Se ainda não encontrar, tentar caminhos padrão
-    if (!steamPath) {
-      console.log('Instalação do Steam não encontrada no registro, tentando caminhos padrão');
-      const defaultPaths = [
-        path.join(os.homedir(), 'Steam'),
-        path.join(os.homedir(), '.steam', 'steam'),
-        'C:\\Program Files (x86)\\Steam',
-        'C:\\Program Files\\Steam',
-        path.join(os.homedir(), 'Library', 'Application Support', 'Steam')
-      ];
-      
-      for (const defaultPath of defaultPaths) {
-        try {
-          await fs.access(defaultPath);
-          steamPath = defaultPath;
-          console.log(`Steam encontrado no caminho padrão: ${steamPath}`);
-          break;
-        } catch (err) {
-          // Caminho não existe, continuar para o próximo
-        }
+    // Filtrar jogos duplicados (mesmo nome e plataforma)
+    const uniqueGames = [];
+    const gameKeys = new Set();
+    
+    for (const game of allGames) {
+      const key = `${game.name}|${game.platform}`.toLowerCase();
+      if (!gameKeys.has(key)) {
+        gameKeys.add(key);
+        uniqueGames.push(game);
       }
     }
+    
+    console.log(`Total de jogos únicos: ${uniqueGames.length}`);
+    return uniqueGames;
+  } catch (error) {
+    console.error('Erro ao obter todos os jogos:', error);
+    return [];
+  }
+}
 
-    if (!steamPath) {
-      console.log('Instalação do Steam não encontrada');
-      return [];
+// Função para lançar um jogo
+async function launchGameInternal(game) {
+  console.log(`Lançando jogo: ${game.name}`);
+  
+  try {
+    if (!game.executablePath) {
+      throw new Error('Caminho do executável não encontrado');
     }
-
-    console.log('Instalação do Steam encontrada em:', steamPath);
-
-    // Ler configuração de bibliotecas do Steam
-    const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
-    let libraryFoldersContent;
-
+    
+    // Verificar se o executável existe
     try {
-      libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
-      console.log('Configuração de bibliotecas do Steam lida com sucesso');
+      await fs.access(game.executablePath);
     } catch (error) {
-      console.error('Erro ao ler bibliotecas do Steam:', error);
-      
-      // Tentar caminho alternativo para o arquivo de configuração
-      const altLibraryFoldersPath = path.join(steamPath, 'config', 'libraryfolders.vdf');
-      try {
-        libraryFoldersContent = await fs.readFile(altLibraryFoldersPath, 'utf8');
-        console.log('Configuração de bibliotecas do Steam lida do caminho alternativo');
-      } catch (altError) {
-        console.error('Erro ao ler bibliotecas alternativas do Steam:', altError);
-        return [];
-      }
+      throw new Error(`Executável não encontrado: ${game.executablePath}`);
     }
-
-    // Analisar bibliotecas do Steam
-    const libraryPaths = [steamPath];
-    const libraryRegex = /"path"\s+"([^"]+)"/g;
-    let match;
-
-    while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
-      libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
-    }
-
-    // Se não encontrou bibliotecas adicionais, tentar outro formato de arquivo
-    if (libraryPaths.length === 1) {
-      const altLibraryRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/gs;
-      let altMatch;
-      
-      while ((altMatch = altLibraryRegex.exec(libraryFoldersContent)) !== null) {
-        libraryPaths.push(altMatch[2].replace(/\\\\/g, '\\'));
-      }
-    }
-
-    console.log('Bibliotecas Steam encontradas:', libraryPaths);
-
-    const games = [];
-
-    // Escanear cada biblioteca por jogos instalados
-    for (const libraryPath of libraryPaths) {
-      const appsPath = path.join(libraryPath, 'steamapps');
-      console.log('Escaneando biblioteca Steam em:', appsPath);
-
-      try {
-        const files = await fs.readdir(appsPath);
-
-        // Procurar por arquivos appmanifest que contêm informações dos jogos
-        const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
-        console.log(`Encontrados ${manifests.length} manifestos de jogos em ${appsPath}`);
-
-        for (const manifest of manifests) {
-          try {
-            const manifestPath = path.join(appsPath, manifest);
-            const manifestContent = await fs.readFile(manifestPath, 'utf8');
-
-            // Extrair informações do jogo do manifesto
-            const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
-            const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
-            const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
-            const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
-            const lastPlayedMatch = /"LastPlayed"\s+"(\d+)"/.exec(manifestContent);
-
-            if (nameMatch && appIdMatch && installDirMatch) {
-              const name = nameMatch[1];
-              const appId = appIdMatch[1];
-              const installDir = installDirMatch[1];
-              const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
-              const sizeInGB = Math.round(sizeInBytes / (1024 * 1024 * 1024) * 100) / 100;
-              const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
-
-              const gamePath = path.join(appsPath, 'common', installDir);
-              
-              // Tentar encontrar o executável principal
-              let executablePath = '';
-              try {
-                const gameFiles = await fs.readdir(gamePath);
-                const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
-                
-                // Tentar encontrar o executável com o mesmo nome do diretório
-                const mainExe = exeFiles.find(file => file.toLowerCase() === `${installDir.toLowerCase()}.exe`);
-                if (mainExe) {
-                  executablePath = path.join(gamePath, mainExe);
-                } else if (exeFiles.length > 0) {
-                  // Pegar o primeiro executável encontrado
-                  executablePath = path.join(gamePath, exeFiles[0]);
-                }
-              } catch (error) {
-                console.warn(`Não foi possível escanear executáveis para ${name}:`, error);
-              }
-
-              // Adicionar logs detalhados
-              console.log(`Steam: Manifesto ${manifest} -> Jogo "${name}" (${appId})`);
-              console.log(`  - Diretório: ${installDir}`);
-              console.log(`  - Caminho: ${gamePath}`);
-              console.log(`  - Executável: ${executablePath || 'não encontrado'}`);
-              console.log(`  - Tamanho: ${sizeInGB}GB`);
-
-              games.push({
-                id: appId,
-                name,
-                platform: 'Steam',
-                installPath: gamePath,
-                executablePath,
-                process_name: path.basename(executablePath || ''),
-                size: sizeInGB,
-                last_played: lastPlayed,
-                iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`
-              });
-              
-              console.log(`Jogo Steam encontrado: ${name} (${appId})`);
-            }
-          } catch (error) {
-            console.error(`Erro ao processar manifesto ${manifest}:`, error);
-          }
-        }
-      } catch (error) {
-        console.error(`Erro ao ler pasta de biblioteca ${libraryPath}:`, error);
-      }
-    }
-
-    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Steam`);
-    return games;
+    
+    // Lançar o jogo
+    const child = spawn(game.executablePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: path.dirname(game.executablePath)
+    });
+    
+    // Desanexar o processo para que ele continue rodando independentemente
+    child.unref();
+    
+    console.log(`Jogo ${game.name} lançado com sucesso`);
+    return {
+      success: true
+    };
   } catch (error) {
-    console.error('Erro ao escanear jogos Steam:', error);
-    return [];
+    console.error(`Erro ao lançar jogo ${game.name}:`, error);
+    throw error;
   }
 }
 
-/**
- * Detector de jogos Epic Games interno
- * @return {Promise<Array>} - Lista de jogos detectados
- */
-async function getEpicGamesInternal() {
-  console.log('=== Escaneamento de jogos Epic Games iniciado ===');
+// Função para otimizar um jogo
+async function optimizeGameInternal(game, profile = 'balanced') {
+  console.log(`Otimizando jogo: ${game.name} com perfil ${profile}`);
+  
   try {
-    // Encontrar o arquivo de manifesto do Epic Games Launcher
-    let manifestPath = "";
-    
-    if (process.platform === "win32") {
-      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
-      manifestPath = path.join(
-        localAppData,
-        "EpicGamesLauncher",
-        "Saved",
-        "Config",
-        "Windows"
-      );
-    } else if (process.platform === "darwin") {
-      manifestPath = path.join(
-        os.homedir(),
-        "Library",
-        "Application Support",
-        "Epic",
-        "EpicGamesLauncher",
-        "Config"
-      );
-    } else {
-      manifestPath = path.join(
-        os.homedir(),
-        ".config",
-        "Epic",
-        "EpicGamesLauncher"
-      );
+    if (!fpsOptimizer || !fpsOptimizer.optimizeGame) {
+      throw new Error('Módulo de otimização não disponível');
     }
     
-    if (!manifestPath) {
-      console.log("Epic Games Launcher config path not found");
-      return [];
-    }
+    const result = await fpsOptimizer.optimizeGame(game, profile);
+    console.log(`Jogo ${game.name} otimizado com sucesso:`, result);
     
-    // Verificar se o diretório existe
-    try {
-      await fs.access(manifestPath);
-      console.log(`Diretório de configuração do Epic Games encontrado: ${manifestPath}`);
-    } catch {
-      console.log("Epic Games Launcher config directory not found");
-      return [];
-    }
-    
-    // Ler os arquivos do diretório
-    const files = await fs.readdir(manifestPath);
-    console.log(`Arquivos encontrados no diretório Epic: ${files.join(', ')}`);
-    
-    // Encontrar o arquivo de manifesto
-    const manifestFiles = [
-      "GameInstallation.json",
-      "InstallationList.json",
-      "LauncherInstalled.dat" // Arquivo alternativo
-    ];
-    
-    let manifestContent = "";
-    let manifest = null;
-    
-    for (const manifestFile of manifestFiles) {
-      if (files.includes(manifestFile)) {
-        try {
-          const fullPath = path.join(manifestPath, manifestFile);
-          manifestContent = await fs.readFile(fullPath, "utf8");
-          console.log(`Lendo manifesto Epic: ${manifestFile}`);
-          
-          // Tentar analisar o JSON
-          manifest = JSON.parse(manifestContent);
-          console.log(`Manifesto Epic analisado com sucesso: ${manifestFile}`);
-          break;
-        } catch (error) {
-          console.error(`Erro ao ler manifesto Epic ${manifestFile}:`, error);
-        }
-      }
-    }
-    
-    if (!manifest) {
-      console.log("No valid Epic Games installation manifest found");
-      return [];
-    }
-    
-    // Extrair informações dos jogos instalados
-    const games = [];
-    const installations = manifest.InstallationList || [];
-    
-    console.log(`Found ${installations.length} Epic games in manifest`);
-    
-    for (const installation of installations) {
-      try {
-        if (!installation.InstallLocation) {
-          console.log(`Skipping Epic game with no install location: ${installation.DisplayName || "Unknown"}`);
-          continue;
-        }
-        
-        const name = installation.DisplayName;
-        const appName = installation.AppName;
-        const installLocation = installation.InstallLocation;
-        const launchExecutable = installation.LaunchExecutable;
-        
-        let executablePath = "";
-        if (launchExecutable) {
-          executablePath = path.join(installLocation, launchExecutable);
-        }
-        
-        // Calcular tamanho do jogo
-        let sizeInMB = 0;
-        try {
-          const stats = await fs.stat(installLocation);
-          sizeInMB = Math.round(stats.size / (1024 * 1024));
-        } catch (error) {
-          console.warn(`Could not determine size for Epic game ${name}:`, error);
-        }
-        
-        // Adicionar logs detalhados
-        console.log(`Epic: Jogo "${name}" (${appName})`);
-        console.log(`  - Caminho: ${installLocation}`);
-        console.log(`  - Executável: ${executablePath || 'não encontrado'}`);
-        console.log(`  - Tamanho: ${sizeInMB}MB`);
-        
-        games.push({
-          id: appName,
-          name,
-          platform: "Epic",
-          installPath: installLocation,
-          executablePath,
-          process_name: launchExecutable ? path.basename(launchExecutable) : "",
-          size: sizeInMB,
-          // Epic não oferece URLs consistentes para imagens
-          icon_url: undefined,
-          last_played: undefined
-        });
-        
-        console.log(`Jogo Epic encontrado: ${name}`);
-      } catch (error) {
-        console.error(`Erro ao processar jogo Epic:`, error);
-      }
-    }
-    
-    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Epic`);
-    return games;
+    return result;
   } catch (error) {
-    console.error("Erro ao escanear jogos Epic:", error);
-    return [];
+    console.error(`Erro ao otimizar jogo ${game.name}:`, error);
+    throw error;
   }
 }
 
-/**
- * Detector de jogos Xbox/Microsoft Store interno
- * @return {Promise<Array>} - Lista de jogos detectados
- */
-async function getXboxGamesInternal() {
-  console.log('=== Escaneamento de jogos Xbox/Microsoft Store iniciado ===');
+// Funções de otimização do sistema
+async function optimizeCPUInternal(options = {}) {
+  console.log('Otimizando CPU...');
+  
   try {
-    // No Windows, os jogos da Microsoft Store são instalados em uma pasta protegida
-    // Normalmente em C:\Program Files\WindowsApps
-    // É necessário acessar o registro para encontrar os jogos instalados
+    // Simulação - em um app real, isso seria implementado
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    if (process.platform !== 'win32') {
-      console.log('Detecção de jogos Xbox só é suportada no Windows');
-      return [];
-    }
-    
-    const games = [];
-    
-    // Tentar ler jogos do registro
-    try {
-      // Jogos UWP/Microsoft Store são registrados no registro
-      const packageFamilyNames = Registry.enumerateValues(
-        Registry.HKEY.LOCAL_MACHINE,
-        'SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Package\\Index\\PackageFamily'
-      );
-      
-      console.log(`Encontrados ${packageFamilyNames.length} pacotes no registro do Windows`);
-      
-      for (const entry of packageFamilyNames) {
-        if (entry.type === 'REG_BINARY' || entry.type === 'REG_SZ' || entry.type === 'REG_EXPAND_SZ') {
-          try {
-            const packageFullName = Registry.getValue(
-              Registry.HKEY.LOCAL_MACHINE,
-              `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Package\\Data\\${entry.value}`,
-              'PackageFullName'
-            );
-            
-            if (!packageFullName) continue;
-            
-            // Tentar obter o nome de exibição do aplicativo
-            const displayName = Registry.getValue(
-              Registry.HKEY.LOCAL_MACHINE,
-              `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\StateRepository\\Cache\\Application\\Data\\${entry.value}`,
-              'DisplayName'
-            ) || packageFullName;
-            
-            // Verificar se é um jogo
-            // Muitos jogos UWP têm nomes contendo "Game", "Xbox", ou estão em certas categorias
-            const isGame = 
-              displayName.includes('Game') || 
-              displayName.includes('Xbox') ||
-              packageFullName.includes('Game') ||
-              packageFullName.includes('Xbox');
-            
-            if (isGame) {
-              // Tentar encontrar o caminho de instalação
-              const installLocation = Registry.getValue(
-                Registry.HKEY.LOCAL_MACHINE,
-                `SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModel\\Repository\\Packages\\${packageFullName}`,
-                'PackageRootFolder'
-              );
-              
-              if (installLocation) {
-                console.log(`Xbox: Jogo "${displayName}" (${packageFullName})`);
-                console.log(`  - Caminho: ${installLocation}`);
-                
-                games.push({
-                  id: packageFullName,
-                  name: displayName,
-                  platform: 'Xbox',
-                  installPath: installLocation,
-                  executablePath: '',  // Jogos UWP não têm caminhos de .exe tradicionais
-                  process_name: packageFullName,
-                  size: 0, // Tamanho desconhecido
-                  icon_url: undefined,
-                  last_played: undefined
-                });
-                
-                console.log(`Jogo Xbox/Microsoft Store encontrado: ${displayName}`);
-              }
-            }
-          } catch (innerError) {
-            // Ignorar erros individuais
-          }
-        }
-      }
-    } catch (registryError) {
-      console.error('Erro ao acessar o registro para jogos Xbox:', registryError);
-    }
-    
-    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Xbox/Microsoft Store`);
-    return games;
+    return {
+      success: true,
+      improvement: 15,
+      actions: [
+        'Adjusted process priorities',
+        'Optimized thread allocation',
+        'Disabled background services'
+      ]
+    };
   } catch (error) {
-    console.error('Erro ao escanear jogos Xbox/Microsoft Store:', error);
-    return [];
+    console.error('Erro ao otimizar CPU:', error);
+    throw error;
   }
 }
 
-/**
- * Detector de jogos independentes/sem launcher
- * @return {Promise<Array>} - Lista de jogos detectados
- */
+async function optimizeMemoryInternal(options = {}) {
+  console.log('Otimizando memória...');
+  
+  try {
+    // Simulação - em um app real, isso seria implementado
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      success: true,
+      improvement: 20,
+      actions: [
+        'Cleared memory cache',
+        'Optimized page file',
+        'Released unused memory'
+      ]
+    };
+  } catch (error) {
+    console.error('Erro ao otimizar memória:', error);
+    throw error;
+  }
+}
+
+async function optimizeGPUInternal(options = {}) {
+  console.log('Otimizando GPU...');
+  
+  try {
+    // Simulação - em um app real, isso seria implementado
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      success: true,
+      improvement: 10,
+      actions: [
+        'Set power mode to Performance',
+        'Optimized shader cache',
+        'Adjusted rendering settings'
+      ]
+    };
+  } catch (error) {
+    console.error('Erro ao otimizar GPU:', error);
+    throw error;
+  }
+}
+
+async function optimizeNetworkInternal(options = {}) {
+  console.log('Otimizando rede...');
+  
+  try {
+    // Simulação - em um app real, isso seria implementado
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    return {
+      success: true,
+      improvement: 25,
+      actions: [
+        'Optimized network routes',
+        'Adjusted TCP settings',
+        'Prioritized game traffic'
+      ]
+    };
+  } catch (error) {
+    console.error('Erro ao otimizar rede:', error);
+    throw error;
+  }
+}
+
+// Função para escanear jogos standalone
 async function getStandaloneGamesInternal() {
   console.log('=== Escaneamento de jogos independentes iniciado ===');
   try {
     const games = [];
     const commonGameDirs = [];
     
-    // Caminhos comuns onde os jogos costumam ser instalados
+    // Adicionar apenas diretórios que provavelmente contenham jogos
     if (process.platform === 'win32') {
       // Windows
       const drives = ['C:', 'D:', 'E:', 'F:'];
@@ -1448,11 +908,10 @@ async function getStandaloneGamesInternal() {
         try {
           await fs.access(drive);
           commonGameDirs.push(
+            path.join(drive, 'Games'),
+            path.join(drive, 'SteamLibrary'), 
             path.join(drive, 'Program Files', 'Games'),
-            path.join(drive, 'Program Files (x86)', 'Games'),
-            path.join(drive, 'Program Files'),
-            path.join(drive, 'Program Files (x86)'),
-            path.join(drive, 'Games')
+            path.join(drive, 'Program Files (x86)', 'Games')
           );
         } catch (err) {
           // Drive não existe ou não acessível
@@ -1461,20 +920,36 @@ async function getStandaloneGamesInternal() {
     } else if (process.platform === 'darwin') {
       // macOS
       commonGameDirs.push(
-        path.join(os.homedir(), 'Applications'),
-        '/Applications'
+        path.join(os.homedir(), 'Games')
       );
     } else {
       // Linux
       commonGameDirs.push(
         path.join(os.homedir(), 'Games'),
-        path.join(os.homedir(), '.local', 'share', 'games'),
-        '/usr/games',
-        '/opt/games'
+        path.join(os.homedir(), '.local', 'share', 'games')
       );
     }
     
-    console.log(`Verificando diretórios comuns de jogos: ${commonGameDirs.join(', ')}`);
+    console.log(`Verificando diretórios específicos de jogos: ${commonGameDirs.join(', ')}`);
+    
+    // Lista de programas comuns que NÃO são jogos para filtrar
+    const nonGameKeywords = [
+      'windows', 'microsoft', 'system', 'update', 'office', 'adobe', 
+      'chrome', 'firefox', 'explorer', 'edge', 'defender', 
+      'installer', 'setup', 'config', 'git', 'runtime', 'framework',
+      'driver', 'utility', 'monitor', 'tool', 'health', 'support',
+      'antivirus', 'security', 'browser', 'mail', 'photo', 'picture',
+      'media', 'viewer', 'player', 'calculator', 'notepad', 'paint',
+      'sdk', 'visual studio', 'code', 'webview', 'store', 'update'
+    ];
+    
+    // Melhora o filtro de detecção com nomes comuns de jogos
+    const gameSubstringHints = [
+      'game', 'play', 'steam', 'epic', 'battle', 'uplay', 'origin', 
+      'gog', 'bethesda', 'rockstar', 'xbox', 'warfare', 'craft', 
+      'adventure', 'quest', 'rpg', 'shooter', 'racing', 'sport',
+      'tactical', 'strategy', 'simulation', 'arcade', 'action'
+    ];
     
     // Escanear cada diretório por pastas que possam conter jogos
     for (const dir of commonGameDirs) {
@@ -1490,6 +965,22 @@ async function getStandaloneGamesInternal() {
         
         for (const subDir of subDirs) {
           const gamePath = path.join(dir, subDir.name);
+          const dirNameLower = subDir.name.toLowerCase();
+          
+          // Verificar se o nome do diretório corresponde a programas que NÃO são jogos
+          const isLikelyNonGame = nonGameKeywords.some(keyword => 
+            dirNameLower.includes(keyword.toLowerCase())
+          );
+          
+          // Verificar se o nome do diretório contém palavras-chave comuns de jogos
+          const containsGameHint = gameSubstringHints.some(hint => 
+            dirNameLower.includes(hint.toLowerCase())
+          );
+          
+          // Pular diretórios que provavelmente não são jogos, a menos que tenham pistas de jogos
+          if (isLikelyNonGame && !containsGameHint) {
+            continue;
+          }
           
           // Verificar se existem executáveis neste diretório
           try {
@@ -1498,15 +989,31 @@ async function getStandaloneGamesInternal() {
               file.endsWith('.exe') && 
               !file.includes('unins') && 
               !file.includes('setup') &&
-              !file.includes('launcher')
+              !file.includes('launcher') &&
+              !file.includes('update') &&
+              !file.includes('config') &&
+              !file.includes('helper')
             );
             
+            // Verificar tamanho - jogos geralmente são maiores que 50MB
             if (exeFiles.length > 0) {
+              try {
+                const stats = await fs.stat(gamePath);
+                const folderSizeMB = stats.size / (1024 * 1024);
+                
+                // Pular diretórios muito pequenos para serem jogos
+                if (folderSizeMB < 50 && !containsGameHint) {
+                  continue;
+                }
+              } catch (err) {
+                // Erro ao verificar tamanho, continuar mesmo assim
+              }
+              
               // Este diretório provavelmente contém um jogo
               const gameName = subDir.name.replace(/([A-Z])/g, ' $1').replace(/_/g, ' ').trim();
               
-              // Escolher o executável principal
-              let mainExe = exeFiles.find(exe => exe.toLowerCase().includes(subDir.name.toLowerCase())) || exeFiles[0];
+              // Escolher o executável principal, priorizando aqueles que tenham o nome do jogo
+              let mainExe = exeFiles.find(exe => exe.toLowerCase().includes(dirNameLower)) || exeFiles[0];
               const executablePath = path.join(gamePath, mainExe);
               
               console.log(`Standalone: Jogo "${gameName}"`);
@@ -1520,7 +1027,7 @@ async function getStandaloneGamesInternal() {
                 installPath: gamePath,
                 executablePath,
                 process_name: mainExe,
-                size: 0, // Tamanho desconhecido
+                size: folderSizeMB || 0,
                 icon_url: undefined,
                 last_played: undefined
               });
@@ -1544,416 +1051,42 @@ async function getStandaloneGamesInternal() {
   }
 }
 
-/**
- * Função para iniciar um jogo diretamente
- * @param {Object} game - Objeto do jogo a ser iniciado
- * @return {Promise<boolean>} - Verdadeiro se o jogo foi iniciado com sucesso
- */
-async function launchGameDirectly(game) {
-  return new Promise((resolve, reject) => {
-    try {
-      if (!game.executablePath) {
-        console.error(`Nenhum executável encontrado para ${game.name}`);
-        resolve(false);
-        return;
-      }
-      
-      console.log(`Iniciando jogo: ${game.name} (${game.platform})`);
-      console.log(`Caminho do executável: ${game.executablePath}`);
-      
-      // Iniciar o jogo com o child_process
-      const child = spawn(game.executablePath, [], {
-        detached: true,
-        stdio: 'ignore',
-        cwd: path.dirname(game.executablePath)
-      });
-      
-      child.unref(); // Desvincular do processo principal
-      
-      // Definir um timeout para verificar se o jogo foi iniciado corretamente
-      setTimeout(() => {
-        // Sucesso após timeout
-        console.log(`Jogo ${game.name} iniciado com sucesso`);
-        resolve(true);
-      }, 2000);
-    } catch (error) {
-      console.error(`Erro ao iniciar ${game.name}:`, error);
-      reject(error);
-    }
-  });
-}
-
-// Adicionar as funções como detectores internos
-if (!gameDetectors.steam) gameDetectors.steam = getSteamGamesInternal;
-if (!gameDetectors.epic) gameDetectors.epic = getEpicGamesInternal;
-if (!gameDetectors.xbox) gameDetectors.xbox = getXboxGamesInternal;
-if (!gameDetectors.standalone) gameDetectors.standalone = getStandaloneGamesInternal;
-
-// Implementar handlers IPC para comunicação com o processo de renderização
-/**
- * Registra todos os handlers IPC
- */
-function registerIpcHandlers() {
-  console.log('Registrando handlers IPC...');
+// Inicialização do aplicativo
+app.whenReady().then(() => {
+  console.log('Aplicativo pronto para inicialização');
+  createWindow();
   
-  // Handler para atualizar jogos na bandeja
-  ipcMain.handle('update-tray-games', async (event, games) => {
-    console.log(`Atualizando lista de jogos na bandeja: ${games.length} jogos`);
-    if (tray && tray.updateTrayMenu) {
-      tray.updateTrayMenu(games);
-      return true;
-    }
-    return false;
-  });
-
-  // Handler para escanear jogos
-  ipcMain.handle('scan-games', async () => {
-    console.log('=== Escaneamento de jogos iniciado ===');
-    console.log('Recebida solicitação scan-games do renderer');
-    try {
-      // Melhorar o log para ajudar no diagnóstico
-      console.log('Iniciando escaneamento de jogos em todas as plataformas...');
-      
-      // Obter jogos de todas as plataformas em paralelo
-      const allPlatforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
-      
-      const platformResults = {};
-      const errors = [];
-      
-      // Escanear cada plataforma individualmente para melhor rastreamento
-      for (const platform of allPlatforms) {
-        console.log(`Escaneando jogos da plataforma: ${platform}`);
-        
-        try {
-          if (gameDetectors[platform]) {
-            const platformGames = await gameDetectors[platform]();
-            console.log(`✓ Encontrados ${platformGames.length} jogos na plataforma ${platform}`);
-            platformResults[platform] = platformGames;
-          } else {
-            console.warn(`⚠ Detector da plataforma ${platform} não disponível`);
-            platformResults[platform] = [];
-            errors.push(`Detector da plataforma ${platform} não disponível`);
-          }
-        } catch (platformError) {
-          console.error(`❌ Erro ao escanear jogos ${platform}:`, platformError);
-          platformResults[platform] = [];
-          errors.push(`Erro ao escanear jogos ${platform}: ${platformError.message}`);
-        }
-      }
-      
-      // Combinar todos os resultados e adicionar propriedade 'platform' para identificar origem
-      const allGames = Object.entries(platformResults).flatMap(([platform, games]) => 
-        games.map(game => ({
-          ...game,
-          platform: game.platform || platform.charAt(0).toUpperCase() + platform.slice(1) // Garantir que tenha plataforma
-        }))
-      );
-      
-      // Log detalhado dos resultados
-      console.log('='.repeat(50));
-      console.log(`Escaneamento completo! Resultados:`);
-      Object.entries(platformResults).forEach(([platform, games]) => {
-        console.log(`- ${platform}: ${games.length} jogos`);
-      });
-      console.log(`Total: ${allGames.length} jogos encontrados`);
-      
-      if (errors.length > 0) {
-        console.warn(`⚠ ${errors.length} erros ocorreram durante o escaneamento`);
-      }
-      console.log('='.repeat(50));
-      
-      // Enviar jogos para o renderer via evento
-      if (mainWindow && mainWindow.webContents) {
-        console.log(`Enviando ${allGames.length} jogos detectados para o renderer via evento`);
-        mainWindow.webContents.send('games-detected', allGames);
-      }
-      
-      return {
-        success: true,
-        data: allGames,
-        platformResults, // Incluir resultados detalhados por plataforma
-        errors
-      };
-    } catch (error) {
-      console.error('❌ Erro crítico no handler scan-games:', error);
-      return {
-        success: false,
-        data: [],
-        errors: [error.message || 'Erro desconhecido durante escaneamento']
-      };
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    } else {
+      mainWindow.show();
     }
   });
+});
 
-  // Handler para obter jogos para o tray
-  ipcMain.handle('get-games-for-tray', async () => {
-    console.log('Recebido pedido para obter jogos para a bandeja');
-    try {
-      // Obter todos os jogos disponíveis para a bandeja
-      const allPlatforms = ['steam', 'epic', 'xbox', 'origin', 'standalone'];
-      const results = await Promise.all(
-        allPlatforms.map(platform => {
-          if (gameDetectors[platform]) {
-            return gameDetectors[platform]().catch(() => []);
-          }
-          return Promise.resolve([]);
-        })
-      );
-      
-      const allGames = results.flat();
-      console.log(`Obtidos ${allGames.length} jogos para a bandeja`);
-      return allGames;
-    } catch (error) {
-      console.error('Erro ao obter jogos para a bandeja:', error);
-      return [];
-    }
-  });
-
-  // Handler para diagnóstico de detecção de jogos
-  ipcMain.handle('list-detected-games', async () => {
-    console.log('=== Diagnóstico de Detecção de Jogos ===');
-    try {
-      // Usar a mesma função que obtém jogos para o tray
-      const allPlatforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
-      
-      // Resultado detalhado por plataforma
-      const detailedResults = {};
-      
-      // Escanear cada plataforma separadamente para melhor diagnóstico
-      for (const platform of allPlatforms) {
-        console.log(`Escaneando jogos da plataforma: ${platform}`);
-        try {
-          if (gameDetectors[platform]) {
-            const platformGames = await gameDetectors[platform]();
-            console.log(`- Encontrados ${platformGames.length} jogos na plataforma ${platform}`);
-            
-            // Armazenar resultados detalhados
-            detailedResults[platform] = platformGames.map(game => ({
-              name: game.name,
-              id: game.id,
-              platform: game.platform || platform,
-              installPath: game.installPath || '(sem caminho)',
-              executablePath: game.executablePath || '(sem executável)',
-              size: game.size || 'desconhecido'
-            }));
-            
-            // Logs detalhados para cada jogo
-            platformGames.forEach((game, index) => {
-              console.log(`  ${index+1}. "${game.name}" - ${game.installPath || game.executablePath || 'caminho desconhecido'}`);
-            });
-          } else {
-            console.log(`- Detector para plataforma ${platform} não disponível`);
-            detailedResults[platform] = [];
-          }
-        } catch (error) {
-          console.error(`Erro ao escanear plataforma ${platform}:`, error);
-          detailedResults[platform] = [];
-        }
-      }
-      
-      // Calcular total de jogos
-      const totalGames = Object.values(detailedResults).reduce((sum, games) => sum + games.length, 0);
-      
-      console.log(`=== Total: ${totalGames} jogos detectados ===`);
-      
-      return {
-        success: true,
-        totalGames,
-        detailedResults
-      };
-    } catch (error) {
-      console.error('Erro no diagnóstico de detecção de jogos:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido',
-      };
-    }
-  });
-
-  // Handlers específicos para cada plataforma
-  const platforms = [
-    { id: 'steam', name: 'Steam' },
-    { id: 'epic', name: 'Epic' },
-    { id: 'xbox', name: 'Xbox' },
-    { id: 'origin', name: 'Origin' },
-    { id: 'battlenet', name: 'Battle.net' },
-    { id: 'gog', name: 'GOG' },
-    { id: 'uplay', name: 'Ubisoft Connect' },
-    { id: 'standalone', name: 'Standalone' }
-  ];
-  
-  platforms.forEach(platform => {
-    ipcMain.handle(`scan-${platform.id}`, async () => {
-      console.log(`Recebida solicitação scan-${platform.id} do renderer`);
-      try {
-        if (gameDetectors[platform.id]) {
-          const games = await gameDetectors[platform.id]();
-          console.log(`Encontrados ${games.length} jogos ${platform.name}`);
-          return {
-            success: true,
-            data: games,
-            errors: []
-          };
-        } else {
-          console.warn(`Detector de jogos ${platform.name} não disponível`);
-          return {
-            success: false,
-            data: [],
-            errors: [`Detector de jogos ${platform.name} não disponível`]
-          };
-        }
-      } catch (error) {
-        console.error(`Erro ao escanear jogos ${platform.name}:`, error);
-        return {
-          success: false,
-          data: [],
-          errors: [error.message || `Erro ao escanear jogos ${platform.name}`]
-        };
-      }
-    });
-  });
-
-  // Outros handlers IPC (sistema, lançamento de jogos, otimização, etc.)
-  // Implementação destes handlers é baseada no código fornecido originalmente, com melhorias
-
-  // Handler para obter informações do sistema
-  ipcMain.handle('get-system-info', async () => {
-    console.log('Recebida solicitação get-system-info do renderer');
-    try {
-      const info = await systemMonitor.getSystemInfo();
-      console.log('Informações do sistema obtidas com sucesso');
-      return {
-        success: true,
-        data: info,
-        errors: []
-      };
-    } catch (error) {
-      console.error('Erro no handler get-system-info:', error);
-      return {
-        success: false,
-        data: { cpu: {}, memory: {}, gpu: {}, os: {} },
-        errors: [error.message || 'Erro ao obter informações do sistema']
-      };
-    }
-  });
-
-  // Handler para lançar jogos
-  ipcMain.handle('launch-game', async (event, game) => {
-    console.log(`Recebida solicitação para lançar jogo: ${game?.name}`);
-    try {
-      // A função launchGame seria implementada de forma similar ao código original
-      // Simplificada aqui para brevidade
-      console.log(`Lançando jogo ${game.name} (${game.platform})`);
-      return {
-        success: true,
-        data: { launched: true },
-        errors: []
-      };
-    } catch (error) {
-      console.error(`Erro ao lançar jogo ${game?.name}:`, error);
-      return {
-        success: false,
-        data: {},
-        errors: [error.message || 'Erro desconhecido ao lançar jogo']
-      };
-    }
-  });
-  
-  // Registrar outros handlers para otimização, rede, etc.
-  console.log('✓ Todos os handlers IPC registrados com sucesso');
-}
-
-/**
- * Inicialização principal da aplicação
- */
-async function initializeApp() {
-  try {
-    // Inicializar recursos da aplicação (caminhos, ícones, etc.)
-    await initializeAppResources();
-    
-    // Criar janela principal
-    mainWindow = await createMainWindow();
-    
-    // Criar ícone na bandeja do sistema
-    const trayObj = createTray(mainWindow);
-    tray = trayObj.tray;
-    
-    // Registrar handlers IPC
-    registerIpcHandlers();
-    
-    console.log('✓ Aplicação inicializada com sucesso');
-    return true;
-  } catch (error) {
-    console.error('❌ Erro durante inicialização da aplicação:', error);
-    return false;
-  }
-}
-
-// Iniciar a aplicação quando o Electron estiver pronto
-app.whenReady().then(async () => {
-  console.log('Electron está pronto. Iniciando aplicação...');
-  
-  // Definir comportamento de single instance
-  const gotTheLock = app.requestSingleInstanceLock();
-  
-  if (!gotTheLock) {
-    console.log('Outra instância já está em execução. Saindo...');
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    isQuitting = true;
     app.quit();
-    return;
   }
-  
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
+// Impedir múltiplas instâncias do aplicativo
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+  console.log('Outra instância do aplicativo já está em execução. Saindo...');
+  app.quit();
+} else {
   app.on('second-instance', () => {
-    // Alguém tentou executar uma segunda instância, devemos focar nossa janela
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
     }
   });
-  
-  // Inicializar a aplicação
-  await initializeApp();
-  
-}).catch(err => {
-  console.error('❌ Falha crítica ao iniciar aplicação:', err);
-  app.quit();
-});
-
-// Configurar comportamento ao fechar todas as janelas
-app.on('window-all-closed', () => {
-  console.log('Todas as janelas foram fechadas');
-  
-  // No macOS é comum que aplicativos permaneçam ativos até o usuário sair explicitamente
-  if (process.platform !== 'darwin') {
-    // Em outras plataformas, se temos um tray ativo, não saímos do aplicativo
-    if (!tray) {
-      console.log('Nenhuma bandeja ativa, encerrando aplicação');
-      app.quit();
-    } else {
-      console.log('Bandeja ainda ativa, aplicação continua rodando em segundo plano');
-    }
-  }
-});
-
-// No macOS, recriar a janela quando o ícone do dock for clicado
-app.on('activate', () => {
-  console.log('Aplicação ativada');
-  if (BrowserWindow.getAllWindows().length === 0) {
-    console.log('Nenhuma janela aberta, criando uma nova');
-    createMainWindow().then(window => {
-      mainWindow = window;
-    }).catch(err => {
-      console.error('Falha ao recriar janela:', err);
-    });
-  }
-});
-
-// Limpar recursos ao sair
-app.on('quit', () => {
-  console.log('Aplicação está sendo encerrada');
-  if (tray) {
-    tray.destroy();
-    tray = null;
-  }
-});
-
-console.log('Inicialização do processo principal concluída');
+}

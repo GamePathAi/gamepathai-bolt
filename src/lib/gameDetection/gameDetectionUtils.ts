@@ -78,7 +78,8 @@ export const GAME_EXECUTABLES_PATTERNS = [
   // Common game platforms
   /steam/i, /epic/i, /origin/i, /galaxy/i, /uplay/i, /battle\.net/i,
   // Common game genres
-  /rpg/i, /fps/i, /mmo/i, /moba/i, /rts/i, /racing/i, /sports/i,
+  /rpg/i, /fps/i, /mmo/i, /moba/i, /rts/i, /racing/i, /sport/i,
+  /tactical/i, /strategy/i, /simulation/i, /arcade/i, /action/i,
   // Common game publishers
   /ea/i, /ubisoft/i, /bethesda/i, /rockstar/i, /valve/i, /blizzard/i, /activision/i,
   /2k/i, /bandai/i, /capcom/i, /cdprojekt/i, /konami/i, /namco/i, /sega/i, /square/i

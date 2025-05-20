@@ -364,4 +364,4 @@ export const GameList: React.FC = () => {
       )}
     </div>
   );
-};
+}

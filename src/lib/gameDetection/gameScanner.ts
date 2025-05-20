@@ -1,6 +1,6 @@
 import type { GameInfo } from './types';
 import { getSteamGames, getEpicGames, getXboxGames, getOriginGames, 
-  mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames } from './platforms';
+  mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames } from './platforms';
 import { filterAndDeduplicateGames, prioritizeGames, enhanceGameInfo } from './gameDetectionUtils';
 
 // Interface para comunicação com o Electron
@@ -24,12 +24,14 @@ class GameScannerWeb {
       const epicGames = await mockGetEpicGames();
       const xboxGames = await mockGetXboxGames();
       const originGames = await mockGetOriginGames();
+      const battleNetGames = await mockGetBattleNetGames();
       
       const allGames = [
         ...steamGames,
         ...epicGames,
         ...xboxGames,
-        ...originGames
+        ...originGames,
+        ...battleNetGames
       ];
       
       // Filtrar, deduplicate e priorizar jogos

@@ -196,13 +196,13 @@ export function useGameScanner() {
     setError(null);
 
     try {
-      if (!window.electronAPI?.getGamesFromTray) {
-        console.error('useGameScanner: window.electronAPI.getGamesFromTray is not available');
+      if (!window.electronAPI?.getGamesForTray) {
+        console.error('useGameScanner: window.electronAPI.getGamesForTray is not available');
         setError('Tray API is not available');
         return [];
       }
 
-      const trayGames = await window.electronAPI.getGamesFromTray();
+      const trayGames = await window.electronAPI.getGamesForTray();
       
       if (trayGames && Array.isArray(trayGames) && trayGames.length > 0) {
         console.log(`useGameScanner: Loaded ${trayGames.length} games from tray`);
