@@ -2,35 +2,91 @@ const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog, nativeImage } = 
 const path = require('path');
 const fs = require('fs').promises;
 const os = require('os');
-const { Registry } = require('registry-js');
-const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
-const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
-const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
-const { getOriginGames } = require('./src/lib/gameDetection/platforms/getOriginGames');
-const { getBattleNetGames } = require('./src/lib/gameDetection/platforms/getBattleNetGames');
-const { getGOGGames } = require('./src/lib/gameDetection/platforms/getGOGGames');
-const { getUplayGames } = require('./src/lib/gameDetection/platforms/getUplayGames');
-const systemMonitor = require('./electron/system-monitor.cjs');
-const networkMetrics = require('./electron/network-metrics.cjs');
-const fpsOptimizer = require('./electron/fps-optimizer.cjs');
-const vpnManager = require('./electron/vpn-manager.cjs');
-const { CONFIG_DIR } = require('./electron/config.cjs');
 const { spawn } = require('child_process');
+
+// CONFIG_DIR para armazenar configurações
+const CONFIG_DIR = path.join(os.homedir(), '.gamepath-ai');
 
 // Variáveis globais
 let mainWindow;
 let tray;
 let isQuitting = false;
-let gameDetectors = {
-  steam: getSteamGames,
-  epic: getEpicGames,
-  xbox: getXboxGames,
-  origin: getOriginGames,
-  battlenet: getBattleNetGames,
-  gog: getGOGGames,
-  uplay: getUplayGames,
-  standalone: getStandaloneGamesInternal
-};
+
+// Registry com fallback para funcionar mesmo sem o módulo nativo
+let Registry;
+try {
+  Registry = require('registry-js').Registry;
+  console.log('✓ Módulo registry-js carregado com sucesso');
+} catch (e) {
+  console.warn('⚠ registry-js não disponível:', e.message);
+  console.warn('  Usando implementação fallback');
+  
+  // Implementação fallback para o Registry
+  Registry = { 
+    getValue: (hkey, path, name) => {
+      console.log(`[Registry Fallback] Tentativa de leitura: ${hkey}\\${path}\\${name}`);
+      // Valores padrão para caminhos comuns do Steam
+      if (path === 'SOFTWARE\\Valve\\Steam' && name === 'SteamPath') {
+        return 'C:\\Program Files (x86)\\Steam';
+      }
+      return null; 
+    },
+    enumerateValues: (hkey, path) => {
+      console.log(`[Registry Fallback] Tentativa de enumerar: ${hkey}\\${path}`);
+      return []; 
+    },
+    HKEY: { 
+      LOCAL_MACHINE: 0,
+      CURRENT_USER: 1
+    } 
+  };
+}
+
+// Caminhos para módulos de sistema
+let systemMonitor = {};
+let networkMetrics = {};
+let fpsOptimizer = {};
+let vpnManager = {};
+
+// Tentar carregar módulos de sistema
+try {
+  systemMonitor = require('./electron/system-monitor.cjs');
+} catch (e) {
+  console.warn('⚠ system-monitor.cjs não disponível, usando fallback');
+  systemMonitor = {
+    getSystemInfo: async () => ({ cpu: {}, memory: {}, gpu: {} })
+  };
+}
+
+try {
+  networkMetrics = require('./electron/network-metrics.cjs');
+} catch (e) {
+  console.warn('⚠ network-metrics.cjs não disponível, usando fallback');
+  networkMetrics = {
+    analyzeNetwork: async () => ({})
+  };
+}
+
+try {
+  fpsOptimizer = require('./electron/fps-optimizer.cjs');
+} catch (e) {
+  console.warn('⚠ fps-optimizer.cjs não disponível, usando fallback');
+  fpsOptimizer = {
+    optimizeGame: async () => ({ success: false, error: 'Módulo não disponível' })
+  };
+}
+
+try {
+  vpnManager = require('./electron/vpn-manager.cjs');
+} catch (e) {
+  console.warn('⚠ vpn-manager.cjs não disponível, usando fallback');
+  vpnManager = {
+    getServers: () => ([]),
+    connect: async () => ({ success: false }),
+    disconnect: async () => ({ success: false }),
+    getStatus: () => ({ isConnected: false })
+  };
+}
 
 // Configuração do Electron
 const createWindow = async () => {
@@ -46,12 +102,12 @@ const createWindow = async () => {
     minWidth: 800,
     minHeight: 600,
     webPreferences: {
-      preload: path.join(__dirname, 'electron/preload.cjs'),
+      preload: path.join(__dirname, 'electron', 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
     },
-    icon: path.join(__dirname, 'public/icons/icon.ico'),
+    icon: path.join(__dirname, 'public', 'icons', 'icon.ico'),
     show: false, // Não mostrar até que esteja pronto
     backgroundColor: '#0d1117'
   });
@@ -65,7 +121,7 @@ const createWindow = async () => {
   } else {
     // Modo de produção - carregar do diretório dist
     console.log('Modo de produção - carregando do diretório dist...');
-    mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
   }
 
   // Mostrar janela quando estiver pronta
@@ -116,10 +172,15 @@ function setupTray() {
     console.log('Configurando tray...');
     
     // Tentar carregar ícone do tray
-    let trayIconPath = path.join(__dirname, 'public/icons/tray-icon.png');
-    if (!fs.existsSync(trayIconPath)) {
-      console.warn('Ícone do tray não encontrado, usando ícone padrão');
-      trayIconPath = path.join(__dirname, 'public/icons/icon.ico');
+    let trayIconPath = path.join(__dirname, 'public', 'icons', 'tray-icon.png');
+    try {
+      const iconExists = fs.existsSync(trayIconPath);
+      if (!iconExists) {
+        console.warn('Ícone do tray não encontrado, usando ícone padrão');
+        trayIconPath = path.join(__dirname, 'public', 'icons', 'icon.ico');
+      }
+    } catch (err) {
+      trayIconPath = path.join(__dirname, 'public', 'icons', 'icon.ico');
     }
     
     // Criar ícone do tray
@@ -311,100 +372,9 @@ function registerIpcHandlers() {
     }
   });
   
-  // Platform-specific scanning
-  ipcMain.handle('scan-steam', async () => {
-    console.log('Recebida solicitação para escanear jogos Steam');
-    try {
-      const games = await getSteamGames();
-      return {
-        success: true,
-        data: games,
-        errors: []
-      };
-    } catch (error) {
-      console.error('Erro ao escanear jogos Steam:', error);
-      return {
-        success: false,
-        data: [],
-        errors: [error.message || 'Erro desconhecido ao escanear jogos Steam']
-      };
-    }
-  });
-  
-  ipcMain.handle('scan-epic', async () => {
-    console.log('Recebida solicitação para escanear jogos Epic');
-    try {
-      const games = await getEpicGames();
-      return {
-        success: true,
-        data: games,
-        errors: []
-      };
-    } catch (error) {
-      console.error('Erro ao escanear jogos Epic:', error);
-      return {
-        success: false,
-        data: [],
-        errors: [error.message || 'Erro desconhecido ao escanear jogos Epic']
-      };
-    }
-  });
-  
-  ipcMain.handle('scan-xbox', async () => {
-    console.log('Recebida solicitação para escanear jogos Xbox');
-    try {
-      const games = await getXboxGames();
-      return {
-        success: true,
-        data: games,
-        errors: []
-      };
-    } catch (error) {
-      console.error('Erro ao escanear jogos Xbox:', error);
-      return {
-        success: false,
-        data: [],
-        errors: [error.message || 'Erro desconhecido ao escanear jogos Xbox']
-      };
-    }
-  });
-  
-  ipcMain.handle('scan-origin', async () => {
-    console.log('Recebida solicitação para escanear jogos Origin');
-    try {
-      const games = await getOriginGames();
-      return {
-        success: true,
-        data: games,
-        errors: []
-      };
-    } catch (error) {
-      console.error('Erro ao escanear jogos Origin:', error);
-      return {
-        success: false,
-        data: [],
-        errors: [error.message || 'Erro desconhecido ao escanear jogos Origin']
-      };
-    }
-  });
-  
-  // Game management handlers
-  ipcMain.handle('launch-game', async (event, game) => {
-    console.log(`Recebida solicitação para lançar jogo: ${game.name}`);
-    try {
-      return await launchGameInternal(game);
-    } catch (error) {
-      console.error(`Erro ao lançar jogo ${game.name}:`, error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao lançar jogo'
-      };
-    }
-  });
-  
   // Handler para otimizar jogos
-  ipcMain.handle('optimize-game', async (event, game, profile = 'balanced', settings) => {
-    console.log(`Recebida solicitação para otimizar jogo: ${game.name} com perfil ${profile}`);
+  ipcMain.handle('optimize-game', async (event, gameId, profile = 'balanced') => {
+    console.log(`Recebida solicitação para otimizar jogo com ID: ${gameId}`);
     try {
       if (!fpsOptimizer || !fpsOptimizer.optimizeGame) {
         console.warn('Módulo de otimização não disponível');
@@ -414,12 +384,24 @@ function registerIpcHandlers() {
         };
       }
       
-      console.log(`Otimizando jogo: ${game.name}`);
-      const optimizationResult = await fpsOptimizer.optimizeGame(game, profile, settings);
+      // Encontrar o jogo pelo ID
+      const allGames = await getAllGames();
+      const gameToOptimize = allGames.find(game => game.id === gameId);
+      
+      if (!gameToOptimize) {
+        console.warn(`Jogo com ID ${gameId} não encontrado`);
+        return {
+          success: false,
+          error: `Jogo com ID ${gameId} não encontrado`
+        };
+      }
+      
+      console.log(`Otimizando jogo: ${gameToOptimize.name}`);
+      const optimizationResult = await fpsOptimizer.optimizeGame(gameToOptimize, profile);
       
       return optimizationResult;
     } catch (error) {
-      console.error(`Erro ao otimizar jogo ${game.name}:`, error);
+      console.error(`Erro ao otimizar jogo ${gameId}:`, error);
       return {
         success: false,
         error: error.message || 'Erro desconhecido ao otimizar jogo'
@@ -483,6 +465,11 @@ function registerIpcHandlers() {
   ipcMain.handle('get-system-info', async () => {
     console.log('Recebida solicitação para obter informações do sistema');
     try {
+      if (!systemMonitor || !systemMonitor.getSystemInfo) {
+        return {
+          error: 'Módulo de monitoramento de sistema não disponível'
+        };
+      }
       return await systemMonitor.getSystemInfo();
     } catch (error) {
       console.error('Erro ao obter informações do sistema:', error);
@@ -492,213 +479,23 @@ function registerIpcHandlers() {
     }
   });
   
-  // System optimization handlers
-  ipcMain.handle('optimize-cpu', async (event, options) => {
-    console.log('Recebida solicitação para otimizar CPU');
-    try {
-      return await optimizeCPUInternal(options);
-    } catch (error) {
-      console.error('Erro ao otimizar CPU:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao otimizar CPU'
-      };
-    }
-  });
-  
-  ipcMain.handle('optimize-memory', async (event, options) => {
-    console.log('Recebida solicitação para otimizar memória');
-    try {
-      return await optimizeMemoryInternal(options);
-    } catch (error) {
-      console.error('Erro ao otimizar memória:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao otimizar memória'
-      };
-    }
-  });
-  
-  ipcMain.handle('optimize-gpu', async (event, options) => {
-    console.log('Recebida solicitação para otimizar GPU');
-    try {
-      return await optimizeGPUInternal(options);
-    } catch (error) {
-      console.error('Erro ao otimizar GPU:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao otimizar GPU'
-      };
-    }
-  });
-  
-  ipcMain.handle('optimize-network', async (event, options) => {
-    console.log('Recebida solicitação para otimizar rede');
-    try {
-      return await optimizeNetworkInternal(options);
-    } catch (error) {
-      console.error('Erro ao otimizar rede:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao otimizar rede'
-      };
-    }
-  });
-  
-  // Network handlers
-  ipcMain.handle('measure-network-performance', async () => {
-    console.log('Recebida solicitação para medir desempenho de rede');
-    try {
-      return await networkMetrics.analyzeNetwork();
-    } catch (error) {
-      console.error('Erro ao medir desempenho de rede:', error);
-      return {
-        error: error.message || 'Erro desconhecido ao medir desempenho de rede'
-      };
-    }
-  });
-  
-  ipcMain.handle('get-available-routes', async () => {
-    console.log('Recebida solicitação para obter rotas disponíveis');
-    try {
-      // Simulação - em um app real, isso seria implementado
-      return [
-        {
-          id: 'auto',
-          name: 'Auto (Melhor Localização)',
-          latency: 24,
-          bandwidth: 150,
-          load: 0.3,
-          reliability: 99.9
-        },
-        {
-          id: 'us-east',
-          name: 'US East',
-          latency: 42,
-          bandwidth: 120,
-          load: 0.5,
-          reliability: 98.5
-        },
-        {
-          id: 'eu-west',
-          name: 'Europe West',
-          latency: 28,
-          bandwidth: 140,
-          load: 0.4,
-          reliability: 99.4
-        }
-      ];
-    } catch (error) {
-      console.error('Erro ao obter rotas disponíveis:', error);
-      return [];
-    }
-  });
-  
-  // VPN handlers
-  ipcMain.handle('get-vpn-servers', async () => {
-    console.log('Recebida solicitação para obter servidores VPN');
-    try {
-      return vpnManager.getServers();
-    } catch (error) {
-      console.error('Erro ao obter servidores VPN:', error);
-      return [];
-    }
-  });
-  
-  ipcMain.handle('connect-to-vpn', async (event, server) => {
-    console.log(`Recebida solicitação para conectar à VPN: ${server.name}`);
-    try {
-      return await vpnManager.connect(server);
-    } catch (error) {
-      console.error('Erro ao conectar à VPN:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao conectar à VPN'
-      };
-    }
-  });
-  
-  ipcMain.handle('disconnect-from-vpn', async () => {
-    console.log('Recebida solicitação para desconectar da VPN');
-    try {
-      return await vpnManager.disconnect();
-    } catch (error) {
-      console.error('Erro ao desconectar da VPN:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao desconectar da VPN'
-      };
-    }
-  });
-  
-  ipcMain.handle('get-vpn-status', async () => {
-    console.log('Recebida solicitação para obter status da VPN');
-    try {
-      return vpnManager.getStatus();
-    } catch (error) {
-      console.error('Erro ao obter status da VPN:', error);
-      return {
-        isConnected: false,
-        error: error.message || 'Erro desconhecido ao obter status da VPN'
-      };
-    }
-  });
-  
-  // Notification handler
-  ipcMain.handle('show-notification', async (event, options) => {
-    console.log('Recebida solicitação para mostrar notificação');
-    try {
-      const notification = new Notification({
-        title: options.title || 'GamePath AI',
-        body: options.body || '',
-        icon: options.icon || path.join(__dirname, 'public/icons/icon.ico')
-      });
-      
-      notification.show();
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao mostrar notificação:', error);
-      return {
-        success: false,
-        error: error.message || 'Erro desconhecido ao mostrar notificação'
-      };
-    }
-  });
-  
   // Diagnostic handler
   ipcMain.handle('list-detected-games', async () => {
     console.log('Recebida solicitação para listar jogos detectados');
     try {
-      const platforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
-      const detailedResults = {};
-      let totalGames = 0;
-      
-      for (const platform of platforms) {
-        try {
-          if (gameDetectors[platform]) {
-            const games = await gameDetectors[platform]();
-            detailedResults[platform] = games;
-            totalGames += games.length;
-          } else {
-            detailedResults[platform] = [];
-          }
-        } catch (error) {
-          console.error(`Erro ao detectar jogos da plataforma ${platform}:`, error);
-          detailedResults[platform] = [];
-        }
-      }
-      
+      const games = await getAllGames();
       return {
-        totalGames,
-        detailedResults
+        success: true,
+        totalGames: games.length,
+        games: games
       };
     } catch (error) {
       console.error('Erro ao listar jogos detectados:', error);
       return {
+        success: false,
         totalGames: 0,
-        detailedResults: {},
-        error: error.message || 'Erro desconhecido ao listar jogos'
+        games: [],
+        error: error.message
       };
     }
   });
@@ -706,34 +503,24 @@ function registerIpcHandlers() {
   console.log('Handlers IPC registrados com sucesso');
 }
 
-// Função para obter todos os jogos de todas as plataformas
+// Função para obter todos os jogos
 async function getAllGames() {
+  console.log('Iniciando detecção de jogos...');
+  
   try {
-    console.log('Obtendo jogos de todas as plataformas...');
+    // Detectar jogos de diferentes plataformas
+    const steamGames = await getSteamGamesInternal();
+    const standaloneGames = await getStandaloneGamesInternal();
     
-    const platforms = ['steam', 'epic', 'xbox', 'origin', 'battlenet', 'gog', 'uplay', 'standalone'];
-    const results = await Promise.all(
-      platforms.map(platform => {
-        if (gameDetectors[platform]) {
-          console.log(`Escaneando plataforma: ${platform}`);
-          return gameDetectors[platform]().catch(error => {
-            console.error(`Erro ao escanear plataforma ${platform}:`, error);
-            return [];
-          });
-        }
-        return Promise.resolve([]);
-      })
-    );
+    // Combinar todos os jogos
+    const allGames = [...steamGames, ...standaloneGames];
     
-    // Combinar resultados e remover duplicatas
-    const allGames = results.flat();
-    console.log(`Total de jogos encontrados (antes de filtrar): ${allGames.length}`);
-    
-    // Filtrar jogos duplicados (mesmo nome e plataforma)
+    // Remover duplicatas (jogos com o mesmo nome e plataforma)
     const uniqueGames = [];
     const gameKeys = new Set();
     
     for (const game of allGames) {
+      // Criar uma chave única para cada jogo
       const key = `${game.name}|${game.platform}`.toLowerCase();
       if (!gameKeys.has(key)) {
         gameKeys.add(key);
@@ -741,155 +528,196 @@ async function getAllGames() {
       }
     }
     
-    console.log(`Total de jogos únicos: ${uniqueGames.length}`);
+    console.log(`Detecção concluída: encontrados ${uniqueGames.length} jogos únicos`);
     return uniqueGames;
   } catch (error) {
-    console.error('Erro ao obter todos os jogos:', error);
+    console.error('Erro geral na detecção de jogos:', error);
     return [];
   }
 }
 
-// Função para lançar um jogo
-async function launchGameInternal(game) {
-  console.log(`Lançando jogo: ${game.name}`);
-  
+// Detecção de jogos Steam
+async function getSteamGamesInternal() {
+  console.log('=== Escaneamento de jogos Steam iniciado ===');
   try {
-    if (!game.executablePath) {
-      throw new Error('Caminho do executável não encontrado');
-    }
+    // Tentar obter o caminho do Steam do registro
+    let steamPath = null;
     
-    // Verificar se o executável existe
+    // Tentar primeiro HKEY_CURRENT_USER
     try {
-      await fs.access(game.executablePath);
+      steamPath = Registry.getValue(
+        Registry.HKEY.CURRENT_USER,
+        'SOFTWARE\\Valve\\Steam',
+        'SteamPath'
+      );
     } catch (error) {
-      throw new Error(`Executável não encontrado: ${game.executablePath}`);
+      console.warn('Erro ao acessar registro para Steam (HKCU):', error);
     }
     
-    // Lançar o jogo
-    const child = spawn(game.executablePath, [], {
-      detached: true,
-      stdio: 'ignore',
-      cwd: path.dirname(game.executablePath)
-    });
-    
-    // Desanexar o processo para que ele continue rodando independentemente
-    child.unref();
-    
-    console.log(`Jogo ${game.name} lançado com sucesso`);
-    return {
-      success: true
-    };
-  } catch (error) {
-    console.error(`Erro ao lançar jogo ${game.name}:`, error);
-    throw error;
-  }
-}
-
-// Função para otimizar um jogo
-async function optimizeGameInternal(game, profile = 'balanced') {
-  console.log(`Otimizando jogo: ${game.name} com perfil ${profile}`);
-  
-  try {
-    if (!fpsOptimizer || !fpsOptimizer.optimizeGame) {
-      throw new Error('Módulo de otimização não disponível');
+    // Se não encontrar, tentar HKEY_LOCAL_MACHINE
+    if (!steamPath) {
+      try {
+        steamPath = Registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          'SOFTWARE\\WOW6432Node\\Valve\\Steam',
+          'InstallPath'
+        );
+      } catch (error) {
+        console.warn('Erro ao acessar registro para Steam (HKLM):', error);
+      }
     }
     
-    const result = await fpsOptimizer.optimizeGame(game, profile);
-    console.log(`Jogo ${game.name} otimizado com sucesso:`, result);
-    
-    return result;
-  } catch (error) {
-    console.error(`Erro ao otimizar jogo ${game.name}:`, error);
-    throw error;
-  }
-}
+    // Se ainda não encontrar, tentar caminhos padrão
+    if (!steamPath) {
+      console.log('Instalação do Steam não encontrada no registro, tentando caminhos padrão');
+      const defaultPaths = [
+        path.join(os.homedir(), 'Steam'),
+        path.join(os.homedir(), '.steam', 'steam'),
+        'C:\\Program Files (x86)\\Steam',
+        'C:\\Program Files\\Steam',
+        path.join(os.homedir(), 'Library', 'Application Support', 'Steam')
+      ];
+      
+      for (const defaultPath of defaultPaths) {
+        try {
+          const stats = await fs.stat(defaultPath);
+          if (stats.isDirectory()) {
+            steamPath = defaultPath;
+            console.log(`Steam encontrado no caminho padrão: ${steamPath}`);
+            break;
+          }
+        } catch (err) {
+          // Caminho não existe, continuar para o próximo
+        }
+      }
+    }
 
-// Funções de otimização do sistema
-async function optimizeCPUInternal(options = {}) {
-  console.log('Otimizando CPU...');
-  
-  try {
-    // Simulação - em um app real, isso seria implementado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      success: true,
-      improvement: 15,
-      actions: [
-        'Adjusted process priorities',
-        'Optimized thread allocation',
-        'Disabled background services'
-      ]
-    };
-  } catch (error) {
-    console.error('Erro ao otimizar CPU:', error);
-    throw error;
-  }
-}
+    if (!steamPath) {
+      console.log('Instalação do Steam não encontrada');
+      return [];
+    }
 
-async function optimizeMemoryInternal(options = {}) {
-  console.log('Otimizando memória...');
-  
-  try {
-    // Simulação - em um app real, isso seria implementado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      success: true,
-      improvement: 20,
-      actions: [
-        'Cleared memory cache',
-        'Optimized page file',
-        'Released unused memory'
-      ]
-    };
-  } catch (error) {
-    console.error('Erro ao otimizar memória:', error);
-    throw error;
-  }
-}
+    console.log('Instalação do Steam encontrada em:', steamPath);
 
-async function optimizeGPUInternal(options = {}) {
-  console.log('Otimizando GPU...');
-  
-  try {
-    // Simulação - em um app real, isso seria implementado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      success: true,
-      improvement: 10,
-      actions: [
-        'Set power mode to Performance',
-        'Optimized shader cache',
-        'Adjusted rendering settings'
-      ]
-    };
-  } catch (error) {
-    console.error('Erro ao otimizar GPU:', error);
-    throw error;
-  }
-}
+    // Ler configuração de bibliotecas do Steam
+    const libraryFoldersPath = path.join(steamPath, 'steamapps', 'libraryfolders.vdf');
+    let libraryFoldersContent;
 
-async function optimizeNetworkInternal(options = {}) {
-  console.log('Otimizando rede...');
-  
-  try {
-    // Simulação - em um app real, isso seria implementado
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      success: true,
-      improvement: 25,
-      actions: [
-        'Optimized network routes',
-        'Adjusted TCP settings',
-        'Prioritized game traffic'
-      ]
-    };
+    try {
+      libraryFoldersContent = await fs.readFile(libraryFoldersPath, 'utf8');
+      console.log('Configuração de bibliotecas do Steam lida com sucesso');
+    } catch (error) {
+      console.error('Erro ao ler bibliotecas do Steam:', error);
+      
+      // Tentar caminho alternativo para o arquivo de configuração
+      const altLibraryFoldersPath = path.join(steamPath, 'config', 'libraryfolders.vdf');
+      try {
+        libraryFoldersContent = await fs.readFile(altLibraryFoldersPath, 'utf8');
+        console.log('Configuração de bibliotecas do Steam lida do caminho alternativo');
+      } catch (altError) {
+        console.error('Erro ao ler bibliotecas alternativas do Steam:', altError);
+        return [];
+      }
+    }
+
+    // Analisar bibliotecas do Steam
+    const libraryPaths = [steamPath];
+    const libraryRegex = /"path"\s+"([^"]+)"/g;
+    let match;
+
+    while ((match = libraryRegex.exec(libraryFoldersContent)) !== null) {
+      libraryPaths.push(match[1].replace(/\\\\/g, '\\'));
+    }
+
+    // Se não encontrou bibliotecas adicionais, tentar outro formato de arquivo
+    if (libraryPaths.length === 1) {
+      const altLibraryRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/gs;
+      let altMatch;
+      
+      while ((altMatch = altLibraryRegex.exec(libraryFoldersContent)) !== null) {
+        libraryPaths.push(altMatch[2].replace(/\\\\/g, '\\'));
+      }
+    }
+
+    console.log('Bibliotecas Steam encontradas:', libraryPaths);
+
+    const games = [];
+
+    // Escanear cada biblioteca por jogos instalados
+    for (const libraryPath of libraryPaths) {
+      const appsPath = path.join(libraryPath, 'steamapps');
+      console.log('Escaneando biblioteca Steam em:', appsPath);
+
+      try {
+        const files = await fs.readdir(appsPath);
+
+        // Procurar por arquivos appmanifest que contêm informações dos jogos
+        const manifests = files.filter(file => file.startsWith('appmanifest_') && file.endsWith('.acf'));
+        console.log(`Encontrados ${manifests.length} manifestos de jogos em ${appsPath}`);
+
+        for (const manifest of manifests) {
+          try {
+            const manifestPath = path.join(appsPath, manifest);
+            const manifestContent = await fs.readFile(manifestPath, 'utf8');
+
+            // Extrair informações do jogo do manifesto
+            const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
+            const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
+            const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
+
+            if (nameMatch && appIdMatch && installDirMatch) {
+              const name = nameMatch[1];
+              const appId = appIdMatch[1];
+              const installDir = installDirMatch[1];
+
+              const gamePath = path.join(appsPath, 'common', installDir);
+              
+              // Tentar encontrar o executável principal
+              let executablePath = '';
+              try {
+                const gameFiles = await fs.readdir(gamePath);
+                const exeFiles = gameFiles.filter(file => file.endsWith('.exe'));
+                
+                // Tentar encontrar o executável com o mesmo nome do diretório
+                const mainExe = exeFiles.find(file => file.toLowerCase() === `${installDir.toLowerCase()}.exe`);
+                if (mainExe) {
+                  executablePath = path.join(gamePath, mainExe);
+                } else if (exeFiles.length > 0) {
+                  // Pegar o primeiro executável encontrado
+                  executablePath = path.join(gamePath, exeFiles[0]);
+                }
+              } catch (error) {
+                console.warn(`Não foi possível escanear executáveis para ${name}:`, error);
+              }
+
+              games.push({
+                id: `steam-${appId}`,
+                name,
+                platform: 'Steam',
+                installPath: gamePath,
+                executablePath,
+                process_name: executablePath ? path.basename(executablePath) : '',
+                size: 0, // Tamanho desconhecido por enquanto
+                last_played: new Date(), // Data atual como fallback
+                iconUrl: `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`
+              });
+              
+              console.log(`Jogo Steam encontrado: ${name} (${appId})`);
+            }
+          } catch (error) {
+            console.error(`Erro ao processar manifesto ${manifest}:`, error);
+          }
+        }
+      } catch (error) {
+        console.error(`Erro ao ler pasta de biblioteca ${libraryPath}:`, error);
+      }
+    }
+
+    console.log(`Escaneamento completo. Encontrados ${games.length} jogos Steam`);
+    return games;
   } catch (error) {
-    console.error('Erro ao otimizar rede:', error);
-    throw error;
+    console.error('Erro ao escanear jogos Steam:', error);
+    return [];
   }
 }
 
@@ -1048,6 +876,122 @@ async function getStandaloneGamesInternal() {
   } catch (error) {
     console.error('Erro ao escanear jogos independentes:', error);
     return [];
+  }
+}
+
+// Função para lançar um jogo
+async function launchGameInternal(game) {
+  console.log(`Lançando jogo: ${game.name}`);
+  
+  try {
+    if (!game.executablePath) {
+      throw new Error('Caminho do executável não encontrado');
+    }
+    
+    // Verificar se o executável existe
+    try {
+      await fs.access(game.executablePath);
+    } catch (error) {
+      throw new Error(`Executável não encontrado: ${game.executablePath}`);
+    }
+    
+    // Lançar o jogo
+    const child = spawn(game.executablePath, [], {
+      detached: true,
+      stdio: 'ignore',
+      cwd: path.dirname(game.executablePath)
+    });
+    
+    // Desanexar o processo para que ele continue rodando independentemente
+    child.unref();
+    
+    console.log(`Jogo ${game.name} lançado com sucesso`);
+    return {
+      success: true
+    };
+  } catch (error) {
+    console.error(`Erro ao lançar jogo ${game.name}:`, error);
+    throw error;
+  }
+}
+
+// Função para otimizar um jogo
+async function optimizeGameInternal(game, profile = 'balanced') {
+  console.log(`Otimizando jogo: ${game.name} com perfil ${profile}`);
+  
+  try {
+    if (!fpsOptimizer || !fpsOptimizer.optimizeGame) {
+      throw new Error('Módulo de otimização não disponível');
+    }
+    
+    const result = await fpsOptimizer.optimizeGame(game, profile);
+    console.log(`Jogo ${game.name} otimizado com sucesso:`, result);
+    
+    return result;
+  } catch (error) {
+    console.error(`Erro ao otimizar jogo ${game.name}:`, error);
+    throw error;
+  }
+}
+
+// Funções de otimização do sistema
+async function optimizeCPUInternal(options = {}) {
+  console.log('Otimizando CPU...');
+  
+  try {
+    if (!systemMonitor || !systemMonitor.optimizeForGaming) {
+      throw new Error('Módulo de otimização de CPU não disponível');
+    }
+    
+    return await systemMonitor.optimizeForGaming();
+  } catch (error) {
+    console.error('Erro ao otimizar CPU:', error);
+    throw error;
+  }
+}
+
+async function optimizeMemoryInternal(options = {}) {
+  console.log('Otimizando memória...');
+  
+  try {
+    if (!systemMonitor || !systemMonitor.optimizeMemory) {
+      throw new Error('Módulo de otimização de memória não disponível');
+    }
+    
+    return await systemMonitor.optimizeMemory();
+  } catch (error) {
+    console.error('Erro ao otimizar memória:', error);
+    throw error;
+  }
+}
+
+async function optimizeGPUInternal(options = {}) {
+  console.log('Otimizando GPU...');
+  
+  try {
+    if (!systemMonitor || !systemMonitor.optimizeGPU) {
+      throw new Error('Módulo de otimização de GPU não disponível');
+    }
+    
+    return await systemMonitor.optimizeGPU();
+  } catch (error) {
+    console.error('Erro ao otimizar GPU:', error);
+    throw error;
+  }
+}
+
+async function optimizeNetworkInternal(options = {}) {
+  console.log('Otimizando rede...');
+  
+  try {
+    if (!networkMetrics || !networkMetrics.optimizeNetwork) {
+      throw new Error('Módulo de otimização de rede não disponível');
+    }
+    
+    return await networkMetrics.optimizeNetwork();
+  } catch (error) {
+    console.error('Erro ao otimizar rede:', error);
+    throw error;
   }
 }
 
