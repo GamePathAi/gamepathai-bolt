@@ -3,6 +3,9 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Log para saber que o preload está sendo executado
 console.log('Preload script está carregando...');
+console.log('Versão do Electron:', process.versions.electron);
+console.log('Versão do Chrome:', process.versions.chrome);
+console.log('Versão do Node.js:', process.versions.node);
 
 // Rastreamento de listeners registrados para evitar duplicatas
 const registeredListeners = {
