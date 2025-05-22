@@ -7,7 +7,11 @@
     "type": "module",
     "description": "GamePath AI - Inteligência artificial para gaming",
     "author": "GamePathAI Team",
+    "engines": {
+        "node": ">=18.0.0 <21.0.0"
+    },
     "scripts": {
+        "clean": "rm -rf node_modules",
         "dev": "vite",
         "build": "vite build",
         "lint": "eslint .",
