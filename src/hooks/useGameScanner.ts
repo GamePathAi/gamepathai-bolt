@@ -44,7 +44,7 @@ export function useGameScanner() {
     loadGames();
 
     // Configurar listeners para eventos do sistema
-    if (isElectronAPIAvailable() && window.electronAPI.events) {
+    if (isElectronAPIAvailable() && window.electronAPI?.events) {
       console.log('useGameScanner: Configurando listeners de eventos');
 
       // Listener para jogos detectados
