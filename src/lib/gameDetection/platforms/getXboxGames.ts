@@ -3,10 +3,12 @@ import * as path from "path";
 import * as os from "os";
 import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
-// Se estiver no Windows, usar o Registry
+// Se estiver no Windows, usar o Registry com dynamic import
 let Registry: any;
 try {
-  Registry = require("registry-js").Registry;
+  // Usar dynamic import ao invés de require
+  const registryModule = await import("registry-js");
+  Registry = registryModule.Registry;
 } catch {
   Registry = undefined;
 }
@@ -37,7 +39,7 @@ export async function getXboxGames(): Promise<XboxGame[]> {
     // Possíveis locais de instalação de jogos do Xbox
     const possiblePaths = [
       "C:\\XboxGames",
-      "D:\\XboxGames",
+      "D:\\XboxGames", 
       "E:\\XboxGames",
       "C:\\Program Files\\WindowsApps",
       "C:\\Program Files\\ModifiableWindowsApps"
