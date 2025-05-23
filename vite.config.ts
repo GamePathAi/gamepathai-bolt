@@ -40,13 +40,21 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: [
-      'lucide-react',
       'registry-js',
       'systeminformation',
       'electron-store',
       'node-os-utils',
       'unix-dgram'
     ],
+    include: [
+      'zustand',
+      'zustand/middleware',
+      'crypto-js',
+      'zod',
+      'idb-keyval',
+      'i18next-browser-languagedetector',
+      'i18next-http-backend'
+    ]
   },
   server: {
     fs: {
