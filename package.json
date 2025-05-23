@@ -22,7 +22,7 @@
         "test:detectors": "ts-node --esm scripts/testDetectors.ts",
         "test:tdd": "jest --watch",
         "test:run": "jest",
-        "electron:dev": "cross-env ELECTRON_RUN=true concurrently \"vite\" \"electron ./electron/main.cjs\"",
+        "electron:dev": "cross-env ELECTRON_RUN=true concurrently \"vite\" \"wait-on http://localhost:5173 && electron ./electron/main.cjs\"",
         "electron:build": "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --publish=never",
         "electron:build:dir": "cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --dir",
         "electron:build:win": "rimraf dist-electron && cross-env ELECTRON_RUN=true ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES=true vite build && electron-builder --win --publish=never",
