@@ -1,24 +1,18 @@
 interface ElectronAPI {
   // Game functions
   scanGames: () => Promise<{
-    steam: any[];
-    epic: any[];
-    xbox: any[];
-  }>;
-  launchGame: (game: any) => Promise<{
     success: boolean;
-    error?: string;
+    data: GameInfo[];
+    errors: string[];
   }>;
-  optimizeGame: (game: any, profile: string, settings?: any) => Promise<{
-    success: boolean;
-    improvements: {
-      fps: number;
-      latency: number;
-      stability: number;
-    };
-    appliedSettings: Record<string, any>;
-    error?: string;
-  }>;
+  getInstalledGames?: () => Promise<GameInfo[]>;
+  validateGameFiles?: (gameId: string) => Promise<boolean>;
+  launchGame?: (gameId: string) => Promise<boolean>;
+  optimizeGame?: (gameId: string, profile?: string, settings?: any) => Promise<boolean>;
+  
+  // Tray functions
+  updateTrayGames: (games: GameInfo[]) => Promise<GameInfo[]>;
+  getGamesForTray: () => Promise<GameInfo[]>;
   
   // System functions
   getSystemInfo: () => Promise<{
@@ -50,21 +44,25 @@ interface ElectronAPI {
   optimizeCPU: (options: any) => Promise<{
     success: boolean;
     improvement: number;
+    actions: string[];
     error?: string;
   }>;
   optimizeMemory: (options: any) => Promise<{
     success: boolean;
     improvement: number;
+    actions: string[];
     error?: string;
   }>;
   optimizeGPU: (options: any) => Promise<{
     success: boolean;
     improvement: number;
+    actions: string[];
     error?: string;
   }>;
   optimizeNetwork: (options: any) => Promise<{
     success: boolean;
     improvement: number;
+    actions: string[];
     error?: string;
   }>;
   
@@ -112,8 +110,38 @@ interface ElectronAPI {
     upload: number;
     latency: number;
   }>;
+  
+  // Notification function
+  showNotification: (options: {
+    title?: string;
+    body?: string;
+    icon?: string;
+  }) => Promise<{
+    success: boolean;
+    error?: string;
+  }>;
+  
+  // Diagnostic function
+  listDetectedGames: () => Promise<{
+    totalGames: number;
+    detailedResults: Record<string, any[]>;
+    error?: string;
+  }>;
+  
+  // Test function
+  testElectronAPI: () => Promise<{
+    success: boolean;
+    message: string;
+  }>;
+}
+
+interface IpcRenderer {
+  on: (channel: string, listener: (...args: any[]) => void) => void;
+  removeListener: (channel: string, listener: (...args: any[]) => void) => void;
+  send: (channel: string, ...args: any[]) => void;
 }
 
 interface Window {
   electronAPI?: ElectronAPI;
+  ipcRenderer?: IpcRenderer;
 }

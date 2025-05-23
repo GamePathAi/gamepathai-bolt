@@ -10,15 +10,15 @@ export const TrayManager: React.FC = () => {
   const gamesLoaded = useRef(false);
   const isLoadingGames = useRef(false);
   
-  // Atualizar jogos no tray quando a lista mudar
+  // Update games in tray when the list changes
   useEffect(() => {
     const updateTray = async () => {
       if (window.electronAPI?.updateTrayGames) {
         try {
           await window.electronAPI.updateTrayGames(games);
-          console.log('Jogos atualizados no tray:', games.length);
+          console.log('Games updated in tray:', games.length);
         } catch (error) {
-          console.error('Erro ao atualizar jogos no tray:', error);
+          console.error('Error updating games in tray:', error);
         }
       }
     };
@@ -28,71 +28,71 @@ export const TrayManager: React.FC = () => {
     }
   }, [games]);
   
-  // Configurar listeners para eventos do tray
+  // Configure listeners for tray events
   useEffect(() => {
     if (!window.ipcRenderer || listenersConfigured.current) {
-      console.log('ipcRenderer não disponível ou listeners já configurados');
+      console.log('ipcRenderer not available or listeners already configured');
       return;
     }
     
-    console.log('TrayManager: Configurando listeners para eventos do tray');
+    console.log('TrayManager: Configuring listeners for tray events');
     listenersConfigured.current = true;
     
-    // Handler para escanear jogos a partir do tray
+    // Handler for scanning games from tray
     const handleScanFromTray = () => {
-      console.log('TrayManager: Recebido comando para escanear jogos a partir do tray');
+      console.log('TrayManager: Received command to scan games from tray');
       if (typeof scanGames === 'function') {
         scanGames().catch(err => {
-          console.error('Erro ao escanear jogos:', err);
+          console.error('Error scanning games:', err);
         });
       } else {
-        console.error('scanGames não é uma função');
+        console.error('scanGames is not a function');
       }
     };
     
-    // Handler para lançar jogos a partir do tray
+    // Handler for launching games from tray
     const handleLaunchFromTray = (event: any, gameId: string) => {
-      console.log('TrayManager: Recebido comando para lançar jogo a partir do tray', gameId);
+      console.log('TrayManager: Received command to launch game from tray', gameId);
       if (games && Array.isArray(games)) {
         const game = games.find(g => g.id === gameId);
         if (game && typeof launchGame === 'function') {
           launchGame(gameId).catch(err => {
-            console.error('Erro ao lançar jogo:', err);
+            console.error('Error launching game:', err);
           });
         } else {
-          console.error('Jogo não encontrado ou launchGame não é uma função:', gameId);
+          console.error('Game not found or launchGame is not a function:', gameId);
         }
       } else {
-        console.error('Lista de jogos não disponível ou não é um array');
+        console.error('Games list not available or not an array');
       }
     };
     
-    // Handler para otimizar jogos a partir do tray
+    // Handler for optimizing games from tray
     const handleOptimizeFromTray = (event: any, gameId: string) => {
-      console.log('TrayManager: Recebido comando para otimizar jogo a partir do tray', gameId);
+      console.log('TrayManager: Received command to optimize game from tray', gameId);
       if (games && Array.isArray(games)) {
         const game = games.find(g => g.id === gameId);
         if (game && typeof optimizeGame === 'function') {
           optimizeGame(gameId).catch(err => {
-            console.error('Erro ao otimizar jogo:', err);
+            console.error('Error optimizing game:', err);
           });
         } else {
-          console.error('Jogo não encontrado ou optimizeGame não é uma função:', gameId);
+          console.error('Game not found or optimizeGame is not a function:', gameId);
         }
       } else {
-        console.error('Lista de jogos não disponível ou não é um array');
+        console.error('Games list not available or not an array');
       }
     };
     
-    // Registrar listeners
+    // Register listeners
     window.ipcRenderer.on('scan-games-from-tray', handleScanFromTray);
     window.ipcRenderer.on('launch-game-from-tray', handleLaunchFromTray);
     window.ipcRenderer.on('optimize-game-from-tray', handleOptimizeFromTray);
     
-    // Limpar listeners quando o componente for desmontado
+    // Clean up listeners when component is unmounted
     return () => {
       if (listenersConfigured.current) {
-        console.log('TrayManager: Removendo listeners de eventos do tray');
+        console.log('TrayManager: Removing listeners for tray events');
         window.ipcRenderer.removeListener('scan-games-from-tray', handleScanFromTray);
         window.ipcRenderer.removeListener('launch-game-from-tray', handleLaunchFromTray);
         window.ipcRenderer.removeListener('optimize-game-from-tray', handleOptimizeFromTray);
@@ -101,7 +101,7 @@ export const TrayManager: React.FC = () => {
     };
   }, [games, scanGames, launchGame, optimizeGame]);
   
-  // Inicializar tray com jogos já carregados
+  // Initialize tray with already loaded games
   useEffect(() => {
     const initTray = async () => {
       if (!window.electronAPI?.getGamesForTray || gamesLoaded.current || isLoadingGames.current) {
@@ -110,23 +110,23 @@ export const TrayManager: React.FC = () => {
       
       try {
         isLoadingGames.current = true;
-        console.log('TrayManager: Obtendo jogos para o tray');
+        console.log('TrayManager: Getting games for the tray');
         const trayGames = await window.electronAPI.getGamesForTray();
         
         if (!trayGames || trayGames.length === 0) {
-          console.log('TrayManager: Não há jogos no tray, carregando jogos iniciais');
+          console.log('TrayManager: No games in tray, loading initial games');
           if (typeof scanGames === 'function') {
             await scanGames();
           } else {
-            console.error('scanGames não é uma função');
+            console.error('scanGames is not a function');
           }
         } else {
-          console.log('TrayManager: Jogos já carregados no tray:', trayGames.length);
+          console.log('TrayManager: Games already loaded in tray:', trayGames.length);
         }
         
         gamesLoaded.current = true;
       } catch (error) {
-        console.error('Erro ao obter jogos para o tray:', error);
+        console.error('Error getting games for the tray:', error);
       } finally {
         isLoadingGames.current = false;
       }
@@ -135,25 +135,25 @@ export const TrayManager: React.FC = () => {
     initTray();
   }, [scanGames]);
   
-  // Mostrar notificação quando o aplicativo é minimizado para o tray
+  // Show notification when app is minimized to tray
   useEffect(() => {
     const showTrayNotification = () => {
       if (window.electronAPI?.showNotification) {
         window.electronAPI.showNotification({
           title: 'GamePath AI',
           body: 'O aplicativo continua em execução na bandeja do sistema.'
-        }).catch(e => console.error('Erro ao mostrar notificação:', e));
+        }).catch(e => console.error('Error showing notification:', e));
       }
     };
     
-    // Você pode adicionar um listener para quando a janela é minimizada
-    // Isso dependeria de um evento específico do Electron
+    // You can add a listener for when the window is minimized
+    // This would depend on a specific Electron event
     
     return () => {
-      // Limpar listeners se necessário
+      // Clean up listeners if necessary
     };
   }, []);
   
-  // Este componente não renderiza nada visível, apenas gerencia o tray
+  // This component doesn't render anything visible, just manages the tray
   return null;
 };
