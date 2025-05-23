@@ -84,13 +84,15 @@ export const TrayManager: React.FC = () => {
         });
 
         // Usar método específico do tray
-        const result = window.electronAPI.tray.updateGames(sanitizedGames);
-        
-        if (result.success) {
-          console.log('TrayManager: Tray atualizado com sucesso');
-          lastGameUpdate.current = Date.now();
-        } else {
-          console.error('TrayManager: Erro ao atualizar tray:', result.error);
+        if (window.electronAPI?.tray?.updateGames) {
+          const result = window.electronAPI.tray.updateGames(sanitizedGames);
+          
+          if (result.success) {
+            console.log('TrayManager: Tray atualizado com sucesso');
+            lastGameUpdate.current = Date.now();
+          } else {
+            console.error('TrayManager: Erro ao atualizar tray:', result.error);
+          }
         }
         
       } catch (error) {
@@ -174,7 +176,7 @@ export const TrayManager: React.FC = () => {
       };
 
       // Registrar listeners usando o sistema de eventos do preload
-      if (window.electronAPI.events && typeof window.electronAPI.events.on === 'function') {
+      if (window.electronAPI?.events && typeof window.electronAPI.events.on === 'function') {
         window.electronAPI.events.on('tray:scan-games', handleTrayScanGames);
         window.electronAPI.events.on('tray:game-launch', handleTrayLaunchGame);
         window.electronAPI.events.on('tray:game-optimize', handleTrayOptimizeGame);
