@@ -26,9 +26,9 @@ export function useGames() {
     };
     
     // Registrar o listener
-    if (window.electronAPI?.events?.on) {
+    if (window.ipcRenderer) {
       console.log('Registrando listener para evento games-detected em useGames');
-      window.electronAPI.events.on('games-detected', handleGamesDetected);
+      window.ipcRenderer.on('games-detected', handleGamesDetected);
     }
     
     // Carregar jogos do localStorage se disponíveis
@@ -45,9 +45,9 @@ export function useGames() {
     
     // Limpar listener ao desmontar
     return () => {
-      if (window.electronAPI?.events?.off) {
+      if (window.ipcRenderer) {
         console.log('Removendo listener para evento games-detected em useGames');
-        window.electronAPI.events.off('games-detected', handleGamesDetected);
+        window.ipcRenderer.removeListener('games-detected', handleGamesDetected);
       }
     };
   }, []);
