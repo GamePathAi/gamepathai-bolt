@@ -76,13 +76,15 @@ export function useGameScanner() {
       };
 
       // Registrar listeners
-      window.electronAPI.events.on('games:detected', handleGamesDetected);
-      window.electronAPI.events.on('game:launched', handleGameLaunched);
-      window.electronAPI.events.on('system:optimized', handleSystemOptimized);
+      if (window.electronAPI?.events?.on) {
+        window.electronAPI.events.on('games:detected', handleGamesDetected);
+        window.electronAPI.events.on('game:launched', handleGameLaunched);
+        window.electronAPI.events.on('system:optimized', handleSystemOptimized);
+      }
 
       // Cleanup
       return () => {
-        if (window.electronAPI?.events) {
+        if (window.electronAPI?.events?.off) {
           console.log('useGameScanner: Removendo listeners de eventos');
           window.electronAPI.events.off('games:detected', handleGamesDetected);
           window.electronAPI.events.off('game:launched', handleGameLaunched);
@@ -116,7 +118,7 @@ export function useGameScanner() {
       // Se localStorage falhar, usar API do electronAPI
       if (isElectronAPIAvailable()) {
         console.log('useGameScanner: Carregando jogos via electronAPI');
-        const result = await window.electronAPI.games.scan();
+        const result = await window.electronAPI!.games.scan();
         
         if (result.success && Array.isArray(result.data)) {
           console.log(`useGameScanner: ${result.data.length} jogos carregados via API`);
@@ -164,7 +166,7 @@ export function useGameScanner() {
     setError(null);
     
     try {
-      const result = await window.electronAPI.games.scan();
+      const result = await window.electronAPI!.games.scan();
       console.log('useGameScanner: Resultado do escaneamento:', result);
       
       if (result.success && Array.isArray(result.data)) {
@@ -217,7 +219,7 @@ export function useGameScanner() {
     try {
       console.log('useGameScanner: Escaneando jogos Xbox...');
       
-      const result = await window.electronAPI.games.scanXbox();
+      const result = await window.electronAPI!.games.scanXbox();
       
       if (result.success && Array.isArray(result.data)) {
         const xboxGames = result.data as Game[];
@@ -280,7 +282,7 @@ export function useGameScanner() {
 
       // Validar arquivos primeiro
       console.log(`useGameScanner: Validando arquivos do jogo ${game.name}`);
-      const validation = await window.electronAPI.games.validate(gameId);
+      const validation = await window.electronAPI!.games.validate(gameId);
       
       if (!validation.success) {
         console.error(`useGameScanner: Validação falhou para ${game.name}:`, validation.error);
@@ -290,7 +292,7 @@ export function useGameScanner() {
 
       // Lançar jogo
       console.log(`useGameScanner: Lançando ${game.name}...`);
-      const result = await window.electronAPI.launcher.launch(game, profile);
+      const result = await window.electronAPI!.launcher.launch(game, profile);
       
       if (result.success) {
         console.log(`useGameScanner: ${game.name} lançado com sucesso`);
@@ -320,7 +322,7 @@ export function useGameScanner() {
     try {
       console.log(`useGameScanner: Lançamento rápido ${gameId}`);
       
-      const result = await window.electronAPI.launcher.quickLaunch(gameId);
+      const result = await window.electronAPI!.launcher.quickLaunch(gameId);
       
       if (result.success) {
         console.log('useGameScanner: Lançamento rápido bem-sucedido');
@@ -360,7 +362,7 @@ export function useGameScanner() {
         return false;
       }
 
-      const result = await window.electronAPI.optimization.optimizeForGame(game, profile);
+      const result = await window.electronAPI!.optimization.optimizeForGame(game, profile);
       
       if (result.success) {
         console.log(`useGameScanner: Otimização de ${game.name} concluída`);
@@ -412,7 +414,7 @@ export function useGameScanner() {
     try {
       console.log(`useGameScanner: Otimizando sistema com perfil ${profile}`);
       
-      const result = await window.electronAPI.optimization.optimizeSystem(profile);
+      const result = await window.electronAPI!.optimization.optimizeSystem(profile);
       
       if (result.success) {
         console.log('useGameScanner: Sistema otimizado com sucesso');
@@ -448,7 +450,7 @@ export function useGameScanner() {
     }
 
     try {
-      const result = await window.electronAPI.monitoring.runDiagnostics();
+      const result = await window.electronAPI!.monitoring.runDiagnostics();
       console.log('useGameScanner: Resultado do diagnóstico:', result);
       return result;
     } catch (error) {
@@ -466,7 +468,7 @@ export function useGameScanner() {
     try {
       console.log('useGameScanner: Limpando cache...');
       
-      const result = await window.electronAPI.games.clearCache();
+      const result = await window.electronAPI!.games.clearCache();
       
       if (result.success) {
         console.log('useGameScanner: Cache limpo com sucesso');
@@ -495,11 +497,11 @@ export function useGameScanner() {
 
     try {
       // Testar scan
-      const scanResult = await window.electronAPI.games.scan();
+      const scanResult = await window.electronAPI!.games.scan();
       console.log('useGameScanner: Teste de scan:', scanResult.success);
       
       // Testar diagnóstico
-      const diagResult = await window.electronAPI.monitoring.runDiagnostics();
+      const diagResult = await window.electronAPI!.monitoring.runDiagnostics();
       console.log('useGameScanner: Teste de diagnóstico:', diagResult.success);
       
       const success = scanResult.success && diagResult.success;
