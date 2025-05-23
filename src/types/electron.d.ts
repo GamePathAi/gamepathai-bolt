@@ -1,41 +1,41 @@
 interface ElectronAPI {
   // Game functions
-  games: {
-    scan: () => Promise<{
+  games?: {
+    scan?: () => Promise<{
       success: boolean;
       data: any[];
       errors?: string[];
     }>;
-    scanXbox: () => Promise<{
+    scanXbox?: () => Promise<{
       success: boolean;
       data: any[];
       errors?: string[];
     }>;
-    validate: (gameId: string) => Promise<{
+    validate?: (gameId: string) => Promise<{
       success: boolean;
       error?: string;
     }>;
-    clearCache: () => Promise<{
+    clearCache?: () => Promise<{
       success: boolean;
       error?: string;
     }>;
   };
   
   // Launcher functions
-  launcher: {
-    launch: (game: any, profile?: string) => Promise<{
+  launcher?: {
+    launch?: (game: any, profile?: string) => Promise<{
       success: boolean;
       error?: string;
     }>;
-    launchStandard: (game: any, profile?: string) => Promise<{
+    launchStandard?: (game: any, profile?: string) => Promise<{
       success: boolean;
       error?: string;
     }>;
-    quickLaunch: (gameId: string) => Promise<{
+    quickLaunch?: (gameId: string) => Promise<{
       success: boolean;
       error?: string;
     }>;
-    getRunning: () => Promise<{
+    getRunning?: () => Promise<{
       success: boolean;
       data: any[];
       error?: string;
@@ -43,8 +43,8 @@ interface ElectronAPI {
   };
   
   // Optimization functions
-  optimization: {
-    optimizeForGame: (game: any, profile?: string) => Promise<{
+  optimization?: {
+    optimizeForGame?: (game: any, profile?: string) => Promise<{
       success: boolean;
       improvements?: {
         fps: number;
@@ -53,11 +53,11 @@ interface ElectronAPI {
       };
       error?: string;
     }>;
-    optimizeSystem: (profile?: string) => Promise<{
+    optimizeSystem?: (profile?: string) => Promise<{
       success: boolean;
       error?: string;
     }>;
-    getProfiles: () => Promise<{
+    getProfiles?: () => Promise<{
       success: boolean;
       data: any[];
       error?: string;
@@ -65,13 +65,13 @@ interface ElectronAPI {
   };
   
   // Monitoring functions
-  monitoring: {
-    getSystemMetrics: () => Promise<{
+  monitoring?: {
+    getSystemMetrics?: () => Promise<{
       success: boolean;
       data: any;
       error?: string;
     }>;
-    runDiagnostics: () => Promise<{
+    runDiagnostics?: () => Promise<{
       success: boolean;
       data: any;
       error?: string;
@@ -79,25 +79,25 @@ interface ElectronAPI {
   };
   
   // Profile functions
-  profiles: {
-    get: (gameId: string) => Promise<{
+  profiles?: {
+    get?: (gameId: string) => Promise<{
       success: boolean;
       data: any;
       error?: string;
     }>;
-    save: (gameId: string, profile: any) => Promise<{
+    save?: (gameId: string, profile: any) => Promise<{
       success: boolean;
       error?: string;
     }>;
   };
   
   // Backup functions
-  backup: {
-    create: () => Promise<{
+  backup?: {
+    create?: () => Promise<{
       success: boolean;
       error?: string;
     }>;
-    list: () => Promise<{
+    list?: () => Promise<{
       success: boolean;
       data: any[];
       error?: string;
@@ -105,32 +105,32 @@ interface ElectronAPI {
   };
   
   // Event system
-  events: {
-    on: (event: string, callback: (data: any) => void) => void;
-    once: (event: string, callback: (data: any) => void) => void;
-    off: (event: string, callback: (data: any) => void) => void;
-    emit: (event: string, data: any) => void;
-    removeAll: (event?: string) => void;
+  events?: {
+    on?: (event: string, callback: (data: any) => void) => void;
+    once?: (event: string, callback: (data: any) => void) => void;
+    off?: (event: string, callback: (data: any) => void) => void;
+    emit?: (event: string, data: any) => void;
+    removeAll?: (event?: string) => void;
   };
   
   // Tray functions
-  tray: {
-    updateGames: (games: any[]) => {
+  tray?: {
+    updateGames?: (games: any[]) => {
       success: boolean;
       error?: string;
     };
   };
   
   // Utility functions
-  utils: {
-    validateGame: (gameData: any) => any;
-    validateGameId: (gameId: string) => string | null;
-    sanitizeResult: (result: any) => any;
-    throttle: (key: string, fn: () => Promise<any>, delay?: number) => Promise<any>;
-    debounce: (key: string, fn: () => Promise<any>, delay?: number) => Promise<any>;
-    formatBytes: (bytes: number, decimals?: number) => string;
-    formatDuration: (ms: number) => string;
-    log: {
+  utils?: {
+    validateGame?: (gameData: any) => any;
+    validateGameId?: (gameId: string) => string | null;
+    sanitizeResult?: (result: any) => any;
+    throttle?: (key: string, fn: () => Promise<any>, delay?: number) => Promise<any>;
+    debounce?: (key: string, fn: () => Promise<any>, delay?: number) => Promise<any>;
+    formatBytes?: (bytes: number, decimals?: number) => string;
+    formatDuration?: (ms: number) => string;
+    log?: {
       info: (message: string, data?: any) => void;
       success: (message: string, data?: any) => void;
       warn: (message: string, data?: any) => void;
@@ -140,7 +140,7 @@ interface ElectronAPI {
   };
   
   // System information
-  system: {
+  system?: {
     version: string;
     platform: string;
     build: {
@@ -148,7 +148,7 @@ interface ElectronAPI {
       node: string;
       chrome: string;
     };
-    getStatus: () => Promise<any>;
+    getStatus?: () => Promise<any>;
   };
 }
 
