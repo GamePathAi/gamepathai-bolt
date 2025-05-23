@@ -1,15 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import compression from 'vite-plugin-compression';
 import { resolve } from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    compression(), // Generates .gz files for static assets
   ],
-  base: './', // Isso é crucial para o Electron - garante caminhos relativos
+  base: './', // Crucial for Electron - ensures relative paths
   build: {
     outDir: 'dist',
     emptyOutDir: true,
@@ -19,7 +17,7 @@ export default defineConfig({
       },
       output: {
         manualChunks: {
-          // Melhora a performance separando dependências em chunks
+          // Improves performance by separating dependencies into chunks
           vendor: ['react', 'react-dom'],
           ui: ['react-router-dom', 'lucide-react'],
         },
@@ -35,9 +33,9 @@ export default defineConfig({
         /^node:/
       ]
     },
-    // Importante para Electron: preserva os diretórios originais
+    // Important for Electron: preserves original directories
     assetsDir: 'assets',
-    // Gera sourcemaps para debugging
+    // Generate sourcemaps for debugging
     sourcemap: true,
   },
   optimizeDeps: {
@@ -57,7 +55,7 @@ export default defineConfig({
     },
   },
   publicDir: 'public',
-  // Adicione isso para garantir que o Electron possa acessar os arquivos locais
+  // Add this to ensure Electron can access local files
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),
