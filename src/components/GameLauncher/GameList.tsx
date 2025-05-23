@@ -344,11 +344,11 @@ export const GameList: React.FC = () => {
           {Object.entries(diagnosticResults.detailedResults).map(([platform, games]) => (
             <div key={platform} className="mb-4">
               <h4 className="text-white font-medium mb-2">
-                {platform} ({games.length} jogos)
+                {platform} ({(games as any[]).length} jogos)
               </h4>
-              {games.length > 0 ? (
+              {(games as any[]).length > 0 ? (
                 <ul className="space-y-2">
-                  {games.map((game, index) => (
+                  {(games as any[]).map((game, index) => (
                     <li key={index} className="bg-gray-700/50 p-2 rounded">
                       <div className="text-white font-medium">{game.name}</div>
                       <div className="text-gray-400 text-sm truncate">{game.installPath || game.executablePath}</div>
