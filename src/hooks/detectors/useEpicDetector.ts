@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
-import path from 'path-browserify';
+import { getEpicGames } from '../../lib/gameDetection/platforms/getEpicGames';
 
 export function useEpicDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -35,14 +35,18 @@ export function useEpicDetector() {
         }
       }
 
-      // Web environment - return empty array
+      // Web environment - use mock data
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        console.log('Web environment detected, returning empty array for Epic games');
-        return { platform: Platform.Epic, games: [] };
+        console.log('Web environment detected, using mock data for Epic games');
+        // Import dynamically to avoid issues
+        const { mockGetEpicGames } = await import('../../lib/gameDetection/platforms/mockPlatforms');
+        const mockGames = await mockGetEpicGames();
+        return { platform: Platform.Epic, games: mockGames };
       }
 
       // Electron environment - use real detection
-      const games = await detectEpicGames();
+      console.log('Detecting Epic games using real detection...');
+      const games = await getEpicGames();
       
       // Cache results
       if (options.useCache !== false) {
@@ -66,166 +70,4 @@ export function useEpicDetector() {
     isDetecting,
     error
   };
-}
-
-// Real implementation for Epic games detection
-async function detectEpicGames(): Promise<GameInfo[]> {
-  if (!window.electronAPI) {
-    throw new Error('Electron API not available');
-  }
-
-  const games: GameInfo[] = [];
-  const { fs, registry, Registry } = window.electronAPI;
-  const envVars = await window.electronAPI.fs.getEnvVars();
-
-  try {
-    // Find Epic Games Launcher manifest path
-    let manifestPath = "";
-    
-    if (window.electronAPI.system.platform === "win32") {
-      const localAppData = envVars.LOCALAPPDATA || path.join(envVars.USERPROFILE, "AppData", "Local");
-      manifestPath = path.join(
-        localAppData,
-        "EpicGamesLauncher",
-        "Saved",
-        "Config",
-        "Windows"
-      );
-    } else if (window.electronAPI.system.platform === "darwin") {
-      const homedir = await window.electronAPI.fs.getSystemPaths().home;
-      manifestPath = path.join(
-        homedir,
-        "Library",
-        "Application Support",
-        "Epic",
-        "EpicGamesLauncher",
-        "Config"
-      );
-    } else {
-      const homedir = await window.electronAPI.fs.getSystemPaths().home;
-      manifestPath = path.join(
-        homedir,
-        ".config",
-        "Epic",
-        "EpicGamesLauncher"
-      );
-    }
-    
-    if (!manifestPath) {
-      console.log("Epic Games Launcher config path not found");
-      return [];
-    }
-    
-    // Check if directory exists
-    if (!await fs.exists(manifestPath)) {
-      console.log("Epic Games Launcher config directory not found");
-      return [];
-    }
-    
-    // Read directory files
-    const files = await fs.readDir(manifestPath);
-    
-    // Find manifest file
-    const manifestFiles = [
-      "GameInstallation.json",
-      "InstallationList.json",
-      "LauncherInstalled.dat" // Alternative file
-    ];
-    
-    let manifestContent = "";
-    let manifest = null;
-    
-    for (const manifestFile of manifestFiles) {
-      const matchingFile = files.find(file => file.name === manifestFile);
-      if (matchingFile) {
-        try {
-          const fullPath = matchingFile.path;
-          manifestContent = await fs.readFile(fullPath);
-          
-          // Try to parse JSON
-          manifest = JSON.parse(manifestContent);
-          break;
-        } catch (error) {
-          console.error(`Error reading Epic manifest ${manifestFile}:`, error);
-        }
-      }
-    }
-    
-    if (!manifest) {
-      console.log("No valid Epic Games installation manifest found");
-      return [];
-    }
-    
-    // Extract installed games information
-    const installations = manifest.InstallationList || [];
-    
-    console.log(`Found ${installations.length} Epic games in manifest`);
-    
-    for (const installation of installations) {
-      try {
-        if (!installation.InstallLocation) {
-          console.log(`Skipping Epic game with no install location: ${installation.DisplayName || "Unknown"}`);
-          continue;
-        }
-        
-        const name = installation.DisplayName;
-        const appName = installation.AppName;
-        const installLocation = installation.InstallLocation;
-        const launchExecutable = installation.LaunchExecutable;
-        
-        // Check if it's actually a game (not an app or tool)
-        if (appName && (
-          appName.includes("UE_") || 
-          appName.includes("Editor") || 
-          appName.includes("Launcher") ||
-          appName.includes("Tool") ||
-          appName.includes("SDK")
-        )) {
-          console.log(`Skipping Epic non-game application: ${name}`);
-          continue;
-        }
-        
-        let executablePath = "";
-        if (launchExecutable) {
-          executablePath = path.join(installLocation, launchExecutable);
-        }
-        
-        // Calculate game size
-        let sizeInMB = 0;
-        try {
-          const stats = await fs.stat(installLocation);
-          sizeInMB = Math.round(stats.size / (1024 * 1024));
-        } catch (error) {
-          console.warn(`Could not determine size for Epic game ${name}:`, error);
-        }
-        
-        // Try to find an icon for the game
-        let iconUrl;
-        if (appName) {
-          // Use Epic's CDN for icons (approximate format)
-          iconUrl = `https://cdn1.epicgames.com/offer/store/item/${appName}/landscape-2560x1440`;
-        }
-        
-        games.push({
-          id: `epic-${appName || name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`,
-          name,
-          platform: Platform.Epic,
-          installPath: installLocation,
-          executablePath,
-          process_name: launchExecutable ? path.basename(launchExecutable) : "",
-          size: sizeInMB,
-          icon_url: iconUrl
-        });
-        
-        console.log(`Found Epic game: ${name}`);
-      } catch (error) {
-        console.error(`Error processing Epic game:`, error);
-      }
-    }
-    
-    return games;
-  } catch (error) {
-    console.error("Error scanning Epic games:", error);
-    return [];
-  }
 }

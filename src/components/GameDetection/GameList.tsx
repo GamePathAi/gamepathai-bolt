@@ -21,6 +21,8 @@ export const GameList: React.FC<GameListProps> = ({
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
   const [isLaunching, setIsLaunching] = useState<Record<string, boolean>>({});
+  const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
+  const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
 
   // Get unique platforms for the filter
   const platforms = React.useMemo(() => {
@@ -65,7 +67,7 @@ export const GameList: React.FC<GameListProps> = ({
   }, [games, searchQuery, platformFilter, sortBy, sortDirection]);
 
   const handleScanForGames = async () => {
-    await scanAllGames();
+    await scanAllGames({ forceRefresh: true });
   };
 
   const handleGameClick = (game: GameInfo) => {
@@ -113,6 +115,31 @@ export const GameList: React.FC<GameListProps> = ({
 
   const toggleSortDirection = () => {
     setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  const runGameDiagnostic = async () => {
+    try {
+      setIsDiagnosticRunning(true);
+      console.log('GameList: Executando diagnóstico de detecção de jogos...');
+      
+      if (window.electronAPI?.monitoring?.runDiagnostics) {
+        const result = await window.electronAPI.monitoring.runDiagnostics();
+        console.log('GameList: Resultado do diagnóstico:', result);
+        setDiagnosticResults(result.data);
+      } else {
+        console.warn('GameList: API de diagnóstico não disponível');
+        setDiagnosticResults({
+          message: 'Diagnostic API not available in this environment'
+        });
+      }
+    } catch (error) {
+      console.error('GameList: Erro ao executar diagnóstico:', error);
+      setDiagnosticResults({
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      setIsDiagnosticRunning(false);
+    }
   };
 
   return (
@@ -190,6 +217,16 @@ export const GameList: React.FC<GameListProps> = ({
           ) : (
             'Scan for Games'
           )}
+        </button>
+      </div>
+
+      <div className="flex space-x-4">
+        <button 
+          onClick={runGameDiagnostic} 
+          disabled={isDiagnosticRunning}
+          className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {isDiagnosticRunning ? 'Diagnosticando...' : 'Diagnóstico de Detecção'}
         </button>
       </div>
 
@@ -320,6 +357,33 @@ export const GameList: React.FC<GameListProps> = ({
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {diagnosticResults && (
+        <div className="bg-gray-800 p-4 mt-4 rounded-lg overflow-auto max-h-96">
+          <h3 className="text-white font-medium mb-3">Resultados do Diagnóstico</h3>
+          
+          {diagnosticResults.systemInfo && (
+            <div className="mb-4">
+              <h4 className="text-cyan-400 text-sm font-medium mb-2">Informações do Sistema</h4>
+              <div className="bg-gray-900 p-3 rounded-lg">
+                <pre className="text-xs text-gray-300 overflow-auto">
+                  {JSON.stringify(diagnosticResults.systemInfo, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
+          
+          {diagnosticResults.error && (
+            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3">
+              <p className="text-red-400 text-sm">{diagnosticResults.error}</p>
+            </div>
+          )}
+          
+          {diagnosticResults.message && (
+            <p className="text-gray-300">{diagnosticResults.message}</p>
+          )}
         </div>
       )}
     </div>

@@ -1,5 +1,5 @@
 import * as fs from "fs/promises";
-import * as path from "path";
+import * as path from "path-browserify";
 import * as os from "os";
 import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
@@ -20,11 +20,20 @@ interface EpicGame {
  */
 export async function getEpicGames(): Promise<EpicGame[]> {
   try {
+    // Check if we're in Electron environment
+    if (typeof window === 'undefined' || !window.electronAPI) {
+      console.log("Epic Games detection requires Electron environment");
+      return [];
+    }
+
+    const { fs, registry, Registry } = window.electronAPI;
+    const envVars = await window.electronAPI.fs.getEnvVars();
+    
     // Encontrar o arquivo de manifesto do Epic Games Launcher
     let manifestPath = "";
     
-    if (process.platform === "win32") {
-      const localAppData = process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local");
+    if (window.electronAPI.system.platform === "win32") {
+      const localAppData = envVars.LOCALAPPDATA || path.join(envVars.USERPROFILE, "AppData", "Local");
       manifestPath = path.join(
         localAppData,
         "EpicGamesLauncher",
@@ -32,9 +41,10 @@ export async function getEpicGames(): Promise<EpicGame[]> {
         "Config",
         "Windows"
       );
-    } else if (process.platform === "darwin") {
+    } else if (window.electronAPI.system.platform === "darwin") {
+      const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
       manifestPath = path.join(
-        os.homedir(),
+        homedir,
         "Library",
         "Application Support",
         "Epic",
@@ -42,8 +52,9 @@ export async function getEpicGames(): Promise<EpicGame[]> {
         "Config"
       );
     } else {
+      const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
       manifestPath = path.join(
-        os.homedir(),
+        homedir,
         ".config",
         "Epic",
         "EpicGamesLauncher"
@@ -56,15 +67,13 @@ export async function getEpicGames(): Promise<EpicGame[]> {
     }
     
     // Verificar se o diretório existe
-    try {
-      await fs.access(manifestPath);
-    } catch {
+    if (!await fs.exists(manifestPath)) {
       console.log("Epic Games Launcher config directory not found");
       return [];
     }
     
     // Ler os arquivos do diretório
-    const files = await fs.readdir(manifestPath);
+    const files = await fs.readDir(manifestPath);
     
     // Encontrar o arquivo de manifesto
     const manifestFiles = [
@@ -74,13 +83,14 @@ export async function getEpicGames(): Promise<EpicGame[]> {
     ];
     
     let manifestContent = "";
-    let manifest: any = null;
+    let manifest = null;
     
     for (const manifestFile of manifestFiles) {
-      if (files.includes(manifestFile)) {
+      const matchingFile = files.find(file => file.name === manifestFile);
+      if (matchingFile) {
         try {
-          const fullPath = path.join(manifestPath, manifestFile);
-          manifestContent = await fs.readFile(fullPath, "utf8");
+          const fullPath = matchingFile.path;
+          manifestContent = await fs.readFile(fullPath);
           
           // Tentar analisar o JSON
           manifest = JSON.parse(manifestContent);
@@ -93,7 +103,16 @@ export async function getEpicGames(): Promise<EpicGame[]> {
     
     if (!manifest) {
       console.log("No valid Epic Games installation manifest found");
-      return [];
+      
+      // Fallback: Try to scan common installation directories
+      const commonPaths = [
+        "C:\\Program Files\\Epic Games",
+        "C:\\Program Files (x86)\\Epic Games",
+        "D:\\Epic Games",
+        "E:\\Epic Games"
+      ];
+      
+      return await scanEpicDirectories(fs, commonPaths);
     }
     
     // Extrair informações dos jogos instalados
@@ -129,12 +148,6 @@ export async function getEpicGames(): Promise<EpicGame[]> {
         let executablePath = "";
         if (launchExecutable) {
           executablePath = path.join(installLocation, launchExecutable);
-          
-          // Verificar se o executável parece ser um jogo
-          if (!isLikelyGameExecutable(executablePath)) {
-            console.log(`Skipping Epic non-game executable: ${executablePath}`);
-            continue;
-          }
         }
         
         // Calcular tamanho do jogo
@@ -154,7 +167,7 @@ export async function getEpicGames(): Promise<EpicGame[]> {
         }
         
         games.push({
-          id: appName || name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase(),
+          id: `epic-${appName || name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`,
           name,
           platform: "Epic",
           installPath: installLocation,
@@ -176,6 +189,79 @@ export async function getEpicGames(): Promise<EpicGame[]> {
     console.error("Error scanning Epic games:", error);
     return [];
   }
+}
+
+// Fallback function to scan common Epic Games directories
+async function scanEpicDirectories(fs: any, directories: string[]): Promise<any[]> {
+  const games = [];
+  
+  for (const dir of directories) {
+    if (await fs.exists(dir)) {
+      try {
+        const entries = await fs.readDir(dir);
+        
+        for (const entry of entries) {
+          if (entry.isDirectory && entry.name !== 'Launcher') {
+            const gamePath = entry.path;
+            
+            // Try to find executable
+            let executablePath = "";
+            let processName = "";
+            
+            try {
+              const gameFiles = await fs.readDir(gamePath);
+              const exeFiles = gameFiles.filter((file: any) => file.name.toLowerCase().endsWith(".exe"));
+              
+              if (exeFiles.length > 0) {
+                // Filter out non-game executables
+                const gameExes = exeFiles.filter((file: any) => 
+                  !file.name.toLowerCase().includes("installer") &&
+                  !file.name.toLowerCase().includes("setup") &&
+                  !file.name.toLowerCase().includes("unins") &&
+                  !file.name.toLowerCase().includes("launcher")
+                );
+                
+                const mainExe = gameExes.length > 0 ? gameExes[0] : exeFiles[0];
+                executablePath = mainExe.path;
+                processName = mainExe.name;
+              }
+            } catch (error) {
+              console.warn(`Could not scan executables for Epic game ${entry.name}:`, error);
+            }
+            
+            // Calculate size
+            let sizeInMB = 0;
+            try {
+              const stats = await fs.stat(gamePath);
+              sizeInMB = Math.round(stats.size / (1024 * 1024));
+            } catch (error) {
+              console.warn(`Could not determine size for Epic game ${entry.name}:`, error);
+            }
+            
+            if (executablePath) {
+              games.push({
+                id: `epic-${entry.name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`,
+                name: entry.name,
+                platform: "Epic",
+                installPath: gamePath,
+                executablePath,
+                process_name: processName,
+                size: sizeInMB,
+                icon_url: undefined,
+                last_played: undefined
+              });
+              
+              console.log(`Found Epic game via directory scan: ${entry.name}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.warn(`Error scanning Epic directory ${dir}:`, error);
+      }
+    }
+  }
+  
+  return games;
 }
 
 export default getEpicGames;

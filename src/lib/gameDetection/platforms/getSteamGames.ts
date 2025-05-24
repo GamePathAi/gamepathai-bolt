@@ -1,15 +1,7 @@
 import * as fs from "fs/promises";
-import * as path from "path";
+import * as path from "path-browserify";
 import * as os from "os";
-import { isLikelyGameExecutable } from "../gameDetectionUtils";
-
-// Se estiver no Windows, usar o Registry
-let Registry: any;
-try {
-  Registry = require("registry-js").Registry;
-} catch {
-  Registry = undefined;
-}
+import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
 
 interface SteamGame {
   id: string;
@@ -28,53 +20,63 @@ interface SteamGame {
  */
 export async function getSteamGames(): Promise<SteamGame[]> {
   try {
+    // Check if we're in Electron environment
+    if (typeof window === 'undefined' || !window.electronAPI) {
+      console.log("Steam detection requires Electron environment");
+      return [];
+    }
+
+    const { fs, registry, Registry } = window.electronAPI;
+    const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
+
     // Encontrar o diretório de instalação do Steam
     let steamPath = "";
     
     // No Windows, tentar pelo registro
-    if (process.platform === "win32" && Registry?.getValue) {
-      steamPath = Registry.getValue(
-        Registry.HKEY.CURRENT_USER,
-        "SOFTWARE\\Valve\\Steam",
-        "SteamPath"
-      );
-      
-      // Se não encontrar pelo CURRENT_USER, tentar LOCAL_MACHINE
-      if (!steamPath) {
-        steamPath = Registry.getValue(
-          Registry.HKEY.LOCAL_MACHINE,
-          "SOFTWARE\\WOW6432Node\\Valve\\Steam",
-          "InstallPath"
+    if (window.electronAPI.system.platform === "win32") {
+      try {
+        steamPath = await registry.getValue(
+          Registry.HKEY.CURRENT_USER,
+          "SOFTWARE\\Valve\\Steam",
+          "SteamPath"
         );
+        
+        // Se não encontrar pelo CURRENT_USER, tentar LOCAL_MACHINE
+        if (!steamPath) {
+          steamPath = await registry.getValue(
+            Registry.HKEY.LOCAL_MACHINE,
+            "SOFTWARE\\WOW6432Node\\Valve\\Steam",
+            "InstallPath"
+          );
+        }
+      } catch (error) {
+        console.error("Error reading Steam path from registry:", error);
       }
     }
     
     // Caminhos padrão para diferentes plataformas
     if (!steamPath) {
-      const defaultPaths = {
+      const defaultPaths: Record<string, string[]> = {
         win32: [
           "C:\\Program Files (x86)\\Steam",
           "C:\\Program Files\\Steam",
         ],
         darwin: [
-          path.join(os.homedir(), "Library/Application Support/Steam"),
+          path.join(homedir, "Library/Application Support/Steam"),
         ],
         linux: [
-          path.join(os.homedir(), ".steam/steam"),
-          path.join(os.homedir(), ".local/share/Steam"),
+          path.join(homedir, ".steam/steam"),
+          path.join(homedir, ".local/share/Steam"),
         ],
       };
       
-      const platformPaths = defaultPaths[process.platform as keyof typeof defaultPaths] || [];
+      const platformPaths = defaultPaths[window.electronAPI.system.platform as keyof typeof defaultPaths] || [];
       
       // Verificar cada caminho padrão
       for (const defaultPath of platformPaths) {
-        try {
-          await fs.access(defaultPath);
+        if (await fs.exists(defaultPath)) {
           steamPath = defaultPath;
           break;
-        } catch {
-          // Caminho não existe, continuar para o próximo
         }
       }
     }
@@ -101,9 +103,10 @@ export async function getSteamGames(): Promise<SteamGame[]> {
       
       for (const libPath of libraryFoldersPaths) {
         try {
-          await fs.access(libPath);
-          libraryFoldersContent = await fs.readFile(libPath, "utf8");
-          break;
+          if (await fs.exists(libPath)) {
+            libraryFoldersContent = await fs.readFile(libPath);
+            break;
+          }
         } catch {
           // Arquivo não existe, continuar para o próximo
         }
@@ -112,16 +115,18 @@ export async function getSteamGames(): Promise<SteamGame[]> {
       if (libraryFoldersContent) {
         // Extrair caminhos das bibliotecas
         const pathRegex = /"path"\s+"([^"]+)"/g;
-        let match;
+        const matches = Array.from(libraryFoldersContent.matchAll(pathRegex));
         
-        while ((match = pathRegex.exec(libraryFoldersContent)) !== null) {
+        for (const match of matches) {
           libraries.push(match[1].replace(/\\\\/g, "\\"));
         }
         
         // Se não encontrar com o regex acima, tentar outro formato
         if (libraries.length === 1) {
           const altRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/g;
-          while ((match = altRegex.exec(libraryFoldersContent)) !== null) {
+          const altMatches = Array.from(libraryFoldersContent.matchAll(altRegex));
+          
+          for (const match of altMatches) {
             libraries.push(match[2].replace(/\\\\/g, "\\"));
           }
         }
@@ -140,86 +145,85 @@ export async function getSteamGames(): Promise<SteamGame[]> {
       
       try {
         // Verificar se o diretório steamapps existe
-        await fs.access(appsDir);
-        
-        // Ler o diretório em busca de arquivos de manifesto
-        const files = await fs.readdir(appsDir);
-        
-        // Filtrar por arquivos de manifesto de jogos
-        const manifestFiles = files.filter(file => file.startsWith("appmanifest_") && file.endsWith(".acf"));
-        
-        for (const manifestFile of manifestFiles) {
-          try {
-            const manifestPath = path.join(appsDir, manifestFile);
-            const manifestContent = await fs.readFile(manifestPath, "utf8");
-            
-            // Extrair informações do manifesto
-            const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
-            const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
-            const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
-            const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
-            const lastPlayedMatch = /"LastPlayed"\s+"(\d+)"/.exec(manifestContent);
-            
-            if (appIdMatch && nameMatch && installDirMatch) {
-              const appId = appIdMatch[1];
-              const name = nameMatch[1];
-              const installDir = installDirMatch[1];
+        if (await fs.exists(appsDir)) {
+          // Ler o diretório em busca de arquivos de manifesto
+          const files = await fs.readDir(appsDir);
+          
+          // Filtrar por arquivos de manifesto de jogos
+          const manifestFiles = files.filter(file => 
+            file.name.startsWith("appmanifest_") && file.name.endsWith(".acf")
+          );
+          
+          for (const manifestFile of manifestFiles) {
+            try {
+              const manifestPath = manifestFile.path;
+              const manifestContent = await fs.readFile(manifestPath);
               
-              // Calcular tamanho em MB
-              const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
-              const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
+              // Extrair informações do manifesto
+              const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
+              const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
+              const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
+              const sizeOnDiskMatch = /"SizeOnDisk"\s+"(\d+)"/.exec(manifestContent);
+              const lastPlayedMatch = /"LastPlayed"\s+"(\d+)"/.exec(manifestContent);
               
-              // Data da última vez jogado
-              const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : undefined;
-              
-              // Caminho de instalação do jogo
-              const installPath = path.join(appsDir, "common", installDir);
-              
-              // Encontrar o executável principal
-              let executablePath = "";
-              let processName = "";
-              
-              try {
-                const gameFiles = await fs.readdir(installPath);
-                const exeFiles = gameFiles.filter(file => file.toLowerCase().endsWith(".exe"));
+              if (appIdMatch && nameMatch && installDirMatch) {
+                const appId = appIdMatch[1];
+                const name = nameMatch[1];
+                const installDir = installDirMatch[1];
                 
-                if (exeFiles.length > 0) {
-                  // Filtrar executáveis que são provavelmente jogos
-                  const gameExes = exeFiles.filter(file => 
-                    isLikelyGameExecutable(path.join(installPath, file))
-                  );
-                  
-                  // Preferir executável com o mesmo nome que o diretório de instalação
-                  const mainExe = gameExes.find(file => 
-                    file.toLowerCase() === `${installDir.toLowerCase()}.exe`
-                  ) || gameExes[0] || exeFiles[0];
-                  
-                  executablePath = path.join(installPath, mainExe);
-                  processName = mainExe;
+                // Calcular tamanho em MB
+                const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
+                const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
+                
+                // Data da última vez jogado
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : undefined;
+                
+                // Caminho de instalação do jogo
+                const installPath = path.join(appsDir, "common", installDir);
+                
+                // Encontrar o executável principal
+                let executablePath = "";
+                let processName = "";
+                
+                if (await fs.exists(installPath)) {
+                  try {
+                    const gameFiles = await fs.readDir(installPath);
+                    const exeFiles = gameFiles.filter(file => file.name.toLowerCase().endsWith(".exe"));
+                    
+                    if (exeFiles.length > 0) {
+                      // Preferir executável com o mesmo nome que o diretório de instalação
+                      const mainExe = exeFiles.find(file => 
+                        file.name.toLowerCase() === `${installDir.toLowerCase()}.exe`
+                      ) || exeFiles[0];
+                      
+                      executablePath = mainExe.path;
+                      processName = mainExe.name;
+                    }
+                  } catch (error) {
+                    console.log(`Could not scan executables for ${name}: ${error}`);
+                  }
                 }
-              } catch (error) {
-                console.log(`Could not scan executables for ${name}: ${error}`);
+                
+                // URL do ícone do Steam para o jogo
+                const iconUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
+                
+                games.push({
+                  id: `steam-${appId}`,
+                  name,
+                  platform: "Steam",
+                  installPath,
+                  executablePath,
+                  process_name: processName,
+                  size: sizeInMB,
+                  icon_url: iconUrl,
+                  last_played: lastPlayed
+                });
+                
+                console.log(`Found Steam game: ${name} (${appId})`);
               }
-              
-              // URL do ícone do Steam para o jogo
-              const iconUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
-              
-              games.push({
-                id: appId,
-                name,
-                platform: "Steam",
-                installPath,
-                executablePath,
-                process_name: processName,
-                size: sizeInMB,
-                icon_url: iconUrl,
-                last_played: lastPlayed
-              });
-              
-              console.log(`Found Steam game: ${name} (${appId})`);
+            } catch (error) {
+              console.error(`Error processing Steam manifest ${manifestFile.name}:`, error);
             }
-          } catch (error) {
-            console.error(`Error processing Steam manifest ${manifestFile}:`, error);
           }
         }
       } catch (error) {
