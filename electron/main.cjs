@@ -71,6 +71,11 @@ function createWindow() {
     backgroundColor: '#0d1117'
   });
 
+  // Log preload path for debugging
+  const preloadPath = path.join(__dirname, 'preload.cjs');
+  console.log('Preload path:', preloadPath);
+  console.log('Preload exists:', fs.existsSync(preloadPath));
+
   // Carregar URL
   const startUrl = process.env.ELECTRON_START_URL || 'http://localhost:5173';
   mainWindow.loadURL(startUrl);
