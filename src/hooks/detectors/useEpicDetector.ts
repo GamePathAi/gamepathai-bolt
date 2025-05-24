@@ -3,6 +3,15 @@ import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameD
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
 import { getEpicGames } from '../../lib/gameDetection/platforms/getEpicGames';
+import { mockGetEpicGames } from '../../lib/gameDetection/platforms/mockPlatforms';
+
+// Function to detect if we're in Electron environment
+const isElectron = () => {
+  return (
+    typeof window !== 'undefined' && 
+    window.electronAPI !== undefined
+  );
+};
 
 export function useEpicDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -35,17 +44,15 @@ export function useEpicDetector() {
         }
       }
 
-      // Web environment - use mock data
-      if (typeof window !== 'undefined' && !window.electronAPI) {
-        console.log('Web environment detected, using mock data for Epic games');
-        // Import dynamically to avoid issues
-        const { mockGetEpicGames } = await import('../../lib/gameDetection/platforms/mockPlatforms');
+      // Check if we're in Electron environment
+      if (!isElectron()) {
+        console.log('Not in Electron environment, using mock data for Epic games');
         const mockGames = await mockGetEpicGames();
         return { platform: Platform.Epic, games: mockGames };
       }
 
       // Electron environment - use real detection
-      console.log('Detecting Epic games using real detection...');
+      console.log('✅ Electron environment detected, using real detection for Epic games');
       const games = await getEpicGames();
       
       // Cache results

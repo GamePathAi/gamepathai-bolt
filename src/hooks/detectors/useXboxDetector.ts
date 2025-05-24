@@ -2,8 +2,16 @@ import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
-import path from 'path-browserify';
 import { getXboxGames } from '../../lib/gameDetection/platforms/getXboxGames';
+import { mockGetXboxGames } from '../../lib/gameDetection/platforms/mockPlatforms';
+
+// Function to detect if we're in Electron environment
+const isElectron = () => {
+  return (
+    typeof window !== 'undefined' && 
+    window.electronAPI !== undefined
+  );
+};
 
 export function useXboxDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -36,17 +44,15 @@ export function useXboxDetector() {
         }
       }
 
-      // Web environment - use mock data
-      if (typeof window !== 'undefined' && !window.electronAPI) {
-        console.log('Web environment detected, using mock data for Xbox games');
-        // Import dynamically to avoid issues
-        const { mockGetXboxGames } = await import('../../lib/gameDetection/platforms/mockPlatforms');
+      // Check if we're in Electron environment
+      if (!isElectron()) {
+        console.log('Not in Electron environment, using mock data for Xbox games');
         const mockGames = await mockGetXboxGames();
         return { platform: Platform.Xbox, games: mockGames };
       }
 
       // Electron environment - use real detection
-      console.log('Detecting Xbox games using real detection...');
+      console.log('✅ Electron environment detected, using real detection for Xbox games');
       const games = await getXboxGames();
       
       // Cache results

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useGameDetectionContext } from './GameDetectionProvider';
-import { Gamepad2, Search, RefreshCw, AlertTriangle, Zap } from 'lucide-react';
+import { Gamepad2, Search, RefreshCw, AlertTriangle, Zap, Bug } from 'lucide-react';
+import { GameDetectionDebug } from './GameDetectionDebug';
 
 interface GameScannerProps {
   onScanComplete?: (games: any[]) => void;
@@ -11,6 +12,20 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
   const { isScanning, error, scanAllGames, platformCounts, lastScanTime } = useGameDetectionContext();
   const [scanCompleted, setScanCompleted] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Debug: Check if we're in Electron
+  const isElectron = typeof window !== 'undefined' && window.electronAPI !== undefined;
+
+  useEffect(() => {
+    // Log Electron detection status
+    console.log('GameScanner: Electron detection status:', isElectron ? 'Detected ✅' : 'Not detected ❌');
+    
+    if (isElectron) {
+      console.log('GameScanner: electronAPI keys:', Object.keys(window.electronAPI || {}));
+      console.log('GameScanner: system info:', window.electronAPI?.system);
+    }
+  }, [isElectron]);
 
   const handleScan = async () => {
     try {
@@ -83,6 +98,14 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
             {totalGames} games found
           </span>
         )}
+        
+        <button
+          onClick={() => setShowDebug(!showDebug)}
+          className="p-1 rounded-md bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+          title="Debug Electron Detection"
+        >
+          <Bug size={14} />
+        </button>
       </div>
     );
   }
@@ -94,6 +117,15 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
           <h2 className="text-lg font-medium text-white flex items-center">
             <Gamepad2 className="mr-2 text-gray-400" size={20} />
             Game Scanner
+            {isElectron ? (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-green-500/20 text-green-400 rounded-full">
+                Electron Detected
+              </span>
+            ) : (
+              <span className="ml-2 px-2 py-0.5 text-xs bg-red-500/20 text-red-400 rounded-full">
+                Web Environment
+              </span>
+            )}
           </h2>
           {lastScanTime && (
             <p className="text-sm text-gray-400">
@@ -102,29 +134,43 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
           )}
         </div>
         
-        <button
-          onClick={handleScan}
-          disabled={isScanning}
-          className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-medium hover:bg-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-        >
-          {isScanning ? (
-            <>
-              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
-              Scanning...
-            </>
-          ) : scanCompleted ? (
-            <>
-              <Zap size={18} className="mr-2" />
-              Scan Complete
-            </>
-          ) : (
-            <>
-              <Search size={18} className="mr-2" />
-              Scan for Games
-            </>
-          )}
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleScan}
+            disabled={isScanning}
+            className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-medium hover:bg-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+          >
+            {isScanning ? (
+              <>
+                <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
+                Scanning...
+              </>
+            ) : scanCompleted ? (
+              <>
+                <Zap size={18} className="mr-2" />
+                Scan Complete
+              </>
+            ) : (
+              <>
+                <Search size={18} className="mr-2" />
+                Scan for Games
+              </>
+            )}
+          </button>
+          
+          <button
+            onClick={() => setShowDebug(!showDebug)}
+            className="px-3 py-2 rounded-lg bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors flex items-center"
+            title="Debug Electron Detection"
+          >
+            <Bug size={16} className="mr-1" />
+            {showDebug ? 'Hide Debug' : 'Debug'}
+          </button>
+        </div>
       </div>
+      
+      {/* Debug Panel */}
+      {showDebug && <GameDetectionDebug />}
       
       {/* Progress Bar */}
       {(isScanning || scanProgress > 0) && (

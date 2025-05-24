@@ -2,6 +2,7 @@ import * as fs from "fs/promises";
 import * as path from "path-browserify";
 import * as os from "os";
 import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
+import { isElectron } from "../isElectron";
 
 interface SteamGame {
   id: string;
@@ -21,7 +22,7 @@ interface SteamGame {
 export async function getSteamGames(): Promise<SteamGame[]> {
   try {
     // Check if we're in Electron environment
-    if (typeof window === 'undefined' || !window.electronAPI) {
+    if (!isElectron()) {
       console.log("Steam detection requires Electron environment");
       return [];
     }
