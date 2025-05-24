@@ -35,17 +35,10 @@ export function useOriginDetector() {
         }
       }
 
-      // Web environment - use mock data
+      // Web environment - return empty array
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        const games = await detectOriginGamesMock();
-        
-        // Cache results
-        if (options.useCache !== false) {
-          await setItem('origin-games', games);
-          await setItem('origin-last-scan', new Date().toISOString());
-        }
-        
-        return { platform: Platform.Origin, games };
+        console.log('Web environment detected, returning empty array for Origin games');
+        return { platform: Platform.Origin, games: [] };
       }
 
       // Electron environment - use real detection
@@ -86,27 +79,49 @@ async function detectOriginGames(): Promise<GameInfo[]> {
   const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
 
   try {
+    // Only supported on Windows
+    if (window.electronAPI.system.platform !== "win32") {
+      console.log("Origin/EA Desktop scanning is only supported on Windows");
+      return [];
+    }
+
     // Find Origin installation path from registry
-    let originPath = await registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      "SOFTWARE\\WOW6432Node\\Origin",
-      "InstallDir"
-    );
+    let originPath = "";
     
-    if (!originPath) {
+    try {
       originPath = await registry.getValue(
         Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\Origin",
+        "SOFTWARE\\WOW6432Node\\Origin",
         "InstallDir"
       );
+    } catch (error) {
+      console.warn("Could not read Origin path from WOW6432Node registry:", error);
+    }
+    
+    if (!originPath) {
+      try {
+        originPath = await registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\Origin",
+          "InstallDir"
+        );
+      } catch (error) {
+        console.warn("Could not read Origin path from registry:", error);
+      }
     }
 
     // Find EA Desktop installation path
-    let eaDesktopPath = await registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      "SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop",
-      "InstallDir"
-    );
+    let eaDesktopPath = "";
+    
+    try {
+      eaDesktopPath = await registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        "SOFTWARE\\WOW6432Node\\Electronic Arts\\EA Desktop",
+        "InstallDir"
+      );
+    } catch (error) {
+      console.warn("Could not read EA Desktop path from registry:", error);
+    }
 
     // Default paths to check if registry fails
     const defaultOriginPaths = [
@@ -150,14 +165,18 @@ async function detectOriginGames(): Promise<GameInfo[]> {
       console.log(`Origin installation found at: ${originPath}`);
       
       // Try to find games path from registry
-      const originGamesPath = await registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\WOW6432Node\\Origin",
-        "GamesPath"
-      );
-      
-      if (originGamesPath) {
-        gamesPaths.push(originGamesPath);
+      try {
+        const originGamesPath = await registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\WOW6432Node\\Origin",
+          "GamesPath"
+        );
+        
+        if (originGamesPath) {
+          gamesPaths.push(originGamesPath);
+        }
+      } catch (error) {
+        console.warn("Could not read Origin games path from registry:", error);
       }
       
       // Default paths for Origin games
@@ -269,49 +288,4 @@ async function detectOriginGames(): Promise<GameInfo[]> {
     console.error("Error scanning Origin games:", error);
     return [];
   }
-}
-
-// Mock implementation for Origin games detection
-async function detectOriginGamesMock(): Promise<GameInfo[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return [
-    {
-      id: 'origin-battlefield-2042',
-      name: 'Battlefield 2042',
-      platform: Platform.Origin,
-      installPath: 'C:\\Program Files (x86)\\Origin Games\\Battlefield 2042',
-      executablePath: 'C:\\Program Files (x86)\\Origin Games\\Battlefield 2042\\BF2042.exe',
-      process_name: 'BF2042.exe',
-      icon_url: 'https://media.contentapi.ea.com/content/dam/battlefield/battlefield-2042/images/2021/04/k-1920x1080-featured-image.jpg.adapt.crop16x9.1023w.jpg',
-      size: 45 * 1024,
-      last_played: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-      optimized: false
-    },
-    {
-      id: 'origin-apex-legends',
-      name: 'Apex Legends',
-      platform: Platform.Origin,
-      installPath: 'C:\\Program Files (x86)\\Origin Games\\Apex',
-      executablePath: 'C:\\Program Files (x86)\\Origin Games\\Apex\\r5apex.exe',
-      process_name: 'r5apex.exe',
-      icon_url: 'https://media.contentapi.ea.com/content/dam/apex-legends/images/2019/01/apex-featured-image-16x9.jpg.adapt.crop16x9.1023w.jpg',
-      size: 80 * 1024,
-      last_played: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-      optimized: true
-    },
-    {
-      id: 'origin-the-sims-4',
-      name: 'The Sims 4',
-      platform: Platform.Origin,
-      installPath: 'C:\\Program Files (x86)\\Origin Games\\The Sims 4',
-      executablePath: 'C:\\Program Files (x86)\\Origin Games\\The Sims 4\\Game\\Bin\\TS4_x64.exe',
-      process_name: 'TS4_x64.exe',
-      icon_url: 'https://media.contentapi.ea.com/content/dam/eacom/SIMS/brand-refresh-assets/images/2019/07/ts4-featured-image-base-refresh.png.adapt.crop16x9.1023w.png',
-      size: 30 * 1024,
-      last_played: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000), // 14 days ago
-      optimized: false
-    }
-  ];
 }

@@ -35,17 +35,10 @@ export function useUplayDetector() {
         }
       }
 
-      // Web environment - use mock data
+      // Web environment - return empty array
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        const games = await detectUplayGamesMock();
-        
-        // Cache results
-        if (options.useCache !== false) {
-          await setItem('uplay-games', games);
-          await setItem('uplay-last-scan', new Date().toISOString());
-        }
-        
-        return { platform: Platform.Ubisoft, games };
+        console.log('Web environment detected, returning empty array for Ubisoft Connect games');
+        return { platform: Platform.Ubisoft, games: [] };
       }
 
       // Electron environment - use real detection
@@ -92,18 +85,28 @@ async function detectUplayGames(): Promise<GameInfo[]> {
     }
 
     // Find Ubisoft Connect installation path from registry
-    let uplayPath = await registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      "SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher",
-      "InstallDir"
-    );
+    let uplayPath = "";
     
-    if (!uplayPath) {
+    try {
       uplayPath = await registry.getValue(
         Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\Ubisoft\\Launcher",
+        "SOFTWARE\\WOW6432Node\\Ubisoft\\Launcher",
         "InstallDir"
       );
+    } catch (error) {
+      console.warn("Could not read Ubisoft path from WOW6432Node registry:", error);
+    }
+    
+    if (!uplayPath) {
+      try {
+        uplayPath = await registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\Ubisoft\\Launcher",
+          "InstallDir"
+        );
+      } catch (error) {
+        console.warn("Could not read Ubisoft path from registry:", error);
+      }
     }
 
     // Default paths to check if registry fails
@@ -247,49 +250,4 @@ async function detectUplayGames(): Promise<GameInfo[]> {
     console.error("Error scanning Ubisoft Connect games:", error);
     return [];
   }
-}
-
-// Mock implementation for Ubisoft Connect games detection
-async function detectUplayGamesMock(): Promise<GameInfo[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return [
-    {
-      id: 'uplay-assassins-creed-valhalla',
-      name: 'Assassin\'s Creed Valhalla',
-      platform: Platform.Ubisoft,
-      installPath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Assassin\'s Creed Valhalla',
-      executablePath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Assassin\'s Creed Valhalla\\ACValhalla.exe',
-      process_name: 'ACValhalla.exe',
-      icon_url: 'https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/449BBgnQKEMXlgaHzO3gZZ/7f8c3bdc5ebc5088e0e3f35c309c5a9c/acv-boxshot.jpg',
-      size: 70 * 1024,
-      last_played: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      optimized: true
-    },
-    {
-      id: 'uplay-rainbow-six-siege',
-      name: 'Tom Clancy\'s Rainbow Six Siege',
-      platform: Platform.Ubisoft,
-      installPath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Rainbow Six Siege',
-      executablePath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Rainbow Six Siege\\RainbowSix.exe',
-      process_name: 'RainbowSix.exe',
-      icon_url: 'https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/7qSZbSIiI3i2xM9vlnHSS0/5713b53a56a3ef7b0aacb03655c3c9c7/r6s-boxshot.jpg',
-      size: 65 * 1024,
-      last_played: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-      optimized: true
-    },
-    {
-      id: 'uplay-far-cry-6',
-      name: 'Far Cry 6',
-      platform: Platform.Ubisoft,
-      installPath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Far Cry 6',
-      executablePath: 'C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games\\Far Cry 6\\bin\\FarCry6.exe',
-      process_name: 'FarCry6.exe',
-      icon_url: 'https://staticctf.ubisoft.com/J3yJr34U2pZ2Ieem48Dwy9uqj5PNUQTn/5KNU8QzLQTJJyCMoLXZzxn/f2e82b8aef63b181c76b31b7e35fa2fd/fc6-boxshot.jpg',
-      size: 85 * 1024,
-      last_played: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
-      optimized: false
-    }
-  ];
 }

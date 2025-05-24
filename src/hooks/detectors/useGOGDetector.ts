@@ -35,17 +35,10 @@ export function useGOGDetector() {
         }
       }
 
-      // Web environment - use mock data
+      // Web environment - return empty array
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        const games = await detectGOGGamesMock();
-        
-        // Cache results
-        if (options.useCache !== false) {
-          await setItem('gog-games', games);
-          await setItem('gog-last-scan', new Date().toISOString());
-        }
-        
-        return { platform: Platform.GOG, games };
+        console.log('Web environment detected, returning empty array for GOG games');
+        return { platform: Platform.GOG, games: [] };
       }
 
       // Electron environment - use real detection
@@ -86,19 +79,35 @@ async function detectGOGGames(): Promise<GameInfo[]> {
   const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
 
   try {
+    // Only supported on Windows
+    if (window.electronAPI.system.platform !== "win32") {
+      console.log("GOG Galaxy scanning is only supported on Windows");
+      return [];
+    }
+
     // Find GOG Galaxy installation path from registry
-    let gogPath = await registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      "SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient",
-      "InstallPath"
-    );
+    let gogPath = "";
     
-    if (!gogPath) {
+    try {
       gogPath = await registry.getValue(
         Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\GOG.com\\GalaxyClient",
+        "SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient",
         "InstallPath"
       );
+    } catch (error) {
+      console.warn("Could not read GOG path from WOW6432Node registry:", error);
+    }
+    
+    if (!gogPath) {
+      try {
+        gogPath = await registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\GOG.com\\GalaxyClient",
+          "InstallPath"
+        );
+      } catch (error) {
+        console.warn("Could not read GOG path from registry:", error);
+      }
     }
 
     // Default paths to check if registry fails
@@ -170,10 +179,10 @@ async function detectGOGGames(): Promise<GameInfo[]> {
               
               // Filter executables that are likely games
               const gameExecutables = executables.filter(exe => 
-                !exe.toLowerCase().includes('unins') &&
-                !exe.toLowerCase().includes('setup') &&
-                !exe.toLowerCase().includes('launcher') &&
-                !exe.toLowerCase().includes('config')
+                !path.basename(exe).toLowerCase().includes('unins') &&
+                !path.basename(exe).toLowerCase().includes('setup') &&
+                !path.basename(exe).toLowerCase().includes('launcher') &&
+                !path.basename(exe).toLowerCase().includes('config')
               );
               
               if (gameExecutables.length > 0) {
@@ -227,49 +236,4 @@ async function detectGOGGames(): Promise<GameInfo[]> {
     console.error("Error scanning GOG games:", error);
     return [];
   }
-}
-
-// Mock implementation for GOG games detection
-async function detectGOGGamesMock(): Promise<GameInfo[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return [
-    {
-      id: 'gog-witcher3',
-      name: 'The Witcher 3: Wild Hunt',
-      platform: Platform.GOG,
-      installPath: 'C:\\GOG Games\\The Witcher 3 Wild Hunt',
-      executablePath: 'C:\\GOG Games\\The Witcher 3 Wild Hunt\\bin\\x64\\witcher3.exe',
-      process_name: 'witcher3.exe',
-      icon_url: 'https://images.gog-statics.com/d7c3b13c2b0b8c83e8962df2d002a0df7c2b9295d482a4d3ffb4c954e2118d87_product_card_v2_mobile_slider_639.jpg',
-      size: 50 * 1024,
-      last_played: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
-      optimized: true
-    },
-    {
-      id: 'gog-cyberpunk2077',
-      name: 'Cyberpunk 2077',
-      platform: Platform.GOG,
-      installPath: 'C:\\GOG Games\\Cyberpunk 2077',
-      executablePath: 'C:\\GOG Games\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe',
-      process_name: 'Cyberpunk2077.exe',
-      icon_url: 'https://images.gog-statics.com/c75e674590b8947542c809924df30bbef2190341163dd08668e243c266be70c5_product_card_v2_mobile_slider_639.jpg',
-      size: 102 * 1024,
-      last_played: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-      optimized: false
-    },
-    {
-      id: 'gog-disco-elysium',
-      name: 'Disco Elysium',
-      platform: Platform.GOG,
-      installPath: 'C:\\GOG Games\\Disco Elysium',
-      executablePath: 'C:\\GOG Games\\Disco Elysium\\disco.exe',
-      process_name: 'disco.exe',
-      icon_url: 'https://images.gog-statics.com/9d4947e0ad5c4c4dce2b0e9edd4747bb88ad30782afdfe3c6e0ea293bfcf403d_product_card_v2_mobile_slider_639.jpg',
-      size: 15 * 1024,
-      last_played: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
-      optimized: false
-    }
-  ];
 }

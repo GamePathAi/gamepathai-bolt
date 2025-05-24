@@ -35,17 +35,10 @@ export function useSteamDetector() {
         }
       }
 
-      // Web environment - use mock data
+      // Web environment - return empty array
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        const games = await detectSteamGamesMock();
-        
-        // Cache results
-        if (options.useCache !== false) {
-          await setItem('steam-games', games);
-          await setItem('steam-last-scan', new Date().toISOString());
-        }
-        
-        return { platform: Platform.Steam, games };
+        console.log('Web environment detected, returning empty array for Steam games');
+        return { platform: Platform.Steam, games: [] };
       }
 
       // Electron environment - use real detection
@@ -90,19 +83,27 @@ async function detectSteamGames(): Promise<GameInfo[]> {
     let steamPath = "";
     
     if (window.electronAPI.system.platform === "win32") {
-      steamPath = await registry.getValue(
-        Registry.HKEY.CURRENT_USER,
-        "SOFTWARE\\Valve\\Steam",
-        "SteamPath"
-      );
+      try {
+        steamPath = await registry.getValue(
+          Registry.HKEY.CURRENT_USER,
+          "SOFTWARE\\Valve\\Steam",
+          "SteamPath"
+        );
+      } catch (error) {
+        console.warn("Could not read Steam path from CURRENT_USER registry:", error);
+      }
       
       // If not found in CURRENT_USER, try LOCAL_MACHINE
       if (!steamPath) {
-        steamPath = await registry.getValue(
-          Registry.HKEY.LOCAL_MACHINE,
-          "SOFTWARE\\WOW6432Node\\Valve\\Steam",
-          "InstallPath"
-        );
+        try {
+          steamPath = await registry.getValue(
+            Registry.HKEY.LOCAL_MACHINE,
+            "SOFTWARE\\WOW6432Node\\Valve\\Steam",
+            "InstallPath"
+          );
+        } catch (error) {
+          console.warn("Could not read Steam path from LOCAL_MACHINE registry:", error);
+        }
       }
     }
 
@@ -122,7 +123,7 @@ async function detectSteamGames(): Promise<GameInfo[]> {
         ],
       };
       
-      const platformPaths = defaultPaths[window.electronAPI.system.platform] || [];
+      const platformPaths = defaultPaths[window.electronAPI.system.platform as keyof typeof defaultPaths] || [];
       
       // Check each default path
       for (const defaultPath of platformPaths) {
@@ -163,18 +164,18 @@ async function detectSteamGames(): Promise<GameInfo[]> {
       if (libraryFoldersContent) {
         // Extract library paths
         const pathRegex = /"path"\s+"([^"]+)"/g;
-        const matches = libraryFoldersContent.matchAll(pathRegex);
+        const matches = Array.from(libraryFoldersContent.matchAll(pathRegex));
         
-        for (const match of Array.from(matches)) {
+        for (const match of matches) {
           libraries.push(match[1].replace(/\\\\/g, "\\"));
         }
         
         // If no matches found, try alternative format
         if (libraries.length === 1) {
           const altRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/g;
-          const altMatches = libraryFoldersContent.matchAll(altRegex);
+          const altMatches = Array.from(libraryFoldersContent.matchAll(altRegex));
           
-          for (const match of Array.from(altMatches)) {
+          for (const match of altMatches) {
             libraries.push(match[2].replace(/\\\\/g, "\\"));
           }
         }
@@ -277,61 +278,4 @@ async function detectSteamGames(): Promise<GameInfo[]> {
     console.error("Error scanning Steam games:", error);
     return [];
   }
-}
-
-// Mock implementation for Steam games detection
-async function detectSteamGamesMock(): Promise<GameInfo[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return [
-    {
-      id: 'steam-730',
-      name: 'Counter-Strike 2',
-      platform: Platform.Steam,
-      installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive',
-      executablePath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Counter-Strike Global Offensive\\cs2.exe',
-      process_name: 'cs2.exe',
-      icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/730/header.jpg',
-      size: 35 * 1024,
-      last_played: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      optimized: false
-    },
-    {
-      id: 'steam-1091500',
-      name: 'Cyberpunk 2077',
-      platform: Platform.Steam,
-      installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077',
-      executablePath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Cyberpunk 2077\\bin\\x64\\Cyberpunk2077.exe',
-      process_name: 'Cyberpunk2077.exe',
-      icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1091500/header.jpg',
-      size: 102 * 1024,
-      last_played: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-      optimized: true
-    },
-    {
-      id: 'steam-1245620',
-      name: 'Elden Ring',
-      platform: Platform.Steam,
-      installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\ELDEN RING',
-      executablePath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\ELDEN RING\\Game\\eldenring.exe',
-      process_name: 'eldenring.exe',
-      icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1245620/header.jpg',
-      size: 60 * 1024,
-      last_played: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-      optimized: false
-    },
-    {
-      id: 'steam-1086940',
-      name: 'Baldur\'s Gate 3',
-      platform: Platform.Steam,
-      installPath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Baldurs Gate 3',
-      executablePath: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Baldurs Gate 3\\bin\\bg3.exe',
-      process_name: 'bg3.exe',
-      icon_url: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1086940/header.jpg',
-      size: 122 * 1024,
-      last_played: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      optimized: true
-    }
-  ];
 }

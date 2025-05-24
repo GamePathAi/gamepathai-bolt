@@ -50,6 +50,7 @@ export default defineConfig({
       'idb-keyval',
       'i18next-browser-languagedetector',
       'i18next-http-backend',
+      'path-browserify',
     ]
   },
   server: {

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
+import path from 'path-browserify';
 
 export function useBattleNetDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -34,17 +35,10 @@ export function useBattleNetDetector() {
         }
       }
 
-      // Web environment - use mock data
+      // Web environment - return empty array
       if (typeof window !== 'undefined' && !window.electronAPI) {
-        const games = await detectBattleNetGamesMock();
-        
-        // Cache results
-        if (options.useCache !== false) {
-          await setItem('battlenet-games', games);
-          await setItem('battlenet-last-scan', new Date().toISOString());
-        }
-        
-        return { platform: Platform.Battle, games };
+        console.log('Web environment detected, returning empty array for Battle.net games');
+        return { platform: Platform.Battle, games: [] };
       }
 
       // Electron environment - use real detection
@@ -84,19 +78,35 @@ async function detectBattleNetGames(): Promise<GameInfo[]> {
   const { fs, registry, Registry } = window.electronAPI;
 
   try {
+    // Only supported on Windows
+    if (window.electronAPI.system.platform !== "win32") {
+      console.log("Battle.net scanning is only supported on Windows");
+      return [];
+    }
+
     // Find Battle.net installation path from registry
-    let battleNetPath = await registry.getValue(
-      Registry.HKEY.LOCAL_MACHINE,
-      "SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Battle.net",
-      "InstallPath"
-    );
+    let battleNetPath = "";
     
-    if (!battleNetPath) {
+    try {
       battleNetPath = await registry.getValue(
         Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\Blizzard Entertainment\\Battle.net",
+        "SOFTWARE\\WOW6432Node\\Blizzard Entertainment\\Battle.net",
         "InstallPath"
       );
+    } catch (error) {
+      console.warn("Could not read Battle.net path from WOW6432Node registry:", error);
+    }
+    
+    if (!battleNetPath) {
+      try {
+        battleNetPath = await registry.getValue(
+          Registry.HKEY.LOCAL_MACHINE,
+          "SOFTWARE\\Blizzard Entertainment\\Battle.net",
+          "InstallPath"
+        );
+      } catch (error) {
+        console.warn("Could not read Battle.net path from registry:", error);
+      }
     }
 
     // Default paths to check if registry fails
@@ -123,7 +133,7 @@ async function detectBattleNetGames(): Promise<GameInfo[]> {
     
     // Possible game locations
     const gamePaths = [
-      `${battleNetPath}\\Games`,
+      path.join(battleNetPath, "Games"),
       "C:\\Program Files (x86)\\Blizzard Entertainment",
       "C:\\Program Files\\Blizzard Entertainment"
     ];
@@ -236,49 +246,4 @@ async function detectBattleNetGames(): Promise<GameInfo[]> {
     console.error("Error scanning Battle.net games:", error);
     return [];
   }
-}
-
-// Mock implementation for Battle.net games detection
-async function detectBattleNetGamesMock(): Promise<GameInfo[]> {
-  // Simulate network delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  return [
-    {
-      id: 'battlenet-overwatch2',
-      name: 'Overwatch 2',
-      platform: Platform.Battle,
-      installPath: 'C:\\Program Files (x86)\\Battle.net\\Games\\Overwatch',
-      executablePath: 'C:\\Program Files (x86)\\Battle.net\\Games\\Overwatch\\Overwatch.exe',
-      process_name: 'Overwatch.exe',
-      icon_url: 'https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/blt0c8f82b1d7a78e4e/622906a991f4232f0085d3cc/Masthead_Overwatch2_Logo.png',
-      size: 50 * 1024,
-      last_played: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-      optimized: true
-    },
-    {
-      id: 'battlenet-wow',
-      name: 'World of Warcraft',
-      platform: Platform.Battle,
-      installPath: 'C:\\Program Files (x86)\\Battle.net\\Games\\World of Warcraft',
-      executablePath: 'C:\\Program Files (x86)\\Battle.net\\Games\\World of Warcraft\\Wow.exe',
-      process_name: 'Wow.exe',
-      icon_url: 'https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/bltd6b49a2d33e715e1/62f5dcd2c1d5855da1673a4e/WoW_Masthead_Logo.png',
-      size: 100 * 1024,
-      last_played: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000), // 7 days ago
-      optimized: false
-    },
-    {
-      id: 'battlenet-diablo4',
-      name: 'Diablo IV',
-      platform: Platform.Battle,
-      installPath: 'C:\\Program Files (x86)\\Battle.net\\Games\\Diablo IV',
-      executablePath: 'C:\\Program Files (x86)\\Battle.net\\Games\\Diablo IV\\Diablo IV.exe',
-      process_name: 'Diablo IV.exe',
-      icon_url: 'https://blz-contentstack-images.akamaized.net/v3/assets/blt9c12f249ac15c7ec/blt7c7f5dec2a3fd536/63c5c7f3a8b0b4111ff3fe7c/Diablo_Masthead_Logo.png',
-      size: 90 * 1024,
-      last_played: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-      optimized: true
-    }
-  ];
 }
