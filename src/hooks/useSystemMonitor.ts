@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { systemInfoService, SystemMetrics } from '../lib/systemMonitoring/systemInfo';
+import { systemMonitoringService } from '../lib/systemMonitoring/systemMonitoringService';
+import { SystemMetrics } from '../lib/systemMonitoring/systemInfo';
 import { PerformanceMetrics } from '../lib/systemMonitoring/performanceMonitor';
 import { HardwareInfo } from '../lib/systemMonitoring/hardwareDetection';
 
@@ -24,8 +25,8 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
         setIsLoading(true);
         setError(null);
         
-        // Get initial hardware info
-        const metrics = await systemInfoService.getSystemMetrics();
+        // Get initial metrics
+        const metrics = await systemMonitoringService.getMetrics();
         setCurrentMetrics(metrics);
         setHardwareInfo(metrics.hardware);
         
@@ -60,14 +61,13 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
       setError(null);
       
       // Subscribe to metrics updates
-      const unsubscribe = systemInfoService.subscribeToMetrics((metrics) => {
-        setCurrentMetrics(prev => {
-          if (!prev) return { hardware: hardwareInfo!, performance: metrics, timestamp: Date.now() };
-          return { ...prev, performance: metrics, timestamp: Date.now() };
-        });
+      const unsubscribe = systemMonitoringService.subscribe((metrics) => {
+        setCurrentMetrics(metrics);
+        setHardwareInfo(metrics.hardware);
         
+        // Update metrics history
         setMetricsHistory(prev => {
-          const newHistory = [...prev, metrics];
+          const newHistory = [...prev, metrics.performance];
           // Limit history size
           const historySize = options.historySize || 60;
           if (newHistory.length > historySize) {
@@ -78,13 +78,17 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
       });
       
       // Start the monitoring service
-      systemInfoService.startMonitoring(options.interval);
+      systemMonitoringService.startMonitoring({
+        interval: options.interval,
+        historySize: options.historySize
+      });
+      
       setIsMonitoring(true);
       
       // Return cleanup function
       return () => {
         unsubscribe();
-        systemInfoService.stopMonitoring();
+        systemMonitoringService.stopMonitoring();
         setIsMonitoring(false);
       };
     } catch (err) {
@@ -93,13 +97,13 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
       console.error('Error starting monitoring:', err);
       return () => {};
     }
-  }, [isMonitoring, hardwareInfo, options.interval, options.historySize]);
+  }, [isMonitoring, options.interval, options.historySize]);
 
   // Stop monitoring
   const stopMonitoring = useCallback(() => {
     if (!isMonitoring) return;
     
-    systemInfoService.stopMonitoring();
+    systemMonitoringService.stopMonitoring();
     setIsMonitoring(false);
   }, [isMonitoring]);
 
@@ -109,7 +113,7 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
       setIsLoading(true);
       setError(null);
       
-      const metrics = await systemInfoService.getSystemMetrics();
+      const metrics = await systemMonitoringService.getMetrics();
       setCurrentMetrics(metrics);
       setHardwareInfo(metrics.hardware);
       
@@ -130,12 +134,30 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
       setIsLoading(true);
       setError(null);
       
-      const diagnostics = await systemInfoService.runDiagnostics();
+      const diagnostics = await systemMonitoringService.runDiagnostics();
       return diagnostics;
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to run diagnostics';
       setError(errorMessage);
       console.error('Error running diagnostics:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Optimize system
+  const optimizeSystem = useCallback(async (profile: string = 'balanced') => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      const result = await systemMonitoringService.optimizeSystem(profile);
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to optimize system';
+      setError(errorMessage);
+      console.error('Error optimizing system:', err);
       throw err;
     } finally {
       setIsLoading(false);
@@ -152,6 +174,7 @@ export function useSystemMonitor(options: SystemMonitorOptions = {}) {
     startMonitoring,
     stopMonitoring,
     refreshHardwareInfo,
-    runDiagnostics
+    runDiagnostics,
+    optimizeSystem
   };
 }

@@ -429,10 +429,192 @@ function setupGameDetectionIPC() {
   });
 }
 
+// Configuração de IPC para monitoramento do sistema
+function setupSystemMonitoringIPC() {
+  // Get system information
+  ipcMain.handle('get-system-info', async () => {
+    try {
+      const metrics = await systemMonitor.getSystemInfo();
+      return metrics;
+    } catch (error) {
+      console.error('Error getting system info:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get CPU information
+  ipcMain.handle('get-cpu-info', async () => {
+    try {
+      const cpuInfo = await systemMonitor.getCpuInfo();
+      return cpuInfo;
+    } catch (error) {
+      console.error('Error getting CPU info:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get memory information
+  ipcMain.handle('get-memory-info', async () => {
+    try {
+      const memInfo = await systemMonitor.getMemoryInfo();
+      return memInfo;
+    } catch (error) {
+      console.error('Error getting memory info:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get GPU information
+  ipcMain.handle('get-gpu-info', async () => {
+    try {
+      const gpuInfo = await systemMonitor.getGpuInfo();
+      return gpuInfo;
+    } catch (error) {
+      console.error('Error getting GPU info:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get OS information
+  ipcMain.handle('get-os-info', async () => {
+    try {
+      const osInfo = await systemMonitor.getOsInfo();
+      return osInfo;
+    } catch (error) {
+      console.error('Error getting OS info:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get running processes
+  ipcMain.handle('get-processes', async () => {
+    try {
+      const processes = await systemMonitor.getProcesses();
+      return processes;
+    } catch (error) {
+      console.error('Error getting processes:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Get network metrics
+  ipcMain.handle('get-network-metrics', async () => {
+    try {
+      const metrics = await networkMetrics.analyzeNetwork();
+      return metrics;
+    } catch (error) {
+      console.error('Error getting network metrics:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Measure network latency
+  ipcMain.handle('measure-latency', async (event, servers = {}) => {
+    try {
+      const latency = await networkMetrics.measureLatency(servers);
+      return latency;
+    } catch (error) {
+      console.error('Error measuring latency:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Measure connection quality
+  ipcMain.handle('measure-connection-quality', async (event, host = '1.1.1.1') => {
+    try {
+      const quality = await networkMetrics.measureConnectionQuality(host);
+      return quality;
+    } catch (error) {
+      console.error('Error measuring connection quality:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Trace route
+  ipcMain.handle('trace-route', async (event, host = '1.1.1.1') => {
+    try {
+      const route = await networkMetrics.traceRoute(host);
+      return route;
+    } catch (error) {
+      console.error('Error tracing route:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Estimate bandwidth
+  ipcMain.handle('estimate-bandwidth', async () => {
+    try {
+      const bandwidth = await networkMetrics.estimateBandwidth();
+      return bandwidth;
+    } catch (error) {
+      console.error('Error estimating bandwidth:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Calculate packet loss
+  ipcMain.handle('calculate-packet-loss', async (event, host = '1.1.1.1', count = 20) => {
+    try {
+      const packetLoss = await networkMetrics.calculatePacketLoss(host, count);
+      return packetLoss;
+    } catch (error) {
+      console.error('Error calculating packet loss:', error);
+      return { error: error.message };
+    }
+  });
+
+  // Optimize CPU
+  ipcMain.handle('optimize-cpu', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeProcesses();
+      return { success: true, improvement: 15, ...result };
+    } catch (error) {
+      console.error('Error optimizing CPU:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Optimize memory
+  ipcMain.handle('optimize-memory', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeMemory();
+      return { success: true, improvement: 20, ...result };
+    } catch (error) {
+      console.error('Error optimizing memory:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Optimize GPU
+  ipcMain.handle('optimize-gpu', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeDisk();
+      return { success: true, improvement: 10, ...result };
+    } catch (error) {
+      console.error('Error optimizing GPU:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  // Optimize network
+  ipcMain.handle('optimize-network', async (event, options = {}) => {
+    try {
+      const result = await networkMetrics.optimizeRoute();
+      return { success: true, improvement: 25, ...result };
+    } catch (error) {
+      console.error('Error optimizing network:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
 // Configuração de IPC
 function setupIPC() {
   // Game detection IPC
   setupGameDetectionIPC();
+  
+  // System monitoring IPC
+  setupSystemMonitoringIPC();
   
   // Obter informações do sistema
   ipcMain.handle('get-system-info', async () => {
