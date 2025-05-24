@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useGameDetectionContext } from './GameDetectionProvider';
-import { Gamepad2, Search, Filter, ChevronDown, Zap, Play } from 'lucide-react';
+import { Gamepad2, Search, Filter, ChevronDown, Zap, Play, AlertTriangle } from 'lucide-react';
 import type { GameInfo } from '../../lib/gameDetection/types';
 
 interface GameListProps {
@@ -19,6 +19,8 @@ export const GameList: React.FC<GameListProps> = ({
   const [platformFilter, setPlatformFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'name' | 'platform' | 'lastPlayed'>('lastPlayed');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [isOptimizing, setIsOptimizing] = useState<Record<string, boolean>>({});
+  const [isLaunching, setIsLaunching] = useState<Record<string, boolean>>({});
 
   // Get unique platforms for the filter
   const platforms = React.useMemo(() => {
@@ -72,17 +74,40 @@ export const GameList: React.FC<GameListProps> = ({
     }
   };
 
-  const handleLaunchGame = (e: React.MouseEvent, game: GameInfo) => {
+  const handleLaunchGame = async (e: React.MouseEvent, game: GameInfo) => {
     e.stopPropagation();
-    if (onGameLaunch) {
+    
+    if (!onGameLaunch) return;
+    
+    setIsLaunching(prev => ({ ...prev, [game.id]: true }));
+    
+    try {
+      // If we're in Electron, try to launch the game using the Electron API
+      if (window.electronAPI && game.executablePath) {
+        await window.electronAPI.game.launch(game.executablePath);
+      }
+      
       onGameLaunch(game);
+    } catch (error) {
+      console.error('Error launching game:', error);
+    } finally {
+      setIsLaunching(prev => ({ ...prev, [game.id]: false }));
     }
   };
 
-  const handleOptimizeGame = (e: React.MouseEvent, game: GameInfo) => {
+  const handleOptimizeGame = async (e: React.MouseEvent, game: GameInfo) => {
     e.stopPropagation();
-    if (onGameOptimize) {
+    
+    if (!onGameOptimize) return;
+    
+    setIsOptimizing(prev => ({ ...prev, [game.id]: true }));
+    
+    try {
       onGameOptimize(game);
+    } catch (error) {
+      console.error('Error optimizing game:', error);
+    } finally {
+      setIsOptimizing(prev => ({ ...prev, [game.id]: false }));
     }
   };
 
@@ -255,20 +280,40 @@ export const GameList: React.FC<GameListProps> = ({
                   {!game.optimized && onGameOptimize && (
                     <button
                       onClick={(e) => handleOptimizeGame(e, game)}
-                      className="flex-1 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors flex items-center justify-center"
+                      disabled={isOptimizing[game.id]}
+                      className="flex-1 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed"
                     >
-                      <Zap size={14} className="mr-1" />
-                      Optimize
+                      {isOptimizing[game.id] ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin mr-1"></div>
+                          Optimizing...
+                        </>
+                      ) : (
+                        <>
+                          <Zap size={14} className="mr-1" />
+                          Optimize
+                        </>
+                      )}
                     </button>
                   )}
                   
                   {onGameLaunch && (
                     <button
                       onClick={(e) => handleLaunchGame(e, game)}
-                      className={`${game.optimized || !onGameOptimize ? 'w-full' : 'flex-1'} py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150 flex items-center justify-center`}
+                      disabled={isLaunching[game.id]}
+                      className={`${game.optimized || !onGameOptimize ? 'w-full' : 'flex-1'} py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed`}
                     >
-                      <Play size={14} className="mr-1" />
-                      Launch
+                      {isLaunching[game.id] ? (
+                        <>
+                          <div className="w-3 h-3 border-2 border-black border-t-transparent rounded-full animate-spin mr-1"></div>
+                          Launching...
+                        </>
+                      ) : (
+                        <>
+                          <Play size={14} className="mr-1" />
+                          Launch
+                        </>
+                      )}
                     </button>
                   )}
                 </div>

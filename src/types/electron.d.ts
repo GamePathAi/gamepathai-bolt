@@ -1,69 +1,65 @@
 interface ElectronAPI {
-  // Game functions
-  games?: {
-    scan?: () => Promise<{
-      success: boolean;
-      data: any[];
-      errors?: string[];
+  // File System API
+  fs: {
+    exists: (path: string) => Promise<boolean>;
+    readDir: (path: string) => Promise<{
+      name: string;
+      isDirectory: boolean;
+      isFile: boolean;
+      path: string;
+    }[]>;
+    readFile: (path: string, encoding?: string) => Promise<string>;
+    stat: (path: string) => Promise<{
+      size: number;
+      isDirectory: boolean;
+      isFile: boolean;
+      created: Date;
+      modified: Date;
+      accessed: Date;
+    } | null>;
+    getSystemPaths: () => Promise<{
+      home: string;
+      appData: string;
+      userData: string;
+      temp: string;
+      desktop: string;
+      documents: string;
+      downloads: string;
+      music: string;
+      pictures: string;
+      videos: string;
+      logs: string;
+      crashDumps: string;
     }>;
-    scanXbox?: () => Promise<{
-      success: boolean;
-      data: any[];
-      errors?: string[];
-    }>;
-    validate?: (gameId: string) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    clearCache?: () => Promise<{
+    getEnvVars: () => Promise<Record<string, string>>;
+  };
+
+  // Registry API
+  registry: {
+    getValue: (hive: number, key: string, valueName: string) => Promise<any>;
+    enumerateValues: (hive: number, key: string) => Promise<any[]>;
+    enumerateKeys: (hive: number, key: string) => Promise<string[]>;
+  };
+
+  // Registry constants
+  Registry: {
+    HKEY: {
+      CLASSES_ROOT: number;
+      CURRENT_USER: number;
+      LOCAL_MACHINE: number;
+      USERS: number;
+      CURRENT_CONFIG: number;
+    };
+  };
+
+  // Game API
+  game: {
+    launch: (executablePath: string, args?: string[]) => Promise<{
       success: boolean;
       error?: string;
     }>;
   };
-  
-  // Launcher functions
-  launcher?: {
-    launch?: (game: any, profile?: string) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    launchStandard?: (game: any, profile?: string) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    quickLaunch?: (gameId: string) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    getRunning?: () => Promise<{
-      success: boolean;
-      data: any[];
-      error?: string;
-    }>;
-  };
-  
-  // Optimization functions
-  optimization?: {
-    optimizeForGame?: (game: any, profile?: string) => Promise<{
-      success: boolean;
-      improvements?: {
-        fps: number;
-        latency: number;
-        stability: number;
-      };
-      error?: string;
-    }>;
-    optimizeSystem?: (profile?: string) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    getProfiles?: () => Promise<{
-      success: boolean;
-      data: any[];
-      error?: string;
-    }>;
-  };
-  
+
   // Monitoring functions
   monitoring?: {
     getSystemMetrics?: () => Promise<{
@@ -77,33 +73,7 @@ interface ElectronAPI {
       error?: string;
     }>;
   };
-  
-  // Profile functions
-  profiles?: {
-    get?: (gameId: string) => Promise<{
-      success: boolean;
-      data: any;
-      error?: string;
-    }>;
-    save?: (gameId: string, profile: any) => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-  };
-  
-  // Backup functions
-  backup?: {
-    create?: () => Promise<{
-      success: boolean;
-      error?: string;
-    }>;
-    list?: () => Promise<{
-      success: boolean;
-      data: any[];
-      error?: string;
-    }>;
-  };
-  
+
   // Event system
   events?: {
     on?: (event: string, callback: (data: any) => void) => void;
@@ -112,7 +82,7 @@ interface ElectronAPI {
     emit?: (event: string, data: any) => void;
     removeAll?: (event?: string) => void;
   };
-  
+
   // Tray functions
   tray?: {
     updateGames?: (games: any[]) => {
@@ -120,7 +90,7 @@ interface ElectronAPI {
       error?: string;
     };
   };
-  
+
   // Utility functions
   utils?: {
     validateGame?: (gameData: any) => any;
@@ -138,7 +108,7 @@ interface ElectronAPI {
       debug: (message: string, data?: any) => void;
     };
   };
-  
+
   // System information
   system?: {
     version: string;

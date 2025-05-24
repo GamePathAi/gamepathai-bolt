@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
+import path from 'path-browserify';
 
 export function useGOGDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -47,9 +48,8 @@ export function useGOGDetector() {
         return { platform: Platform.GOG, games };
       }
 
-      // In a real implementation, we would parse GOG Galaxy installation directories
-      // For this example, we'll use mock data
-      const games = await detectGOGGamesMock();
+      // Electron environment - use real detection
+      const games = await detectGOGGames();
       
       // Cache results
       if (options.useCache !== false) {
@@ -73,6 +73,160 @@ export function useGOGDetector() {
     isDetecting,
     error
   };
+}
+
+// Real implementation for GOG games detection
+async function detectGOGGames(): Promise<GameInfo[]> {
+  if (!window.electronAPI) {
+    throw new Error('Electron API not available');
+  }
+
+  const games: GameInfo[] = [];
+  const { fs, registry, Registry } = window.electronAPI;
+  const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
+
+  try {
+    // Find GOG Galaxy installation path from registry
+    let gogPath = await registry.getValue(
+      Registry.HKEY.LOCAL_MACHINE,
+      "SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient",
+      "InstallPath"
+    );
+    
+    if (!gogPath) {
+      gogPath = await registry.getValue(
+        Registry.HKEY.LOCAL_MACHINE,
+        "SOFTWARE\\GOG.com\\GalaxyClient",
+        "InstallPath"
+      );
+    }
+
+    // Default paths to check if registry fails
+    const defaultPaths = [
+      "C:\\Program Files (x86)\\GOG Galaxy",
+      "C:\\Program Files\\GOG Galaxy"
+    ];
+    
+    if (!gogPath) {
+      for (const defaultPath of defaultPaths) {
+        if (await fs.exists(defaultPath)) {
+          gogPath = defaultPath;
+          break;
+        }
+      }
+    }
+
+    if (!gogPath) {
+      console.log("GOG Galaxy installation not found");
+      return [];
+    }
+
+    console.log(`GOG Galaxy installation found at: ${gogPath}`);
+    
+    // Possible game locations
+    const gamePaths = [
+      path.join(gogPath, "Games"),
+      "C:\\GOG Games",
+      "D:\\GOG Games",
+      path.join(homedir, "GOG Games")
+    ];
+
+    // Scan each possible path
+    for (const gamePath of gamePaths) {
+      if (await fs.exists(gamePath)) {
+        console.log(`Scanning GOG games in: ${gamePath}`);
+        
+        const entries = await fs.readDir(gamePath);
+        
+        for (const entry of entries) {
+          if (entry.isDirectory) {
+            const gameDir = entry.path;
+            
+            // Look for executable
+            let executablePath = "";
+            let processName = "";
+            
+            try {
+              // Find executables recursively (limited depth)
+              const findExecutables = async (dir: string, depth = 0): Promise<string[]> => {
+                if (depth > 2) return []; // Limit search depth
+                
+                const files = await fs.readDir(dir);
+                let executables: string[] = [];
+                
+                for (const file of files) {
+                  if (file.isDirectory && depth < 2) {
+                    const subDirExecutables = await findExecutables(file.path, depth + 1);
+                    executables = executables.concat(subDirExecutables);
+                  } else if (file.name.endsWith('.exe')) {
+                    executables.push(file.path);
+                  }
+                }
+                
+                return executables;
+              };
+              
+              const executables = await findExecutables(gameDir);
+              
+              // Filter executables that are likely games
+              const gameExecutables = executables.filter(exe => 
+                !exe.toLowerCase().includes('unins') &&
+                !exe.toLowerCase().includes('setup') &&
+                !exe.toLowerCase().includes('launcher') &&
+                !exe.toLowerCase().includes('config')
+              );
+              
+              if (gameExecutables.length > 0) {
+                // Prefer executable with the same name as the directory
+                const dirName = entry.name.toLowerCase();
+                const mainExe = gameExecutables.find(exe => 
+                  path.basename(exe).toLowerCase().includes(dirName)
+                ) || gameExecutables[0];
+                
+                executablePath = mainExe;
+                processName = path.basename(mainExe);
+              }
+            } catch (error) {
+              console.warn(`Could not scan executables for GOG game ${entry.name}:`, error);
+            }
+            
+            // Calculate size
+            let sizeInMB = 0;
+            try {
+              const stats = await fs.stat(gameDir);
+              sizeInMB = Math.round(stats.size / (1024 * 1024));
+            } catch (error) {
+              console.warn(`Could not determine size for GOG game ${entry.name}:`, error);
+            }
+            
+            if (executablePath) {
+              // Format game name
+              const gameName = entry.name
+                .replace(/^GOG\s+/, '') // Remove "GOG " prefix
+                .replace(/\s*\(.*?\)$/, ''); // Remove suffix in parentheses
+              
+              games.push({
+                id: `gog-${Buffer.from(gameDir).toString('base64')}`,
+                name: gameName,
+                platform: Platform.GOG,
+                installPath: gameDir,
+                executablePath,
+                process_name: processName,
+                size: sizeInMB
+              });
+              
+              console.log(`Found GOG game: ${gameName}`);
+            }
+          }
+        }
+      }
+    }
+
+    return games;
+  } catch (error) {
+    console.error("Error scanning GOG games:", error);
+    return [];
+  }
 }
 
 // Mock implementation for GOG games detection

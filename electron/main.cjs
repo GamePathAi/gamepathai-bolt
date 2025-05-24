@@ -2,6 +2,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { Registry } = require('registry-js');
 const fpsOptimizer = require('./fps-optimizer.cjs');
 const systemMonitor = require('./system-monitor.cjs');
 const networkMetrics = require('./network-metrics.cjs');
@@ -19,6 +20,7 @@ const store = new Store({
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+let gameCache = {};
 let lastScanTime = 0;
 const SCAN_COOLDOWN = 60000; // 1 minuto entre scans completos
 
@@ -37,6 +39,19 @@ function ensureDirectoriesExist() {
 // Inicialização
 async function initialize() {
   ensureDirectoriesExist();
+  
+  // Carregar cache de jogos
+  try {
+    const cachePath = path.join(CACHE_DIR, 'games-cache.json');
+    if (fs.existsSync(cachePath)) {
+      const cacheData = fs.readFileSync(cachePath, 'utf8');
+      gameCache = JSON.parse(cacheData);
+      console.log(`Loaded ${Object.keys(gameCache).length} games from cache`);
+    }
+  } catch (error) {
+    console.error('Error loading game cache:', error);
+    gameCache = {};
+  }
 }
 
 // Criação da janela principal
@@ -195,8 +210,161 @@ function updateTrayMenu(games = []) {
   tray.setContextMenu(contextMenu);
 }
 
+// Configuração de IPC para detecção de jogos
+function setupGameDetectionIPC() {
+  // File system operations
+  ipcMain.handle('fs-exists', async (event, filePath) => {
+    try {
+      await fs.promises.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  });
+
+  ipcMain.handle('fs-read-dir', async (event, dirPath) => {
+    try {
+      const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+      return entries.map(entry => ({
+        name: entry.name,
+        isDirectory: entry.isDirectory(),
+        isFile: entry.isFile(),
+        path: path.join(dirPath, entry.name)
+      }));
+    } catch (error) {
+      console.error(`Error reading directory ${dirPath}:`, error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('fs-read-file', async (event, filePath, encoding = 'utf8') => {
+    try {
+      const content = await fs.promises.readFile(filePath, encoding);
+      return content;
+    } catch (error) {
+      console.error(`Error reading file ${filePath}:`, error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('fs-stat', async (event, filePath) => {
+    try {
+      const stats = await fs.promises.stat(filePath);
+      return {
+        size: stats.size,
+        isDirectory: stats.isDirectory(),
+        isFile: stats.isFile(),
+        created: stats.birthtime,
+        modified: stats.mtime,
+        accessed: stats.atime
+      };
+    } catch (error) {
+      console.error(`Error getting stats for ${filePath}:`, error);
+      return null;
+    }
+  });
+
+  // Registry operations
+  ipcMain.handle('registry-get-value', (event, hive, key, valueName) => {
+    try {
+      return Registry.getValue(hive, key, valueName);
+    } catch (error) {
+      console.error(`Error getting registry value ${hive}\\${key}\\${valueName}:`, error);
+      return null;
+    }
+  });
+
+  ipcMain.handle('registry-enumerate-values', (event, hive, key) => {
+    try {
+      return Registry.enumerateValues(hive, key);
+    } catch (error) {
+      console.error(`Error enumerating registry values ${hive}\\${key}:`, error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('registry-enumerate-keys', (event, hive, key) => {
+    try {
+      return Registry.enumerateKeys(hive, key);
+    } catch (error) {
+      console.error(`Error enumerating registry keys ${hive}\\${key}:`, error);
+      return [];
+    }
+  });
+
+  // System paths
+  ipcMain.handle('get-system-paths', () => {
+    return {
+      home: app.getPath('home'),
+      appData: app.getPath('appData'),
+      userData: app.getPath('userData'),
+      temp: app.getPath('temp'),
+      desktop: app.getPath('desktop'),
+      documents: app.getPath('documents'),
+      downloads: app.getPath('downloads'),
+      music: app.getPath('music'),
+      pictures: app.getPath('pictures'),
+      videos: app.getPath('videos'),
+      logs: app.getPath('logs'),
+      crashDumps: app.getPath('crashDumps')
+    };
+  });
+
+  // Environment variables
+  ipcMain.handle('get-env-vars', () => {
+    return {
+      PATH: process.env.PATH,
+      APPDATA: process.env.APPDATA,
+      LOCALAPPDATA: process.env.LOCALAPPDATA,
+      PROGRAMFILES: process.env.PROGRAMFILES,
+      'PROGRAMFILES(X86)': process.env['PROGRAMFILES(X86)'],
+      USERPROFILE: process.env.USERPROFILE,
+      HOMEPATH: process.env.HOMEPATH,
+      HOMEDRIVE: process.env.HOMEDRIVE,
+      SYSTEMDRIVE: process.env.SYSTEMDRIVE,
+      SYSTEMROOT: process.env.SYSTEMROOT,
+      WINDIR: process.env.WINDIR,
+      TEMP: process.env.TEMP,
+      TMP: process.env.TMP
+    };
+  });
+
+  // Game operations
+  ipcMain.handle('launch-game', async (event, executablePath, args = []) => {
+    try {
+      if (!executablePath) {
+        throw new Error('No executable path provided');
+      }
+
+      // Check if the executable exists
+      try {
+        await fs.promises.access(executablePath);
+      } catch {
+        throw new Error(`Executable not found: ${executablePath}`);
+      }
+
+      // Launch the game
+      const { spawn } = require('child_process');
+      const process = spawn(executablePath, args, {
+        detached: true,
+        stdio: 'ignore'
+      });
+
+      process.unref();
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error launching game:', error);
+      return { success: false, error: error.message };
+    }
+  });
+}
+
 // Configuração de IPC
 function setupIPC() {
+  // Game detection IPC
+  setupGameDetectionIPC();
+  
   // Obter informações do sistema
   ipcMain.handle('get-system-info', async () => {
     try {
