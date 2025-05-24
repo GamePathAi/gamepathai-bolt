@@ -6,32 +6,33 @@ export enum Platform {
   Battle = 'Battle.net',
   Ubisoft = 'Ubisoft Connect',
   GOG = 'GOG',
+  Xbox = 'Xbox',
   Other = 'Other'
 }
 
 export interface GameInfo {
-  id?: string;
+  id: string;
   name: string;
   platform: string;
-  process_name: string;
-  install_path: string;
+  installPath?: string;
+  executablePath?: string;
+  process_name?: string;
   icon_url?: string;
   last_played?: Date;
   size?: number;
   optimized?: boolean;
   status?: string;
   version?: string;
-  executablePath?: string;
 }
 
-export interface GameSignature {
-  platform: Platform;
-  files: string[];
-  processName: string;
+export interface DetectionResult {
+  platform: string;
+  games: GameInfo[];
+  error?: string;
 }
 
-export interface SearchPaths {
-  windows: string[];
-  linux: string[];
-  mac: string[];
+export interface DetectorOptions {
+  useCache?: boolean;
+  forceRefresh?: boolean;
+  timeout?: number;
 }

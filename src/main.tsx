@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { AuthProvider } from './lib/auth/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { LanguageProvider } from './providers/LanguageProvider';
+import { GameDetectionProvider } from './components/GameDetection/GameDetectionProvider';
 import './i18n';
 import App from './App';
 import './index.css';
@@ -20,7 +21,9 @@ if (rootElement) {
         <ErrorBoundary>
           <LanguageProvider>
             <AuthProvider>
-              <App />
+              <GameDetectionProvider>
+                <App />
+              </GameDetectionProvider>
             </AuthProvider>
           </LanguageProvider>
         </ErrorBoundary>
@@ -44,7 +47,9 @@ if (rootElement) {
         <ErrorBoundary>
           <LanguageProvider>
             <AuthProvider>
-              <App />
+              <GameDetectionProvider>
+                <App />
+              </GameDetectionProvider>
             </AuthProvider>
           </LanguageProvider>
         </ErrorBoundary>
