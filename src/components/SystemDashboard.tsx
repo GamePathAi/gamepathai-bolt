@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSystemMonitor } from '../hooks/useSystemMonitor';
-import { Cpu, Memory, Fan, Thermometer, Activity, Server, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Cpu, MemoryStick as Memory, Fan, Thermometer, Activity, Server, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface SystemDashboardProps {
   refreshRate?: number;
