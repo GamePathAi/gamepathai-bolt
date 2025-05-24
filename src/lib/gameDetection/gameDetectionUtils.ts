@@ -295,3 +295,11 @@ export function prioritizeGames(games: GameInfo[]): GameInfo[] {
     return a.name.localeCompare(b.name);
   });
 }
+
+// Utility function to check if a file exists
+export async function fileExists(filePath: string): Promise<boolean> {
+  if (typeof window !== 'undefined' && window.electronAPI?.fs) {
+    return window.electronAPI.fs.exists(filePath);
+  }
+  return false;
+}
