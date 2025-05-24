@@ -2,6 +2,8 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+// Use require for native modules instead of import
+const { Registry } = require('registry-js');
 const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
 const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
 const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
