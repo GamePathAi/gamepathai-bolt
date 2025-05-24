@@ -53,7 +53,8 @@ export default defineConfig({
       'zod',
       'idb-keyval',
       'i18next-browser-languagedetector',
-      'i18next-http-backend'
+      'i18next-http-backend',
+      'registry-js'
     ]
   },
   server: {
