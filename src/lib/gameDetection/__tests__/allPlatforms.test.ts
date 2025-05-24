@@ -1,16 +1,25 @@
-// src/__tests__/allPlatforms.test.ts
-import { describe, test, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as fs from "fs/promises";
 import * as path from "path";
 
 // Mock do módulo fs
-jest.mock('fs/promises');
-const mockFs = fs as jest.Mocked<typeof fs>;
+vi.mock('fs/promises');
+const mockFs = fs as unknown as {
+  access: vi.Mock;
+  readdir: vi.Mock;
+  stat: vi.Mock;
+  readFile: vi.Mock;
+};
+
+mockFs.access = vi.fn();
+mockFs.readdir = vi.fn();
+mockFs.stat = vi.fn();
+mockFs.readFile = vi.fn();
 
 // Mock do Registry
 const mockRegistry = {
-  getValue: jest.fn(),
-  enumerateValues: jest.fn(),
+  getValue: vi.fn(),
+  enumerateValues: vi.fn(),
   HKEY: {
     LOCAL_MACHINE: 0,
     CURRENT_USER: 1
@@ -332,7 +341,7 @@ describe('Platform Game Detection - Complete Test Suite', () => {
   let manager: GameDetectionManager;
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     manager = new GameDetectionManager();
   });
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock window.electronAPI
 const mockElectronAPI = {
@@ -7,11 +7,11 @@ const mockElectronAPI = {
     version: '3.0.0',
   },
   fs: {
-    exists: jest.fn().mockResolvedValue(true),
-    readDir: jest.fn().mockResolvedValue([]),
+    exists: vi.fn().mockResolvedValue(true),
+    readDir: vi.fn().mockResolvedValue([]),
   },
   registry: {
-    getValue: jest.fn(),
+    getValue: vi.fn(),
   },
   Registry: {
     HKEY: {
@@ -24,7 +24,7 @@ const mockElectronAPI = {
 describe('Environment Detection', () => {
   beforeEach(() => {
     // Reset mocks
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Set up window.electronAPI
     Object.defineProperty(window, 'electronAPI', {
@@ -57,7 +57,7 @@ describe('Environment Detection', () => {
     });
     
     // Import the mock functions
-    const { mockGetSteamGames } = require('../../../src/lib/gameDetection/platforms/mockPlatforms');
+    const { mockGetSteamGames } = await import('../../../src/lib/gameDetection/platforms/mockPlatforms');
     
     // Verify mock data is returned
     const games = await mockGetSteamGames();
@@ -79,7 +79,7 @@ describe('Environment Detection', () => {
     `);
     
     // Import the real detection function
-    const { getSteamGames } = require('../../../src/lib/gameDetection/platforms/getSteamGames');
+    const { getSteamGames } = await import('../../../src/lib/gameDetection/platforms/getSteamGames');
     
     // This should now use the real detection since we're in "Electron"
     const games = await getSteamGames();

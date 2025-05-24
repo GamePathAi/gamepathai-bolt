@@ -1,28 +1,29 @@
 // tests/setup.ts
 import '@testing-library/jest-dom';
+import { vi } from 'vitest';
 
 // Mock Electron API
 Object.defineProperty(window, 'electronAPI', {
   value: {
     fs: {
-      exists: jest.fn().mockResolvedValue(true),
-      readDir: jest.fn().mockResolvedValue([]),
-      readFile: jest.fn().mockResolvedValue(''),
-      stat: jest.fn().mockResolvedValue({}),
-      getSystemPaths: jest.fn().mockResolvedValue({
+      exists: vi.fn().mockResolvedValue(true),
+      readDir: vi.fn().mockResolvedValue([]),
+      readFile: vi.fn().mockResolvedValue(''),
+      stat: vi.fn().mockResolvedValue({}),
+      getSystemPaths: vi.fn().mockResolvedValue({
         home: '/home/user',
         appData: '/home/user/AppData',
         userData: '/home/user/AppData/Roaming',
       }),
-      getEnvVars: jest.fn().mockResolvedValue({
+      getEnvVars: vi.fn().mockResolvedValue({
         LOCALAPPDATA: '/home/user/AppData/Local',
         USERPROFILE: '/home/user',
       }),
     },
     registry: {
-      getValue: jest.fn().mockResolvedValue(null),
-      enumerateValues: jest.fn().mockResolvedValue([]),
-      enumerateKeys: jest.fn().mockResolvedValue([]),
+      getValue: vi.fn().mockResolvedValue(null),
+      enumerateValues: vi.fn().mockResolvedValue([]),
+      enumerateKeys: vi.fn().mockResolvedValue([]),
     },
     Registry: {
       HKEY: {
@@ -34,36 +35,36 @@ Object.defineProperty(window, 'electronAPI', {
       },
     },
     game: {
-      launch: jest.fn().mockResolvedValue({ success: true }),
+      launch: vi.fn().mockResolvedValue({ success: true }),
     },
     monitoring: {
-      getSystemMetrics: jest.fn().mockResolvedValue({ success: true, data: {} }),
-      runDiagnostics: jest.fn().mockResolvedValue({ success: true, data: {} }),
+      getSystemMetrics: vi.fn().mockResolvedValue({ success: true, data: {} }),
+      runDiagnostics: vi.fn().mockResolvedValue({ success: true, data: {} }),
     },
     events: {
-      on: jest.fn(),
-      once: jest.fn(),
-      off: jest.fn(),
-      emit: jest.fn(),
-      removeAll: jest.fn(),
+      on: vi.fn(),
+      once: vi.fn(),
+      off: vi.fn(),
+      emit: vi.fn(),
+      removeAll: vi.fn(),
     },
     tray: {
-      updateGames: jest.fn().mockReturnValue({ success: true }),
+      updateGames: vi.fn().mockReturnValue({ success: true }),
     },
     utils: {
-      validateGame: jest.fn(),
-      validateGameId: jest.fn(),
-      sanitizeResult: jest.fn(),
-      throttle: jest.fn(),
-      debounce: jest.fn(),
-      formatBytes: jest.fn(),
-      formatDuration: jest.fn(),
+      validateGame: vi.fn(),
+      validateGameId: vi.fn(),
+      sanitizeResult: vi.fn(),
+      throttle: vi.fn(),
+      debounce: vi.fn(),
+      formatBytes: vi.fn(),
+      formatDuration: vi.fn(),
       log: {
-        info: jest.fn(),
-        success: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
+        info: vi.fn(),
+        success: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+        debug: vi.fn(),
       },
     },
     system: {
@@ -74,7 +75,7 @@ Object.defineProperty(window, 'electronAPI', {
         node: '18.16.0',
         chrome: '123.0.0',
       },
-      getStatus: jest.fn().mockResolvedValue({}),
+      getStatus: vi.fn().mockResolvedValue({}),
     },
   },
   writable: true,

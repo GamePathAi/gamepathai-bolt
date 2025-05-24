@@ -1,21 +1,21 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useSteamDetector } from '../../../src/hooks/detectors/useSteamDetector';
 import { renderHook, act } from '@testing-library/react';
 
 // Mock the localStorage hook
-jest.mock('../../../src/hooks/useLocalStorage', () => ({
+vi.mock('../../../src/hooks/useLocalStorage', () => ({
   useLocalStorage: () => ({
-    getItem: jest.fn().mockResolvedValue(null),
-    setItem: jest.fn().mockResolvedValue(true),
-    removeItem: jest.fn().mockResolvedValue(true),
+    getItem: vi.fn().mockResolvedValue(null),
+    setItem: vi.fn().mockResolvedValue(true),
+    removeItem: vi.fn().mockResolvedValue(true),
     error: null,
   }),
 }));
 
 // Mock the getSteamGames function
-jest.mock('../../../src/lib/gameDetection/platforms/getSteamGames', () => ({
+vi.mock('../../../src/lib/gameDetection/platforms/getSteamGames', () => ({
   __esModule: true,
-  default: jest.fn().mockResolvedValue([
+  default: vi.fn().mockResolvedValue([
     {
       id: 'steam-1174180',
       name: 'Red Dead Redemption 2',
@@ -32,7 +32,7 @@ jest.mock('../../../src/lib/gameDetection/platforms/getSteamGames', () => ({
 
 describe('Steam Detector', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Set up window.electronAPI
     Object.defineProperty(window, 'electronAPI', {
@@ -42,11 +42,11 @@ describe('Steam Detector', () => {
           version: '3.0.0',
         },
         fs: {
-          exists: jest.fn().mockResolvedValue(true),
-          readDir: jest.fn().mockResolvedValue([]),
+          exists: vi.fn().mockResolvedValue(true),
+          readDir: vi.fn().mockResolvedValue([]),
         },
         registry: {
-          getValue: jest.fn(),
+          getValue: vi.fn(),
         },
         Registry: {
           HKEY: {
@@ -76,16 +76,16 @@ describe('Steam Detector', () => {
 
   it('should use cache when available', async () => {
     // Override the mock to return cached data
-    require('../../../src/hooks/useLocalStorage').useLocalStorage = () => ({
-      getItem: jest.fn().mockResolvedValue([
+    vi.mocked(require('../../../src/hooks/useLocalStorage').useLocalStorage).mockReturnValue({
+      getItem: vi.fn().mockResolvedValue([
         {
           id: 'steam-cached',
           name: 'Cached Game',
           platform: 'Steam',
         }
       ]),
-      setItem: jest.fn().mockResolvedValue(true),
-      removeItem: jest.fn().mockResolvedValue(true),
+      setItem: vi.fn().mockResolvedValue(true),
+      removeItem: vi.fn().mockResolvedValue(true),
       error: null,
     });
     
@@ -102,7 +102,7 @@ describe('Steam Detector', () => {
 
   it('should handle errors gracefully', async () => {
     // Override the getSteamGames mock to throw an error
-    require('../../../src/lib/gameDetection/platforms/getSteamGames').default.mockRejectedValueOnce(
+    vi.mocked(require('../../../src/lib/gameDetection/platforms/getSteamGames').default).mockRejectedValueOnce(
       new Error('Test error')
     );
     
