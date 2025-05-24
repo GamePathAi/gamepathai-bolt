@@ -34,7 +34,7 @@
         "electron:build:portable": "rimraf temp-dist && vite build && electron-builder --win portable --config.directories.output=temp-dist --publish=never",
         "electron:debug": "rimraf temp-dist && vite build && electron-builder --win dir --config.directories.output=temp-dist",
         "deploy": "vite build && netlify deploy --prod",
-        "postinstall": "electron-builder install-app-deps"
+        "postinstall": "electron-builder install-app-deps || true"
     },
     "build": {
         "appId": "ai.gamepath.app",
