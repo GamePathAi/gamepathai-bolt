@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { X } from 'lucide-react';
-import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart } from 'lucide-react';
+import { LayoutDashboard, Network, Zap, TowerControl as GameController, Shield, Settings, ChevronRight, BarChart, Activity } from 'lucide-react';
 import { Logo } from './Logo';
 
 interface SidebarProps {
@@ -27,6 +27,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'games', label: 'Games Library', icon: GameController, path: '/app/games' },
     { id: 'vpn', label: 'VPN Manager', icon: Shield, path: '/app/vpn' },
     { id: 'performance', label: 'Performance Analysis', icon: BarChart, path: '/app/performance' },
+    { id: 'system', label: 'System Monitoring', icon: Activity, path: '/app/system' },
     { id: 'settings', label: 'Settings', icon: Settings, path: '/app/settings' },
   ];
 

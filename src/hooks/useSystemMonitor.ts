@@ -1,92 +1,157 @@
 import { useState, useEffect, useCallback } from 'react';
-import { monitoringService } from '../lib/monitoring/monitoringService';
-import type { SystemMetrics } from '../lib/systemOptimization/optimizer';
-import { systemOptimizer } from '../lib/systemOptimization/optimizer';
+import { systemInfoService, SystemMetrics } from '../lib/systemMonitoring/systemInfo';
+import { PerformanceMetrics } from '../lib/systemMonitoring/performanceMonitor';
+import { HardwareInfo } from '../lib/systemMonitoring/hardwareDetection';
 
-export function useSystemMonitor() {
-  const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
+interface SystemMonitorOptions {
+  interval?: number;
+  autoStart?: boolean;
+  historySize?: number;
+}
+
+export function useSystemMonitor(options: SystemMonitorOptions = {}) {
   const [isMonitoring, setIsMonitoring] = useState(false);
+  const [currentMetrics, setCurrentMetrics] = useState<SystemMetrics | null>(null);
+  const [metricsHistory, setMetricsHistory] = useState<PerformanceMetrics[]>([]);
+  const [hardwareInfo, setHardwareInfo] = useState<HardwareInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<SystemMetrics[]>([]);
-  const [maxHistoryLength, setMaxHistoryLength] = useState(100);
+  const [isLoading, setIsLoading] = useState(true);
 
+  // Initialize monitoring
   useEffect(() => {
-    // Iniciar monitoramento automaticamente
-    startMonitoring();
-    
-    return () => {
-      stopMonitoring();
+    const initializeMonitor = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Get initial hardware info
+        const metrics = await systemInfoService.getSystemMetrics();
+        setCurrentMetrics(metrics);
+        setHardwareInfo(metrics.hardware);
+        
+        // Start monitoring if autoStart is true
+        if (options.autoStart !== false) {
+          startMonitoring();
+        }
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize system monitor';
+        setError(errorMessage);
+        console.error('Error initializing system monitor:', err);
+      } finally {
+        setIsLoading(false);
+      }
     };
-  }, []);
 
+    initializeMonitor();
+
+    // Cleanup on unmount
+    return () => {
+      if (isMonitoring) {
+        stopMonitoring();
+      }
+    };
+  }, [options.autoStart]);
+
+  // Start monitoring
   const startMonitoring = useCallback(() => {
     if (isMonitoring) return;
     
-    setIsMonitoring(true);
-    
-    // Iniciar monitoramento no serviço
-    monitoringService.startMonitoring();
-    
-    // Configurar listener para atualizações de métricas
-    const unsubscribe = monitoringService.subscribe((newMetrics) => {
-      setMetrics(newMetrics);
-      setHistory(prev => {
-        const newHistory = [...prev, newMetrics];
-        if (newHistory.length > maxHistoryLength) {
-          return newHistory.slice(-maxHistoryLength);
-        }
-        return newHistory;
+    try {
+      setError(null);
+      
+      // Subscribe to metrics updates
+      const unsubscribe = systemInfoService.subscribeToMetrics((metrics) => {
+        setCurrentMetrics(prev => {
+          if (!prev) return { hardware: hardwareInfo!, performance: metrics, timestamp: Date.now() };
+          return { ...prev, performance: metrics, timestamp: Date.now() };
+        });
+        
+        setMetricsHistory(prev => {
+          const newHistory = [...prev, metrics];
+          // Limit history size
+          const historySize = options.historySize || 60;
+          if (newHistory.length > historySize) {
+            return newHistory.slice(-historySize);
+          }
+          return newHistory;
+        });
       });
-    });
-    
-    // Retornar função de limpeza
-    return () => {
-      unsubscribe();
-      monitoringService.stopMonitoring();
-    };
-  }, [isMonitoring, maxHistoryLength]);
+      
+      // Start the monitoring service
+      systemInfoService.startMonitoring(options.interval);
+      setIsMonitoring(true);
+      
+      // Return cleanup function
+      return () => {
+        unsubscribe();
+        systemInfoService.stopMonitoring();
+        setIsMonitoring(false);
+      };
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start monitoring';
+      setError(errorMessage);
+      console.error('Error starting monitoring:', err);
+      return () => {};
+    }
+  }, [isMonitoring, hardwareInfo, options.interval, options.historySize]);
 
+  // Stop monitoring
   const stopMonitoring = useCallback(() => {
     if (!isMonitoring) return;
     
+    systemInfoService.stopMonitoring();
     setIsMonitoring(false);
-    monitoringService.stopMonitoring();
   }, [isMonitoring]);
 
-  const getSystemInfo = useCallback(async () => {
+  // Refresh hardware info
+  const refreshHardwareInfo = useCallback(async () => {
     try {
-      const info = await monitoringService.getMetrics();
-      setMetrics(info);
-      return info;
+      setIsLoading(true);
+      setError(null);
+      
+      const metrics = await systemInfoService.getSystemMetrics();
+      setCurrentMetrics(metrics);
+      setHardwareInfo(metrics.hardware);
+      
+      return metrics.hardware;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao obter informações do sistema');
-      return null;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to refresh hardware info';
+      setError(errorMessage);
+      console.error('Error refreshing hardware info:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
-  const optimizeSystem = useCallback(async () => {
+  // Run system diagnostics
+  const runDiagnostics = useCallback(async () => {
     try {
-      const result = await systemOptimizer.optimize();
+      setIsLoading(true);
+      setError(null);
       
-      // Atualizar métricas após otimização
-      await getSystemInfo();
-      
-      return result;
+      const diagnostics = await systemInfoService.runDiagnostics();
+      return diagnostics;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Falha ao otimizar sistema');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to run diagnostics';
+      setError(errorMessage);
+      console.error('Error running diagnostics:', err);
       throw err;
+    } finally {
+      setIsLoading(false);
     }
-  }, [getSystemInfo]);
+  }, []);
 
   return {
-    metrics,
     isMonitoring,
+    isLoading,
     error,
-    history,
+    currentMetrics,
+    metricsHistory,
+    hardwareInfo,
     startMonitoring,
     stopMonitoring,
-    getSystemInfo,
-    optimizeSystem,
-    setMaxHistoryLength
+    refreshHardwareInfo,
+    runDiagnostics
   };
 }

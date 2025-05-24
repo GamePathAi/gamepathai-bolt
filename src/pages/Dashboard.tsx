@@ -1,5 +1,5 @@
 import React from 'react';
-import { SystemMonitor } from '../components/dashboard/SystemMonitor';
+import { SystemDashboard } from '../components/SystemDashboard';
 import { OptimizeButton } from '../components/dashboard/OptimizeButton';
 import { NetworkMetricsGrid } from '../components/dashboard/NetworkMetricsGrid';
 import { GamesList } from '../components/dashboard/GamesList';
@@ -30,11 +30,11 @@ export const Dashboard: React.FC = () => {
           <div className="absolute -top-4 -left-4 w-24 h-24 rounded-full bg-purple-500/10 blur-xl"></div>
         </div>
 
+        {/* System Dashboard */}
+        <SystemDashboard refreshRate={2000} showHistory={true} showAlerts={true} />
+
         {/* Performance Metrics */}
         <PerformanceMetrics />
-
-        {/* System Monitor */}
-        <SystemMonitor />
 
         {/* Network Metrics Grid */}
         <NetworkMetricsGrid />

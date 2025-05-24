@@ -25,7 +25,8 @@ import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
 import { PerformanceReport } from './components/analysis/PerformanceReport';
 import { DownloadPage } from './pages/DownloadPage';
-// Importar o TrayManager
+import { SystemMonitoring } from './pages/SystemMonitoring';
+// Import the TrayManager
 import { TrayManager } from './components/TrayManager';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -130,6 +131,16 @@ const router = createBrowserRouter(
         }
       />
       <Route
+        path="/app/system"
+        element={
+          <AuthGuard>
+            <AppLayout>
+              <SystemMonitoring />
+            </AppLayout>
+          </AuthGuard>
+        }
+      />
+      <Route
         path="/app/settings"
         element={
           <AuthGuard>
@@ -151,7 +162,7 @@ const router = createBrowserRouter(
 );
 
 function App() {
-  // Verificar se estamos no ambiente Electron
+  // Verify if we're in the Electron environment
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
 
   // Only register service worker in production and when not in StackBlitz
@@ -160,7 +171,7 @@ function App() {
       process.env.NODE_ENV === 'production' && 
       'serviceWorker' in navigator &&
       !window.location.hostname.includes('stackblitz') &&
-      !isElectron // Não registrar service worker no Electron
+      !isElectron // Don't register service worker in Electron
     ) {
       navigator.serviceWorker.register('/service-worker.js')
         .catch(error => {
@@ -171,7 +182,7 @@ function App() {
 
   return (
     <>
-      {/* Renderizar TrayManager apenas no ambiente Electron */}
+      {/* Render TrayManager only in the Electron environment */}
       {isElectron && <TrayManager />}
       <RouterProvider router={router} />
     </>
