@@ -12,6 +12,7 @@
     },
     "scripts": {
         "clean": "rm -rf node_modules",
+        "clean:electron": "rm -rf node_modules/electron && npm install electron@29.4.6 --save-dev",
         "clean:install": "npm run clean && npm install",
         "dev": "vite",
         "build": "vite build",
