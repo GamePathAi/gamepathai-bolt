@@ -18,6 +18,9 @@ import { Pricing } from './pages/Pricing';
 import { Login } from './pages/auth/Login';
 import { Register } from './pages/auth/Register';
 import { EmailConfirmation } from './pages/auth/EmailConfirmation';
+import { ResetPassword } from './pages/auth/ResetPassword';
+import { UpdatePassword } from './pages/auth/UpdatePassword';
+import { Verification } from './pages/auth/Verification';
 import { CheckoutSuccess } from './pages/checkout/Success';
 import { CheckoutCancel } from './pages/checkout/Cancel';
 import { Header } from './components/Header';
@@ -65,6 +68,9 @@ const router = createBrowserRouter(
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
         <Route path="confirm" element={<EmailConfirmation />} />
+        <Route path="reset-password" element={<ResetPassword />} />
+        <Route path="update-password" element={<UpdatePassword />} />
+        <Route path="verification" element={<Verification />} />
       </Route>
       <Route path="/checkout">
         <Route path="success" element={<CheckoutSuccess />} />

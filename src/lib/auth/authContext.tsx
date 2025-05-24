@@ -11,6 +11,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (newPassword: string) => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -83,8 +84,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw err;
       }
     },
-    resetPassword: authService.resetPassword.bind(authService),
-    updatePassword: authService.updatePassword.bind(authService),
+    resetPassword: async (email: string) => {
+      try {
+        await authService.resetPassword(email);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Password reset failed');
+        throw err;
+      }
+    },
+    updatePassword: async (newPassword: string) => {
+      try {
+        await authService.updatePassword(newPassword);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Password update failed');
+        throw err;
+      }
+    },
+    resendConfirmationEmail: async (email: string) => {
+      try {
+        await authService.resendConfirmationEmail(email);
+        setError(null);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to resend confirmation email');
+        throw err;
+      }
+    }
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

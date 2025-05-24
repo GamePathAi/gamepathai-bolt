@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { Shield } from 'lucide-react';
+import { Shield, AlertTriangle } from 'lucide-react';
 
 export const Register: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -16,14 +17,29 @@ export const Register: React.FC = () => {
     setError('');
     setLoading(true);
 
+    // Validate passwords match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      setLoading(false);
+      return;
+    }
+
     try {
       await signUp(email, password);
-      navigate('/auth/login', { 
+      navigate('/auth/verification', { 
         replace: true,
-        state: { message: 'Please check your email to verify your account' }
+        state: { email }
       });
-    } catch (err) {
-      setError('Error creating account');
+    } catch (err: any) {
+      if (err.message.includes('Password')) {
+        setError(err.message);
+      } else if (err.message.includes('email')) {
+        setError(err.message);
+      } else if (err.message.includes('already in use')) {
+        setError('This email is already registered. Please sign in instead.');
+      } else {
+        setError('Error creating account. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -41,7 +57,10 @@ export const Register: React.FC = () => {
         <div className="bg-gray-800 rounded-lg p-8 shadow-xl border border-gray-700">
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4 mb-6">
-              <p className="text-red-400 text-sm">{error}</p>
+              <div className="flex items-center">
+                <AlertTriangle className="text-red-400 mr-2" size={20} />
+                <p className="text-red-400 text-sm">{error}</p>
+              </div>
             </div>
           )}
 
@@ -69,6 +88,23 @@ export const Register: React.FC = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 text-white"
+                required
+              />
+              <p className="mt-1 text-xs text-gray-400">
+                Password must be at least 8 characters and include uppercase, lowercase, number, and special character.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+                Confirm Password
+              </label>
+              <input
+                id="confirmPassword"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg focus:outline-none focus:border-cyan-500 text-white"
                 required
               />
