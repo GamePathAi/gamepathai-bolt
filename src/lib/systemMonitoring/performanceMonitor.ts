@@ -268,6 +268,66 @@ class PerformanceMonitor {
       };
     }
   }
+
+  /**
+   * Calculate FPS (frames per second)
+   * This uses requestAnimationFrame to measure actual rendering performance
+   */
+  public calculateFPS(callback: (fps: number) => void, duration: number = 1000): void {
+    let frameCount = 0;
+    let lastTime = performance.now();
+    let rafId: number;
+
+    const countFrames = (time: number) => {
+      frameCount++;
+      
+      const elapsed = time - lastTime;
+      if (elapsed >= duration) {
+        const fps = Math.round((frameCount * 1000) / elapsed);
+        callback(fps);
+        
+        frameCount = 0;
+        lastTime = time;
+      }
+      
+      rafId = requestAnimationFrame(countFrames);
+    };
+
+    rafId = requestAnimationFrame(countFrames);
+
+    // Return a function to stop measuring FPS
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }
+
+  /**
+   * Calculate frame time (milliseconds per frame)
+   * This is the inverse of FPS and provides more granular performance data
+   */
+  public calculateFrameTime(callback: (frameTime: number) => void): void {
+    let lastTime = performance.now();
+    let rafId: number;
+
+    const measureFrameTime = (time: number) => {
+      const frameTime = time - lastTime;
+      lastTime = time;
+      
+      callback(frameTime);
+      rafId = requestAnimationFrame(measureFrameTime);
+    };
+
+    rafId = requestAnimationFrame(measureFrameTime);
+
+    // Return a function to stop measuring frame time
+    return () => {
+      if (rafId) {
+        cancelAnimationFrame(rafId);
+      }
+    };
+  }
 }
 
 export const performanceMonitor = PerformanceMonitor.getInstance();

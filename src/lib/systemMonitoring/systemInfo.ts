@@ -219,6 +219,101 @@ class SystemInfoService {
     
     return issues;
   }
+
+  /**
+   * Get detailed OS information
+   */
+  public async getOSInfo(): Promise<any> {
+    try {
+      const hardware = await hardwareDetector.getHardwareInfo();
+      
+      return {
+        name: hardware.system.os,
+        version: hardware.system.version,
+        architecture: typeof process !== 'undefined' ? process.arch : 'unknown',
+        platform: typeof process !== 'undefined' ? process.platform : 'unknown',
+        manufacturer: hardware.system.manufacturer,
+        model: hardware.system.model,
+        uptime: hardware.system.uptime,
+        hostname: typeof window !== 'undefined' ? window.location.hostname : 'unknown',
+        userInfo: {
+          username: 'current-user', // For security, we don't expose the actual username
+          homedir: 'user-home-directory' // For security, we don't expose the actual home directory
+        }
+      };
+    } catch (error) {
+      console.error('Error getting OS info:', error);
+      return {
+        name: 'Unknown OS',
+        version: 'Unknown',
+        architecture: 'unknown',
+        platform: 'unknown'
+      };
+    }
+  }
+
+  /**
+   * Get system environment variables (safe ones only)
+   */
+  public async getEnvironmentVariables(): Promise<Record<string, string>> {
+    try {
+      if (typeof window !== 'undefined' && window.electronAPI?.fs?.getEnvVars) {
+        const envVars = await window.electronAPI.fs.getEnvVars();
+        
+        // Filter out sensitive environment variables
+        const safeEnvVars: Record<string, string> = {};
+        const allowedVars = [
+          'LANG', 'LANGUAGE', 'LC_ALL', 'TERM', 'DISPLAY', 
+          'SHELL', 'DESKTOP_SESSION', 'XDG_CURRENT_DESKTOP',
+          'LOGNAME', 'USER', 'USERNAME', 'COMPUTERNAME', 'HOSTNAME'
+        ];
+        
+        for (const key of allowedVars) {
+          if (envVars[key]) {
+            safeEnvVars[key] = envVars[key];
+          }
+        }
+        
+        return safeEnvVars;
+      }
+      
+      return {};
+    } catch (error) {
+      console.error('Error getting environment variables:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Get system paths (safe ones only)
+   */
+  public async getSystemPaths(): Promise<Record<string, string>> {
+    try {
+      if (typeof window !== 'undefined' && window.electronAPI?.fs?.getSystemPaths) {
+        const paths = await window.electronAPI.fs.getSystemPaths();
+        
+        // Filter out sensitive paths
+        const safePaths: Record<string, string> = {};
+        const allowedPaths = [
+          'desktop', 'documents', 'downloads', 'music', 
+          'pictures', 'videos', 'temp'
+        ];
+        
+        for (const key of allowedPaths) {
+          if (paths[key]) {
+            safePaths[key] = paths[key];
+          }
+        }
+        
+        return safePaths;
+      }
+      
+      return {};
+    } catch (error) {
+      console.error('Error getting system paths:', error);
+      return {};
+    }
+  }
 }
 
 export const systemInfoService = SystemInfoService.getInstance();
