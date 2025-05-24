@@ -1,21 +1,21 @@
-import { describe, it, expect, jest, beforeEach } from '@jest/globals';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useXboxDetector } from '../../../src/hooks/detectors/useXboxDetector';
 import { renderHook, act } from '@testing-library/react';
 
 // Mock the localStorage hook
-jest.mock('../../../src/hooks/useLocalStorage', () => ({
+vi.mock('../../../src/hooks/useLocalStorage', () => ({
   useLocalStorage: () => ({
-    getItem: jest.fn().mockResolvedValue(null),
-    setItem: jest.fn().mockResolvedValue(true),
-    removeItem: jest.fn().mockResolvedValue(true),
+    getItem: vi.fn().mockResolvedValue(null),
+    setItem: vi.fn().mockResolvedValue(true),
+    removeItem: vi.fn().mockResolvedValue(true),
     error: null,
   }),
 }));
 
 // Mock the getXboxGames function
-jest.mock('../../../src/lib/gameDetection/platforms/getXboxGames', () => ({
+vi.mock('../../../src/lib/gameDetection/platforms/getXboxGames', () => ({
   __esModule: true,
-  default: jest.fn().mockResolvedValue([
+  default: vi.fn().mockResolvedValue([
     {
       id: 'xbox-callofduty',
       name: 'Call of Duty',
@@ -32,7 +32,7 @@ jest.mock('../../../src/lib/gameDetection/platforms/getXboxGames', () => ({
 
 describe('Xbox Detector', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Set up window.electronAPI
     Object.defineProperty(window, 'electronAPI', {
@@ -42,11 +42,11 @@ describe('Xbox Detector', () => {
           version: '3.0.0',
         },
         fs: {
-          exists: jest.fn().mockResolvedValue(true),
-          readDir: jest.fn().mockResolvedValue([]),
+          exists: vi.fn().mockResolvedValue(true),
+          readDir: vi.fn().mockResolvedValue([]),
         },
         registry: {
-          getValue: jest.fn(),
+          getValue: vi.fn(),
         },
         Registry: {
           HKEY: {
@@ -76,16 +76,16 @@ describe('Xbox Detector', () => {
 
   it('should use cache when available', async () => {
     // Override the mock to return cached data
-    require('../../../src/hooks/useLocalStorage').useLocalStorage = () => ({
-      getItem: jest.fn().mockResolvedValue([
+    vi.mocked(require('../../../src/hooks/useLocalStorage').useLocalStorage).mockReturnValue({
+      getItem: vi.fn().mockResolvedValue([
         {
           id: 'xbox-cached',
           name: 'Cached Xbox Game',
           platform: 'Xbox',
         }
       ]),
-      setItem: jest.fn().mockResolvedValue(true),
-      removeItem: jest.fn().mockResolvedValue(true),
+      setItem: vi.fn().mockResolvedValue(true),
+      removeItem: vi.fn().mockResolvedValue(true),
       error: null,
     });
     
@@ -102,7 +102,7 @@ describe('Xbox Detector', () => {
 
   it('should handle errors gracefully', async () => {
     // Override the getXboxGames mock to throw an error
-    require('../../../src/lib/gameDetection/platforms/getXboxGames').default.mockRejectedValueOnce(
+    vi.mocked(require('../../../src/lib/gameDetection/platforms/getXboxGames').default).mockRejectedValueOnce(
       new Error('Test error')
     );
     

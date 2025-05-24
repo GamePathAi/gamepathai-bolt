@@ -41,8 +41,9 @@ export class ProcessScanner {
   }
 
   private async loadKnownProcesses(): Promise<void> {
-    if (!supabase) {
-      console.warn('Supabase client not initialized, using default game processes');
+    // Check if we're in a test environment
+    if (typeof window === 'undefined' || !supabase) {
+      console.warn('Supabase client not initialized or in test environment, using default game processes');
       return;
     }
 
