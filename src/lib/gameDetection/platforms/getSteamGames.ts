@@ -16,6 +16,54 @@ interface SteamGame {
   last_played?: Date;
 }
 
+// Steam game blacklist - these are not actual games but tools, redistributables, etc.
+const STEAM_GAME_BLACKLIST = [
+  'Steamworks Common Redistributables',
+  'Steam Linux Runtime',
+  'Proton',
+  'Steam Controller Configs',
+  'Steamworks Shared',
+  'Steam Workshop Tools',
+  'Dedicated Server',
+  'SDK',
+  'Server',
+  'Demo',
+  'Test',
+  'Tool',
+  'Redistributable',
+  'Redist',
+  'VR',
+  'Runtime',
+  'Common',
+  'DirectX',
+  'dotNET',
+  'PhysX',
+  'Visual C++',
+  'Microsoft Visual C++',
+  'Microsoft DirectX',
+  'Microsoft .NET',
+  'Microsoft XNA',
+  'Microsoft Games for Windows',
+  'Microsoft Games for Windows - LIVE',
+  'Microsoft Games for Windows Marketplace',
+  'Microsoft Games for Windows - LIVE Redistributable',
+  'Microsoft Games for Windows - LIVE Client',
+  'Microsoft Games for Windows - LIVE Redistributable'
+];
+
+// Maximum number of games to return per platform to prevent overwhelming the UI
+const MAX_GAMES_PER_PLATFORM = 50;
+
+/**
+ * Checks if a Steam game should be included in the results
+ */
+function isSteamGameValid(name: string): boolean {
+  // Check if the game is in the blacklist
+  return !STEAM_GAME_BLACKLIST.some(blacklisted => 
+    name.toLowerCase().includes(blacklisted.toLowerCase())
+  );
+}
+
 /**
  * Busca jogos instalados no Steam
  */
@@ -172,6 +220,12 @@ export async function getSteamGames(): Promise<SteamGame[]> {
                 const name = nameMatch[1];
                 const installDir = installDirMatch[1];
                 
+                // Skip blacklisted games
+                if (!isSteamGameValid(name)) {
+                  console.log(`Skipping blacklisted Steam item: ${name}`);
+                  continue;
+                }
+                
                 // Calcular tamanho em MB
                 const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
@@ -221,6 +275,12 @@ export async function getSteamGames(): Promise<SteamGame[]> {
                 });
                 
                 console.log(`Found Steam game: ${name} (${appId})`);
+                
+                // Limit the number of games to prevent overwhelming the UI
+                if (games.length >= MAX_GAMES_PER_PLATFORM) {
+                  console.log(`Reached maximum number of Steam games (${MAX_GAMES_PER_PLATFORM}), stopping scan`);
+                  break;
+                }
               }
             } catch (error) {
               console.error(`Error processing Steam manifest ${manifestFile.name}:`, error);

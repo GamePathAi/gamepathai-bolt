@@ -88,6 +88,9 @@ export const GAME_EXECUTABLES_PATTERNS = [
 // Minimum size for a game executable (in bytes)
 export const MIN_GAME_SIZE = 10 * 1024 * 1024; // 10 MB
 
+// Maximum number of games to return per platform
+export const MAX_GAMES_PER_PLATFORM = 50;
+
 /**
  * Determines if a path is likely to be a game directory
  */
@@ -302,4 +305,46 @@ export async function fileExists(filePath: string): Promise<boolean> {
     return window.electronAPI.fs.exists(filePath);
   }
   return false;
+}
+
+/**
+ * Limits the number of games per platform to prevent overwhelming the UI
+ */
+export function limitGamesPerPlatform(games: GameInfo[], limit: number = MAX_GAMES_PER_PLATFORM): GameInfo[] {
+  if (!Array.isArray(games) || games.length <= limit) {
+    return games;
+  }
+  
+  // Group games by platform
+  const gamesByPlatform: Record<string, GameInfo[]> = {};
+  
+  for (const game of games) {
+    const platform = game.platform || GAME_PLATFORMS.OTHER;
+    if (!gamesByPlatform[platform]) {
+      gamesByPlatform[platform] = [];
+    }
+    gamesByPlatform[platform].push(game);
+  }
+  
+  // Limit each platform to the specified number of games
+  const limitedGames: GameInfo[] = [];
+  
+  for (const platform in gamesByPlatform) {
+    const platformGames = gamesByPlatform[platform];
+    // Sort by last played date (most recent first) before limiting
+    platformGames.sort((a, b) => {
+      if (a.last_played && b.last_played) {
+        return new Date(b.last_played).getTime() - new Date(a.last_played).getTime();
+      } else if (a.last_played) {
+        return -1;
+      } else if (b.last_played) {
+        return 1;
+      }
+      return 0;
+    });
+    
+    limitedGames.push(...platformGames.slice(0, limit));
+  }
+  
+  return limitedGames;
 }

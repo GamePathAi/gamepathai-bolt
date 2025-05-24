@@ -9,6 +9,9 @@ interface GameListProps {
   onGameOptimize?: (game: GameInfo) => void;
 }
 
+// Maximum number of games to display in the UI
+const MAX_DISPLAYED_GAMES = 100;
+
 export const GameList: React.FC<GameListProps> = ({ 
   onGameSelect, 
   onGameLaunch, 
@@ -23,6 +26,7 @@ export const GameList: React.FC<GameListProps> = ({
   const [isLaunching, setIsLaunching] = useState<Record<string, boolean>>({});
   const [isDiagnosticRunning, setIsDiagnosticRunning] = useState(false);
   const [diagnosticResults, setDiagnosticResults] = useState<any>(null);
+  const [showAllGames, setShowAllGames] = useState(false);
 
   // Get unique platforms for the filter
   const platforms = React.useMemo(() => {
@@ -65,6 +69,14 @@ export const GameList: React.FC<GameListProps> = ({
         return sortDirection === 'asc' ? comparison : -comparison;
       });
   }, [games, searchQuery, platformFilter, sortBy, sortDirection]);
+
+  // Limit displayed games to prevent UI performance issues
+  const displayedGames = React.useMemo(() => {
+    if (showAllGames) {
+      return filteredGames;
+    }
+    return filteredGames.slice(0, MAX_DISPLAYED_GAMES);
+  }, [filteredGames, showAllGames]);
 
   const handleScanForGames = async () => {
     await scanAllGames({ forceRefresh: true });
@@ -254,10 +266,35 @@ export const GameList: React.FC<GameListProps> = ({
         </div>
       )}
 
+      {/* Games Count Info */}
+      {filteredGames.length > 0 && (
+        <div className="flex justify-between items-center">
+          <div className="text-sm text-gray-400">
+            Showing {displayedGames.length} of {filteredGames.length} games
+          </div>
+          {filteredGames.length > MAX_DISPLAYED_GAMES && !showAllGames && (
+            <button
+              onClick={() => setShowAllGames(true)}
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              Show all {filteredGames.length} games
+            </button>
+          )}
+          {showAllGames && (
+            <button
+              onClick={() => setShowAllGames(false)}
+              className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+            >
+              Show only {MAX_DISPLAYED_GAMES} games
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Games Grid */}
       {games && games.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredGames.map((game) => (
+          {displayedGames.map((game) => (
             <div 
               key={game.id}
               onClick={() => handleGameClick(game)}

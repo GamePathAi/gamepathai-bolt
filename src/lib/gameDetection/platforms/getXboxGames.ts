@@ -16,6 +16,73 @@ interface XboxGame {
   last_played?: Date;
 }
 
+// System apps that should be filtered out
+const SYSTEM_APPS = [
+  'Microsoft.Windows', 'Microsoft.Office', 'Microsoft.Teams',
+  'Microsoft.Calculator', 'Microsoft.Paint', 'Microsoft.Notepad',
+  'Microsoft.MicrosoftEdge', 'Microsoft.ScreenSketch', 'Microsoft.MSPaint',
+  'Microsoft.WindowsStore', 'Microsoft.WindowsTerminal', 'Microsoft.WindowsAlarms',
+  'Microsoft.WindowsCalculator', 'Microsoft.WindowsCamera', 'Microsoft.WindowsFeedbackHub',
+  'Microsoft.WindowsMaps', 'Microsoft.WindowsNotepad', 'Microsoft.WindowsPhone',
+  'Microsoft.WindowsSoundRecorder', 'Microsoft.Xbox.TCUI', 'Microsoft.XboxApp',
+  'Microsoft.XboxGameOverlay', 'Microsoft.XboxGamingOverlay', 'Microsoft.XboxIdentityProvider',
+  'Microsoft.XboxSpeechToTextOverlay', 'Microsoft.YourPhone', 'Microsoft.ZuneMusic',
+  'Microsoft.ZuneVideo', 'RealtekSemiconductorCorp', 'NVIDIACorp', 'IntelGraphicsExperience',
+  'Microsoft.Messaging', 'Microsoft.MicrosoftStickyNotes', 'Microsoft.People',
+  'Microsoft.StorePurchaseApp', 'Microsoft.Wallet', 'Microsoft.WebMediaExtensions',
+  'Microsoft.Win32WebViewHost', 'Microsoft.Windows.Photos', 'Microsoft.WindowsCamera',
+  'Microsoft.549981C3F5F10', 'Microsoft.BingWeather', 'Microsoft.GetHelp',
+  'Microsoft.Getstarted', 'Microsoft.HEIFImageExtension', 'Microsoft.Microsoft3DViewer',
+  'Microsoft.MicrosoftSolitaireCollection', 'Microsoft.MixedReality.Portal',
+  'Microsoft.SkypeApp', 'Microsoft.VP9VideoExtensions', 'Microsoft.WebpImageExtension',
+  'Microsoft.WindowsAlarms', 'Microsoft.WindowsFeedbackHub', 'Microsoft.OneDrive',
+  'Microsoft.MicrosoftOfficeHub', 'Microsoft.PowerAutomateDesktop'
+];
+
+// Game indicators to help identify real games
+const XBOX_GAME_INDICATORS = [
+  'Games', 'Gaming', 'Game', 'Play', 'Xbox', 'Forza', 'Halo', 'Gears',
+  'Minecraft', 'CallofDuty', 'COD', 'ModernWarfare', 'Warzone', 'FIFA',
+  'Battlefield', 'Assassin', 'Creed', 'FarCry', 'Destiny', 'Fallout',
+  'GrandTheftAuto', 'GTA', 'RedDead', 'Witcher', 'Cyberpunk', 'Doom',
+  'ElderScrolls', 'Skyrim', 'Fortnite', 'LeagueOfLegends', 'Overwatch',
+  'RainbowSix', 'Siege', 'RocketLeague', 'SeaOfThieves', 'StarWars'
+];
+
+// Maximum number of games to return per platform to prevent overwhelming the UI
+const MAX_GAMES_PER_PLATFORM = 50;
+
+/**
+ * Checks if a package is a real game based on its name and other indicators
+ */
+function isActualGame(packageName: string): boolean {
+  // Filter out obvious system apps
+  if (SYSTEM_APPS.some(app => packageName.includes(app))) {
+    return false;
+  }
+  
+  // Check for game indicators in the package name
+  if (XBOX_GAME_INDICATORS.some(indicator => packageName.includes(indicator))) {
+    return true;
+  }
+  
+  // Additional heuristics
+  if (packageName.includes('Game') || packageName.includes('game') || 
+      packageName.includes('Play') || packageName.includes('play')) {
+    return true;
+  }
+  
+  // Default to false for Microsoft packages that don't match game indicators
+  if (packageName.startsWith('Microsoft.')) {
+    return false;
+  }
+  
+  // For non-Microsoft packages, be more lenient
+  return !packageName.includes('App') && 
+         !packageName.includes('Tool') && 
+         !packageName.includes('Utility');
+}
+
 /**
  * Busca jogos instalados via Xbox App/Microsoft Store
  */
@@ -86,6 +153,12 @@ export async function getXboxGames(): Promise<XboxGame[]> {
           for (const entry of entries) {
             if (entry.isDirectory) {
               const gamePath = entry.path;
+              
+              // Skip if not a game package
+              if (!isActualGame(entry.name)) {
+                console.log(`Skipping non-game package: ${entry.name}`);
+                continue;
+              }
               
               // Verificar se é um diretório de jogo do Xbox
               const isXboxGame = entry.name.startsWith("Microsoft.") || 
@@ -168,6 +241,12 @@ export async function getXboxGames(): Promise<XboxGame[]> {
               });
               
               console.log(`Found Xbox game: ${gameName}`);
+              
+              // Limit the number of games to prevent overwhelming the UI
+              if (games.length >= MAX_GAMES_PER_PLATFORM) {
+                console.log(`Reached maximum number of Xbox games (${MAX_GAMES_PER_PLATFORM}), stopping scan`);
+                break;
+              }
             }
           }
         }
