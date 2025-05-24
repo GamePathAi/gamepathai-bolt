@@ -4,7 +4,7 @@
     "private": true,
     "version": "0.1.21",
     "main": "electron/main.cjs",
-    "type": "module",
+    "type": "module"
     "description": "GamePath AI - Inteligência artificial para gaming",
     "author": "GamePathAI Team",
     "engines": {
