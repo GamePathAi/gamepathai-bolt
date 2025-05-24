@@ -3,12 +3,17 @@ import * as path from "path";
 import * as os from "os";
 import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
-// Se estiver no Windows, usar o Registry com dynamic import
+// If on Windows, use Registry with dynamic import
 let Registry: any;
 try {
-  // Usar dynamic import ao invés de require
-  const registryModule = await import("registry-js");
-  Registry = registryModule.Registry;
+  // Use dynamic import instead of require
+  if (typeof window !== 'undefined' && window.electronAPI) {
+    // In Electron environment, Registry will be provided by the preload script
+    Registry = window.electronAPI.Registry;
+  } else {
+    // This will be used in the Electron main process
+    Registry = null; // Will be properly initialized in the main process
+  }
 } catch {
   Registry = undefined;
 }

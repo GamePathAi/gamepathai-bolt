@@ -24,8 +24,6 @@ export default defineConfig({
       },
       // Exclude native modules and problematic dependencies
       external: [
-        'registry-js',
-        'systeminformation',
         'electron',
         'electron-store',
         'node-os-utils',
@@ -53,7 +51,7 @@ export default defineConfig({
       'zod',
       'idb-keyval',
       'i18next-browser-languagedetector',
-      'i18next-http-backend'
+      'i18next-http-backend',
     ]
   },
   server: {
