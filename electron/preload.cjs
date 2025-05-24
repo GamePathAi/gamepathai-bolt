@@ -2,7 +2,6 @@
 // Ponte segura entre Main Process e Renderer Process
 
 const { contextBridge, ipcRenderer } = require('electron');
-const { Registry } = require('registry-js');
 
 // ===================================================
 // SISTEMA DE VALIDAÇÃO E SANITIZAÇÃO
@@ -359,6 +358,19 @@ const registryAPI = {
 };
 
 // ===================================================
+// REGISTRY CONSTANTS
+// ===================================================
+
+// Define Registry constants without requiring the registry-js module
+const RegistryHKEY = {
+  CLASSES_ROOT: 0,
+  CURRENT_USER: 1,
+  LOCAL_MACHINE: 2,
+  USERS: 3,
+  CURRENT_CONFIG: 4
+};
+
+// ===================================================
 // GAME API
 // ===================================================
 
@@ -490,13 +502,7 @@ const GamePathAI = {
   // REGISTRY CONSTANTS
   // ===================================================
   Registry: {
-    HKEY: {
-      CLASSES_ROOT: Registry.HKEY.CLASSES_ROOT,
-      CURRENT_USER: Registry.HKEY.CURRENT_USER,
-      LOCAL_MACHINE: Registry.HKEY.LOCAL_MACHINE,
-      USERS: Registry.HKEY.USERS,
-      CURRENT_CONFIG: Registry.HKEY.CURRENT_CONFIG
-    }
+    HKEY: RegistryHKEY
   },
 
   // ===================================================
@@ -605,13 +611,16 @@ const GamePathAI = {
 // ===================================================
 
 try {
-  contextBridge.exposeInMainWorld('electronAPI', GamePathAI);
-  contextBridge.exposeInMainWorld('gamePathAI', GamePathAI); // Alias
-  
-  console.log('🚀 GamePath AI Bridge carregado com sucesso!');
-  console.log('📋 APIs disponíveis:', Object.keys(GamePathAI));
-  console.log('🔧 Versão:', GamePathAI.system.version);
-  
+  if (contextBridge && contextBridge.exposeInMainWorld) {
+    contextBridge.exposeInMainWorld('electronAPI', GamePathAI);
+    contextBridge.exposeInMainWorld('gamePathAI', GamePathAI); // Alias
+    
+    console.log('🚀 GamePath AI Bridge carregado com sucesso!');
+    console.log('📋 APIs disponíveis:', Object.keys(GamePathAI));
+    console.log('🔧 Versão:', GamePathAI.system.version);
+  } else {
+    console.error('❌ contextBridge não disponível');
+  }
 } catch (error) {
   console.error('❌ Erro ao expor APIs:', error);
 }
@@ -620,13 +629,15 @@ try {
 // LIMPEZA AUTOMÁTICA
 // ===================================================
 
-window.addEventListener('beforeunload', () => {
-  try {
-    requestManager.cancelAll();
-    eventManager.removeAllListeners();
-    frontendCache.clear();
-    console.log('🧹 Limpeza do preload concluída');
-  } catch (error) {
-    console.error('Erro na limpeza:', error);
-  }
-});
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    try {
+      requestManager.cancelAll();
+      eventManager.removeAllListeners();
+      frontendCache.clear();
+      console.log('🧹 Limpeza do preload concluída');
+    } catch (error) {
+      console.error('Erro na limpeza:', error);
+    }
+  });
+}
