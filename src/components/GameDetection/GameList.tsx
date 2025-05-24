@@ -1,0 +1,282 @@
+import React, { useState, useEffect } from 'react';
+import { useGameDetectionContext } from './GameDetectionProvider';
+import { Gamepad2, Search, Filter, ChevronDown, Zap, Play } from 'lucide-react';
+import type { GameInfo } from '../../lib/gameDetection/types';
+
+interface GameListProps {
+  onGameSelect?: (game: GameInfo) => void;
+  onGameLaunch?: (game: GameInfo) => void;
+  onGameOptimize?: (game: GameInfo) => void;
+}
+
+export const GameList: React.FC<GameListProps> = ({ 
+  onGameSelect, 
+  onGameLaunch, 
+  onGameOptimize 
+}) => {
+  const { games, isScanning, error, scanAllGames } = useGameDetectionContext();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [platformFilter, setPlatformFilter] = useState<string | null>(null);
+  const [sortBy, setSortBy] = useState<'name' | 'platform' | 'lastPlayed'>('lastPlayed');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Get unique platforms for the filter
+  const platforms = React.useMemo(() => {
+    if (!games || !Array.isArray(games)) {
+      return [];
+    }
+    return Array.from(new Set(games.map(game => game.platform)));
+  }, [games]);
+
+  // Filter and sort games
+  const filteredGames = React.useMemo(() => {
+    if (!games || !Array.isArray(games)) {
+      return [];
+    }
+    
+    return games
+      .filter(game => {
+        const matchesSearch = game.name.toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesPlatform = platformFilter ? game.platform === platformFilter : true;
+        return matchesSearch && matchesPlatform;
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        
+        switch (sortBy) {
+          case 'name':
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case 'platform':
+            comparison = a.platform.localeCompare(b.platform);
+            break;
+          case 'lastPlayed':
+            // Convert dates to timestamps for comparison
+            const aTime = a.last_played ? new Date(a.last_played).getTime() : 0;
+            const bTime = b.last_played ? new Date(b.last_played).getTime() : 0;
+            comparison = aTime - bTime;
+            break;
+        }
+        
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+  }, [games, searchQuery, platformFilter, sortBy, sortDirection]);
+
+  const handleScanForGames = async () => {
+    await scanAllGames();
+  };
+
+  const handleGameClick = (game: GameInfo) => {
+    if (onGameSelect) {
+      onGameSelect(game);
+    }
+  };
+
+  const handleLaunchGame = (e: React.MouseEvent, game: GameInfo) => {
+    e.stopPropagation();
+    if (onGameLaunch) {
+      onGameLaunch(game);
+    }
+  };
+
+  const handleOptimizeGame = (e: React.MouseEvent, game: GameInfo) => {
+    e.stopPropagation();
+    if (onGameOptimize) {
+      onGameOptimize(game);
+    }
+  };
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Search and Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-grow">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search size={18} className="text-gray-400" />
+          </div>
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search games..."
+            className="block w-full pl-10 pr-3 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:border-cyan-500 focus:outline-none focus:ring-0 text-gray-200 placeholder-gray-500"
+          />
+        </div>
+        
+        <div className="relative">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <Filter size={18} className="text-gray-400" />
+            </div>
+            <select
+              value={platformFilter || ''}
+              onChange={(e) => setPlatformFilter(e.target.value || null)}
+              className="appearance-none block w-full pl-10 pr-10 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:border-cyan-500 focus:outline-none focus:ring-0 text-gray-200"
+            >
+              <option value="">All Platforms</option>
+              {platforms.map((platform) => (
+                <option key={platform} value={platform}>{platform}</option>
+              ))}
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <ChevronDown size={18} className="text-gray-400" />
+            </div>
+          </div>
+        </div>
+
+        <div className="relative">
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as 'name' | 'platform' | 'lastPlayed')}
+              className="appearance-none block w-full pl-3 pr-10 py-2 rounded-lg bg-gray-900 border border-gray-700 focus:border-cyan-500 focus:outline-none focus:ring-0 text-gray-200"
+            >
+              <option value="name">Sort by Name</option>
+              <option value="platform">Sort by Platform</option>
+              <option value="lastPlayed">Sort by Last Played</option>
+            </select>
+            <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+              <ChevronDown size={18} className="text-gray-400" />
+            </div>
+          </div>
+        </div>
+
+        <button
+          onClick={toggleSortDirection}
+          className="px-4 py-2 rounded-lg bg-gray-900 border border-gray-700 text-gray-200 hover:bg-gray-800 transition-colors"
+        >
+          {sortDirection === 'asc' ? 'Ascending' : 'Descending'}
+        </button>
+
+        <button
+          onClick={handleScanForGames}
+          disabled={isScanning}
+          className="px-4 py-2 rounded-lg bg-cyan-500 text-black font-medium hover:bg-cyan-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {isScanning ? (
+            <>
+              <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin mr-2"></div>
+              Scanning...
+            </>
+          ) : (
+            'Scan for Games'
+          )}
+        </button>
+      </div>
+
+      {/* Error Messages */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+          <div className="flex items-center text-red-400 mb-2">
+            <AlertTriangle size={20} className="mr-2" />
+            <h3 className="font-medium">Error Found</h3>
+          </div>
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {(!games || games.length === 0) && (
+        <div className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 rounded-lg p-8 flex flex-col items-center justify-center">
+          <div className="w-16 h-16 rounded-full bg-gray-700 flex items-center justify-center mb-4">
+            <Gamepad2 size={32} className="text-gray-500" />
+          </div>
+          <h3 className="text-lg font-medium text-white">No games found</h3>
+          <p className="text-gray-400 text-center mt-2 max-w-md">
+            Click the "Scan for Games" button to detect installed games on your system.
+          </p>
+        </div>
+      )}
+
+      {/* Games Grid */}
+      {games && games.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredGames.map((game) => (
+            <div 
+              key={game.id}
+              onClick={() => handleGameClick(game)}
+              className="bg-gray-800/60 backdrop-blur-sm border border-gray-700 hover:border-cyan-500/40 rounded-lg overflow-hidden transition-all duration-200 group cursor-pointer"
+            >
+              <div className="h-40 relative overflow-hidden">
+                {game.icon_url ? (
+                  <img 
+                    src={game.icon_url} 
+                    alt={game.name} 
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110" 
+                    onError={(e) => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = '';
+                      e.currentTarget.parentElement?.classList.add('bg-gray-900', 'flex', 'items-center', 'justify-center');
+                      e.currentTarget.replaceWith(
+                        Object.assign(document.createElement('div'), {
+                          className: 'flex items-center justify-center w-full h-full',
+                          innerHTML: '<div class="text-gray-700"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 11h4a4 4 0 0 1 4 4v4H6z M14 11h4"/><rect width="20" height="14" x="2" y="3" rx="2"/></svg></div>'
+                        })
+                      );
+                    }}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-900 flex items-center justify-center">
+                    <Gamepad2 size={48} className="text-gray-700" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent"></div>
+                <div className="absolute bottom-0 left-0 right-0 p-4">
+                  <h3 className="text-lg font-bold text-white">{game.name}</h3>
+                  <div className="flex items-center mt-1">
+                    <span className="text-xs text-gray-400">{game.platform}</span>
+                    {game.size && (
+                      <>
+                        <span className="mx-2 text-gray-600">•</span>
+                        <span className="text-xs text-gray-400">{Math.round(game.size / 1024)} GB</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-4 border-t border-gray-700">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-xs text-gray-400">
+                    Last played: {game.last_played ? new Date(game.last_played).toLocaleDateString() : 'Never'}
+                  </div>
+                  {game.optimized && (
+                    <span className="px-2 py-1 text-xs rounded-full bg-green-500/20 text-green-400">
+                      Optimized
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  {!game.optimized && onGameOptimize && (
+                    <button
+                      onClick={(e) => handleOptimizeGame(e, game)}
+                      className="flex-1 py-2 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium transition-colors flex items-center justify-center"
+                    >
+                      <Zap size={14} className="mr-1" />
+                      Optimize
+                    </button>
+                  )}
+                  
+                  {onGameLaunch && (
+                    <button
+                      onClick={(e) => handleLaunchGame(e, game)}
+                      className={`${game.optimized || !onGameOptimize ? 'w-full' : 'flex-1'} py-2 rounded-md bg-cyan-500 hover:bg-cyan-400 text-black font-medium transition-colors duration-150 flex items-center justify-center`}
+                    >
+                      <Play size={14} className="mr-1" />
+                      Launch
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
