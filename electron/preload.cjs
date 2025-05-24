@@ -2,6 +2,7 @@
 // Ponte segura entre Main Process e Renderer Process
 
 const { contextBridge, ipcRenderer } = require('electron');
+const { Registry } = require('registry-js');
 
 // ===================================================
 // SISTEMA DE VALIDAÇÃO E SANITIZAÇÃO
@@ -265,6 +266,114 @@ class RequestManager {
 const requestManager = new RequestManager();
 
 // ===================================================
+// FILE SYSTEM API
+// ===================================================
+
+const fileSystemAPI = {
+  async exists(filePath) {
+    try {
+      return await ipcRenderer.invoke('fs-exists', filePath);
+    } catch (error) {
+      console.error('Error checking if file exists:', error);
+      return false;
+    }
+  },
+
+  async readDir(dirPath) {
+    try {
+      return await ipcRenderer.invoke('fs-read-dir', dirPath);
+    } catch (error) {
+      console.error(`Error reading directory ${dirPath}:`, error);
+      return [];
+    }
+  },
+
+  async readFile(filePath, encoding = 'utf8') {
+    try {
+      return await ipcRenderer.invoke('fs-read-file', filePath, encoding);
+    } catch (error) {
+      console.error(`Error reading file ${filePath}:`, error);
+      throw error;
+    }
+  },
+
+  async stat(filePath) {
+    try {
+      return await ipcRenderer.invoke('fs-stat', filePath);
+    } catch (error) {
+      console.error(`Error getting stats for ${filePath}:`, error);
+      return null;
+    }
+  },
+
+  async getSystemPaths() {
+    try {
+      return await ipcRenderer.invoke('get-system-paths');
+    } catch (error) {
+      console.error('Error getting system paths:', error);
+      return {};
+    }
+  },
+
+  async getEnvVars() {
+    try {
+      return await ipcRenderer.invoke('get-env-vars');
+    } catch (error) {
+      console.error('Error getting environment variables:', error);
+      return {};
+    }
+  }
+};
+
+// ===================================================
+// REGISTRY API
+// ===================================================
+
+const registryAPI = {
+  async getValue(hive, key, valueName) {
+    try {
+      return await ipcRenderer.invoke('registry-get-value', hive, key, valueName);
+    } catch (error) {
+      console.error(`Error getting registry value ${hive}\\${key}\\${valueName}:`, error);
+      return null;
+    }
+  },
+
+  async enumerateValues(hive, key) {
+    try {
+      return await ipcRenderer.invoke('registry-enumerate-values', hive, key);
+    } catch (error) {
+      console.error(`Error enumerating registry values ${hive}\\${key}:`, error);
+      return [];
+    }
+  },
+
+  async enumerateKeys(hive, key) {
+    try {
+      return await ipcRenderer.invoke('registry-enumerate-keys', hive, key);
+    } catch (error) {
+      console.error(`Error enumerating registry keys ${hive}\\${key}:`, error);
+      return [];
+    }
+  }
+};
+
+// ===================================================
+// GAME API
+// ===================================================
+
+const gameAPI = {
+  async launch(executablePath, args = []) {
+    try {
+      return await ipcRenderer.invoke('launch-game', executablePath, args);
+    } catch (error) {
+      console.error(`Error launching game ${executablePath}:`, error);
+      return { success: false, error: error.message };
+    }
+  }
+};
+
+// ===================================================
 // API PRINCIPAL DO GAMEPATHAI
 // ===================================================
 
@@ -366,6 +475,34 @@ const GamePathAI = {
       }
     }
   },
+
+  // ===================================================
+  // FILE SYSTEM API
+  // ===================================================
+  fs: fileSystemAPI,
+
+  // ===================================================
+  // REGISTRY API
+  // ===================================================
+  registry: registryAPI,
+
+  // ===================================================
+  // REGISTRY CONSTANTS
+  // ===================================================
+  Registry: {
+    HKEY: {
+      CLASSES_ROOT: Registry.HKEY.CLASSES_ROOT,
+      CURRENT_USER: Registry.HKEY.CURRENT_USER,
+      LOCAL_MACHINE: Registry.HKEY.LOCAL_MACHINE,
+      USERS: Registry.HKEY.USERS,
+      CURRENT_CONFIG: Registry.HKEY.CURRENT_CONFIG
+    }
+  },
+
+  // ===================================================
+  // GAME API
+  // ===================================================
+  game: gameAPI,
 
   // ===================================================
   // UTILITÁRIOS
@@ -493,35 +630,3 @@ window.addEventListener('beforeunload', () => {
     console.error('Erro na limpeza:', error);
   }
 });
-
-// ===================================================
-// TESTES AUTOMÁTICOS (DESENVOLVIMENTO)
-// ===================================================
-
-if (process.env.NODE_ENV === 'development') {
-  setTimeout(async () => {
-    try {
-      console.log('🧪 Executando testes do preload...');
-      
-      // Teste de validação
-      const validGame = GamePathAI.utils.validateGame({ name: 'Test Game', platform: 'Steam' });
-      console.log('✅ Teste validação:', validGame ? 'OK' : 'FALHA');
-      
-      // Teste de cache
-      frontendCache.set('test', { data: 'test' });
-      const cached = frontendCache.get('test');
-      console.log('✅ Teste cache:', cached ? 'OK' : 'FALHA');
-      
-      // Teste de eventos
-      let eventFired = false;
-      GamePathAI.events.once('test-event', () => { eventFired = true; });
-      GamePathAI.events.emit('test-event');
-      console.log('✅ Teste eventos:', eventFired ? 'OK' : 'FALHA');
-      
-      console.log('🎉 Testes do preload concluídos!');
-      
-    } catch (error) {
-      console.error('❌ Erro nos testes:', error);
-    }
-  }, 1000);
-}

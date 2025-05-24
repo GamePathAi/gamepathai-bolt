@@ -38,8 +38,6 @@ export default defineConfig({
   },
   optimizeDeps: {
     exclude: [
-      'registry-js',
-      'systeminformation',
       'electron-store',
       'node-os-utils',
       'unix-dgram'

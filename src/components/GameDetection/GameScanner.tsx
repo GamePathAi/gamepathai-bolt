@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useGameDetectionContext } from './GameDetectionProvider';
-import { Gamepad2, Search, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Gamepad2, Search, RefreshCw, AlertTriangle, Zap } from 'lucide-react';
 
 interface GameScannerProps {
   onScanComplete?: (games: any[]) => void;
@@ -10,11 +10,27 @@ interface GameScannerProps {
 export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compact = false }) => {
   const { isScanning, error, scanAllGames, platformCounts, lastScanTime } = useGameDetectionContext();
   const [scanCompleted, setScanCompleted] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
 
   const handleScan = async () => {
     try {
       setScanCompleted(false);
+      setScanProgress(0);
+      
+      // Start progress animation
+      const interval = setInterval(() => {
+        setScanProgress(prev => {
+          if (prev >= 95) {
+            return 95; // Cap at 95% until complete
+          }
+          return prev + (Math.random() * 5);
+        });
+      }, 200);
+      
       const games = await scanAllGames({ forceRefresh: true });
+      
+      clearInterval(interval);
+      setScanProgress(100);
       
       if (onScanComplete) {
         onScanComplete(games);
@@ -25,9 +41,12 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
       // Reset the completed status after 3 seconds
       setTimeout(() => {
         setScanCompleted(false);
+        setScanProgress(0);
       }, 3000);
     } catch (err) {
       console.error('Error scanning for games:', err);
+      clearInterval(interval);
+      setScanProgress(0);
     }
   };
 
@@ -95,7 +114,7 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
             </>
           ) : scanCompleted ? (
             <>
-              <RefreshCw size={18} className="mr-2" />
+              <Zap size={18} className="mr-2" />
               Scan Complete
             </>
           ) : (
@@ -106,6 +125,16 @@ export const GameScanner: React.FC<GameScannerProps> = ({ onScanComplete, compac
           )}
         </button>
       </div>
+      
+      {/* Progress Bar */}
+      {(isScanning || scanProgress > 0) && (
+        <div className="w-full bg-gray-700 rounded-full h-2.5 mb-4">
+          <div 
+            className="bg-gradient-to-r from-cyan-500 to-purple-500 h-2.5 rounded-full transition-all duration-300"
+            style={{ width: `${scanProgress}%` }}
+          ></div>
+        </div>
+      )}
       
       {error && (
         <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">

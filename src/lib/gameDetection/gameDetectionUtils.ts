@@ -1,4 +1,4 @@
-import * as path from 'path';
+import * as path from 'path-browserify';
 import type { GameInfo } from './types';
 
 // Known game platforms and their common paths
@@ -191,11 +191,11 @@ export function filterAndDeduplicateGames(games: GameInfo[]): GameInfo[] {
   // First, filter out non-games
   const filteredGames = games.filter(game => {
     // Skip if no install path or process name
-    if (!game.install_path || !game.process_name) return false;
+    if (!game.installPath || !game.process_name) return false;
     
     // Check if it's a likely game executable
     return isLikelyGameExecutable(
-      path.join(game.install_path, game.process_name),
+      path.join(game.installPath, game.process_name),
       game.size
     );
   });
@@ -231,8 +231,8 @@ export function filterAndDeduplicateGames(games: GameInfo[]): GameInfo[] {
  */
 export function enhanceGameInfo(game: GameInfo): GameInfo {
   // If platform is not set, try to detect it
-  if (!game.platform && game.install_path) {
-    game.platform = detectGamePlatform(game.install_path);
+  if (!game.platform && game.installPath) {
+    game.platform = detectGamePlatform(game.installPath);
   }
   
   // Generate a default icon URL based on platform if none exists
@@ -240,7 +240,7 @@ export function enhanceGameInfo(game: GameInfo): GameInfo {
     switch (game.platform) {
       case GAME_PLATFORMS.STEAM:
         // Try to extract Steam AppID from install path
-        const steamAppIdMatch = game.install_path?.match(/\/steamapps\/common\/([^\/]+)/i);
+        const steamAppIdMatch = game.installPath?.match(/\/steamapps\/common\/([^\/]+)/i);
         if (steamAppIdMatch && steamAppIdMatch[1]) {
           // This is just a placeholder - in a real implementation, you'd use the actual Steam API
           game.icon_url = `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppIdMatch[1]}/header.jpg`;
