@@ -2,6 +2,7 @@ import * as fs from "fs/promises";
 import * as path from "path-browserify";
 import * as os from "os";
 import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
+import { isElectron } from "../isElectron";
 
 interface XboxGame {
   id: string;
@@ -21,7 +22,7 @@ interface XboxGame {
 export async function getXboxGames(): Promise<XboxGame[]> {
   try {
     // Check if we're in Electron environment
-    if (typeof window === 'undefined' || !window.electronAPI) {
+    if (!isElectron()) {
       console.log("Xbox detection requires Electron environment");
       return [];
     }

@@ -3,6 +3,15 @@ import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameD
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
 import { getSteamGames } from '../../lib/gameDetection/platforms/getSteamGames';
+import { mockGetSteamGames } from '../../lib/gameDetection/platforms/mockPlatforms';
+
+// Function to detect if we're in Electron environment
+const isElectron = () => {
+  return (
+    typeof window !== 'undefined' && 
+    window.electronAPI !== undefined
+  );
+};
 
 export function useSteamDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -35,17 +44,15 @@ export function useSteamDetector() {
         }
       }
 
-      // Web environment - use mock data
-      if (typeof window !== 'undefined' && !window.electronAPI) {
-        console.log('Web environment detected, using mock data for Steam games');
-        // Import dynamically to avoid issues
-        const { mockGetSteamGames } = await import('../../lib/gameDetection/platforms/mockPlatforms');
+      // Check if we're in Electron environment
+      if (!isElectron()) {
+        console.log('Not in Electron environment, using mock data for Steam games');
         const mockGames = await mockGetSteamGames();
         return { platform: Platform.Steam, games: mockGames };
       }
 
       // Electron environment - use real detection
-      console.log('Detecting Steam games using real detection...');
+      console.log('✅ Electron environment detected, using real detection for Steam games');
       const games = await getSteamGames();
       
       // Cache results

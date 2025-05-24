@@ -3,6 +3,15 @@ import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameD
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
 import path from 'path-browserify';
+import { mockGetGOGGames } from '../../lib/gameDetection/platforms/mockPlatforms';
+
+// Function to detect if we're in Electron environment
+const isElectron = () => {
+  return (
+    typeof window !== 'undefined' && 
+    window.electronAPI !== undefined
+  );
+};
 
 export function useGOGDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -35,13 +44,15 @@ export function useGOGDetector() {
         }
       }
 
-      // Web environment - return empty array
-      if (typeof window !== 'undefined' && !window.electronAPI) {
-        console.log('Web environment detected, returning empty array for GOG games');
-        return { platform: Platform.GOG, games: [] };
+      // Check if we're in Electron environment
+      if (!isElectron()) {
+        console.log('Not in Electron environment, using mock data for GOG games');
+        const mockGames = await mockGetGOGGames();
+        return { platform: Platform.GOG, games: mockGames };
       }
 
       // Electron environment - use real detection
+      console.log('✅ Electron environment detected, using real detection for GOG games');
       const games = await detectGOGGames();
       
       // Cache results
