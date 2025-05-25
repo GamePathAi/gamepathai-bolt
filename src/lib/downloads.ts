@@ -38,7 +38,7 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     try {
       console.log('Logging download event to Supabase...');
       
-      // Only include user_id if we have a valid authenticated user
+      // Create base download event without user_id
       const downloadEvent = {
         platform,
         version,
@@ -51,9 +51,22 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
         app_version: version
       };
 
-      // Only add user_id if user exists and is authenticated
+      // Only add user_id if we have a valid authenticated user
+      // AND the user exists in the auth.users table
       if (user?.id) {
-        Object.assign(downloadEvent, { user_id: user.id });
+        // First verify the user exists in the users table
+        const { data: existingUser, error: userCheckError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('id', user.id)
+          .single();
+
+        if (existingUser && !userCheckError) {
+          // Only include user_id if the user exists in the users table
+          Object.assign(downloadEvent, { user_id: user.id });
+        } else {
+          console.warn('User not found in users table, skipping user_id association');
+        }
       }
 
       const { error: insertError } = await supabase
