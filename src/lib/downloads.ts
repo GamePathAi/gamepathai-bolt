@@ -27,25 +27,38 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
     console.log(`Preparing download for ${platform}...`);
     
     // Get the current user if logged in
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    
+    if (userError) {
+      console.warn('Failed to get user:', userError);
+      // Continue with download but don't log user-specific data
+    }
     
     // Log download attempt using Supabase client (handles auth automatically)
     try {
       console.log('Logging download event to Supabase...');
+      
+      // Only include user_id if we have a valid authenticated user
+      const downloadEvent = {
+        platform,
+        version,
+        timestamp: new Date().toISOString(),
+        user_agent: navigator.userAgent,
+        device_type: deviceType,
+        installation_status: 'initiated',
+        referral_source: referralSource,
+        campaign_id: campaignId,
+        app_version: version
+      };
+
+      // Only add user_id if user exists and is authenticated
+      if (user?.id) {
+        Object.assign(downloadEvent, { user_id: user.id });
+      }
+
       const { error: insertError } = await supabase
         .from('download_events')
-        .insert({
-          platform,
-          version,
-          timestamp: new Date().toISOString(),
-          user_agent: navigator.userAgent,
-          user_id: user?.id || null,
-          device_type: deviceType,
-          installation_status: 'initiated',
-          referral_source: referralSource,
-          campaign_id: campaignId,
-          app_version: version
-        });
+        .insert(downloadEvent);
 
       if (insertError) {
         console.error('Failed to log download event:', insertError);
@@ -54,6 +67,7 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       }
     } catch (error) {
       console.warn('Failed to log download event:', error);
+      // Continue with download even if logging fails
     }
 
     // Get the download URL
