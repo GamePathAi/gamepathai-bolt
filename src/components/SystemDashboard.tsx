@@ -42,6 +42,30 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
   const [activeTab, setActiveTab] = useState<'overview' | 'cpu' | 'memory' | 'gpu' | 'network'>('overview');
   const [alerts, setAlerts] = useState<Array<{component: string; message: string; severity: string}>>([]);
   const historyCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [performanceHistory, setPerformanceHistory] = useState<Array<{
+    timestamp: number;
+    cpu: number;
+    memory: number;
+    gpu: number;
+  }>>([]);
+
+  // Update performance history when metrics change
+  useEffect(() => {
+    if (currentMetrics) {
+      setPerformanceHistory(prev => {
+        const newEntry = {
+          timestamp: Date.now(),
+          cpu: currentMetrics.performance.cpu.usage || 0,
+          memory: currentMetrics.performance.memory.usage || 0,
+          gpu: currentMetrics.performance.gpu.usage || 0,
+        };
+        
+        // Maintain only the last 60 entries (2 minutes at 2s interval)
+        const updated = [...prev, newEntry].slice(-60);
+        return updated;
+      });
+    }
+  }, [currentMetrics]);
 
   // Format bytes to human-readable format
   const formatBytes = (bytes: number, decimals = 2) => {
@@ -97,7 +121,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
 
   // Draw performance history chart
   useEffect(() => {
-    if (!showHistory || metricsHistory.length === 0 || !historyCanvasRef.current) return;
+    if (!showHistory || performanceHistory.length === 0 || !historyCanvasRef.current) return;
     
     const canvas = historyCanvasRef.current;
     const ctx = canvas.getContext('2d');
@@ -157,9 +181,9 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
     };
     
     // Extract data series
-    const cpuData = metricsHistory.map(m => m.cpu.usage);
-    const memoryData = metricsHistory.map(m => m.memory.usage);
-    const gpuData = metricsHistory.map(m => m.gpu.usage);
+    const cpuData = performanceHistory.map(m => m.cpu);
+    const memoryData = performanceHistory.map(m => m.memory);
+    const gpuData = performanceHistory.map(m => m.gpu);
     
     // Draw lines
     drawLine(cpuData, 'rgba(6, 182, 212, 0.8)'); // Cyan for CPU
@@ -188,7 +212,7 @@ export const SystemDashboard: React.FC<SystemDashboardProps> = ({
     ctx.fillStyle = 'rgba(156, 163, 175, 0.7)';
     ctx.fillText('GPU', padding + legendSpacing * 2 + 15, legendY + 3);
     
-  }, [metricsHistory, showHistory]);
+  }, [performanceHistory, showHistory]);
 
   // Get color based on usage percentage
   const getUsageColor = (usage: number) => {

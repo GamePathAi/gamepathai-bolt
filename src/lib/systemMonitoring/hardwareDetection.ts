@@ -222,7 +222,7 @@ class HardwareDetector {
    * Get simulated memory information
    */
   private getSimulatedMemoryInfo(): MemoryInfo {
-    const total = 32 * 1024; // 32 GB in MB
+    const total = 32 * 1024 * 1024 * 1024; // 32 GB in bytes
     const used = Math.floor(total * (0.3 + Math.random() * 0.3)); // 30-60% usage
     return {
       total,
@@ -236,7 +236,7 @@ class HardwareDetector {
    * Get simulated GPU information
    */
   private getSimulatedGPUInfo(): GPUInfo {
-    const total = 8 * 1024; // 8 GB VRAM in MB
+    const total = 8 * 1024 * 1024 * 1024; // 8 GB VRAM in bytes
     const used = Math.floor(total * (0.2 + Math.random() * 0.5)); // 20-70% usage
     return {
       name: 'NVIDIA GeForce RTX 4070',

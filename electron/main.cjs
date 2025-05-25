@@ -2,12 +2,21 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
+const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
+const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
+const { getOriginGames } = require('./src/lib/gameDetection/platforms/getOriginGames');
+const { getBattleNetGames } = require('./src/lib/gameDetection/platforms/getBattleNetGames');
+const { getGOGGames } = require('./src/lib/gameDetection/platforms/getGOGGames');
+const { getUplayGames } = require('./src/lib/gameDetection/platforms/getUplayGames');
 const fpsOptimizer = require('./fps-optimizer.cjs');
 const systemMonitor = require('./system-monitor.cjs');
 const networkMetrics = require('./network-metrics.cjs');
 const vpnManager = require('./vpn-manager.cjs');
 const { CONFIG_DIR, LOGS_DIR, CACHE_DIR, PROFILES_DIR, DEFAULT_CONFIG } = require('./config.cjs');
 const Store = require('electron-store');
+const os = require('os');
+const { execSync } = require('child_process');
 
 // Configuração do Store
 const store = new Store({
@@ -629,15 +638,35 @@ function setupIPC() {
   // Executar diagnóstico avançado
   ipcMain.handle('run-advanced-diagnostics', async () => {
     try {
-      // Coletar informações do sistema
-      const systemInfo = await systemMonitor.getSystemInfo();
+      const os = require('os');
+      const { execSync } = require('child_process');
       
-      return { 
-        success: true, 
-        systemInfo
+      const diagnostics = {
+        cpu: {
+          model: os.cpus()[0].model,
+          cores: os.cpus().length,
+          speeds: os.cpus().map(cpu => cpu.speed),
+          architecture: os.arch(),
+          // Tentar obter temperatura via wmic (Windows)
+          temperature: await getCPUTemperature(),
+        },
+        memory: {
+          total: Math.round(os.totalmem() / 1024 / 1024 / 1024), // GB
+          free: Math.round(os.freemem() / 1024 / 1024 / 1024),   // GB
+          usage: process.memoryUsage(),
+        },
+        system: {
+          platform: os.platform(),
+          version: os.version(),
+          uptime: Math.round(os.uptime() / 3600), // horas
+          loadavg: os.loadavg(),
+        },
+        gpu: await getGPUInfo(), // Implementar se possível
       };
+      
+      return { success: true, data: diagnostics };
     } catch (error) {
-      console.error('Error running diagnostics:', error);
+      console.error('Advanced diagnostics error:', error);
       return { success: false, error: error.message };
     }
   });
@@ -646,6 +675,82 @@ function setupIPC() {
   ipcMain.on('update-tray-games', (event, games) => {
     updateTrayMenu(games);
   });
+}
+
+// Function to get CPU temperature
+async function getCPUTemperature() {
+  try {
+    if (process.platform === 'win32') {
+      // Windows WMI query for temperature
+      try {
+        const output = execSync('wmic /namespace:\\\\root\\wmi PATH MSAcpi_ThermalZoneTemperature get CurrentTemperature /value', { encoding: 'utf8' });
+        const match = output.match(/CurrentTemperature=(\d+)/);
+        if (match && match[1]) {
+          // Convert from tenths of Kelvin to Celsius
+          return (parseInt(match[1]) / 10) - 273.15;
+        }
+      } catch (error) {
+        console.warn('Error getting CPU temperature via WMI:', error);
+      }
+    } else if (process.platform === 'linux') {
+      // Linux temperature from thermal zone
+      try {
+        const output = execSync('cat /sys/class/thermal/thermal_zone0/temp', { encoding: 'utf8' });
+        return parseInt(output) / 1000; // Convert from millidegrees to degrees
+      } catch (error) {
+        console.warn('Error getting CPU temperature on Linux:', error);
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.warn('Error getting CPU temperature:', error);
+    return null;
+  }
+}
+
+// Function to get GPU information
+async function getGPUInfo() {
+  try {
+    if (process.platform === 'win32') {
+      // Windows - use wmic to get GPU info
+      try {
+        const nameOutput = execSync('wmic path win32_VideoController get Name /value', { encoding: 'utf8' });
+        const nameMatch = nameOutput.match(/Name=(.+)/);
+        
+        const driverOutput = execSync('wmic path win32_VideoController get DriverVersion /value', { encoding: 'utf8' });
+        const driverMatch = driverOutput.match(/DriverVersion=(.+)/);
+        
+        const ramOutput = execSync('wmic path win32_VideoController get AdapterRAM /value', { encoding: 'utf8' });
+        const ramMatch = ramOutput.match(/AdapterRAM=(.+)/);
+        
+        return {
+          name: nameMatch ? nameMatch[1].trim() : 'Unknown GPU',
+          driver: driverMatch ? driverMatch[1].trim() : 'Unknown',
+          memory: ramMatch ? Math.round(parseInt(ramMatch[1]) / (1024 * 1024)) : 0, // Convert to MB
+          temperature: null // Temperature requires specialized tools
+        };
+      } catch (error) {
+        console.warn('Error getting GPU info via WMI:', error);
+      }
+    }
+    
+    // Fallback to basic info
+    return {
+      name: 'GPU',
+      driver: 'Unknown',
+      memory: 0,
+      temperature: null
+    };
+  } catch (error) {
+    console.warn('Error getting GPU info:', error);
+    return {
+      name: 'Unknown GPU',
+      driver: 'Unknown',
+      memory: 0,
+      temperature: null
+    };
+  }
 }
 
 // Eventos do app
