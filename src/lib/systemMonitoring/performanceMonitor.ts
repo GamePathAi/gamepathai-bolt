@@ -273,7 +273,7 @@ class PerformanceMonitor {
    * Calculate FPS (frames per second)
    * This uses requestAnimationFrame to measure actual rendering performance
    */
-  public calculateFPS(callback: (fps: number) => void, duration: number = 1000): void {
+  public calculateFPS(callback: (fps: number) => void, duration: number = 1000): () => void {
     let frameCount = 0;
     let lastTime = performance.now();
     let rafId: number;
@@ -307,7 +307,7 @@ class PerformanceMonitor {
    * Calculate frame time (milliseconds per frame)
    * This is the inverse of FPS and provides more granular performance data
    */
-  public calculateFrameTime(callback: (frameTime: number) => void): void {
+  public calculateFrameTime(callback: (frameTime: number) => void): () => void {
     let lastTime = performance.now();
     let rafId: number;
 
