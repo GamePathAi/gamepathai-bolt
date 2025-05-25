@@ -52,7 +52,7 @@ export async function downloadApp(options: DownloadOptions): Promise<{ success: 
       };
 
       // Only add user_id if we have a valid authenticated user
-      // AND the user exists in the auth.users table
+      // AND the user exists in the users table
       if (user?.id) {
         // First verify the user exists in the users table
         const { data: existingUser, error: userCheckError } = await supabase
