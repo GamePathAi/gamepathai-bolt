@@ -69,7 +69,7 @@ function isSteamGameValid(name) {
 
 /**
  * Retrieves installed Steam games
- * @returns {Promise<SteamGame[]>} Array of installed Steam games
+ * @returns {Promise} Array of installed Steam games
  */
 async function getSteamGames() {
   try {
@@ -235,7 +235,7 @@ async function getSteamGames() {
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
                 
                 // Last played date
-                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) ;
                 
                 // Game installation path
                 const installPath = path.join(appsDir, "common", installDir);
@@ -305,4 +305,4 @@ async function getSteamGames() {
 
 module.exports = getSteamGames;
 
-export { getSteamGames }
+module.exports = {  getSteamGames  }

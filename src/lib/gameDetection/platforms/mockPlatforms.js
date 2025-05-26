@@ -1,3 +1,5 @@
+import type { GameInfo } from '../types';
+
 // Mock implementations for web environment
 const mockGetSteamGames = async () => {
   return [
@@ -254,26 +256,4 @@ const mockGetUplayGames = async () => {
   ];
 };
 
-module.exports = { 
-  mockGetSteamGames, 
-  mockGetEpicGames, 
-  mockGetXboxGames, 
-  mockGetOriginGames, 
-  mockGetBattleNetGames, 
-  mockGetGOGGames, 
-  mockGetUplayGames 
-};
-
-export { mockGetGOGGames }
-
-export { mockGetEpicGames }
-
-export { mockGetSteamGames }
-
-export { mockGetUplayGames }
-
-export { mockGetOriginGames }
-
-export { mockGetBattleNetGames }
-
-export { mockGetXboxGames }
+module.exports = { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames };

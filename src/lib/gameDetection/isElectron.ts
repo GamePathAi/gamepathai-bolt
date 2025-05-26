@@ -1,3 +1,5 @@
+import { create } from 'zustand';
+
 /**
  * Utility function to detect if we're running in Electron environment
  */

@@ -10,7 +10,7 @@ try {
   Registry = undefined;
 }
 
-// interface OriginGame {
+// // interface OriginGame {
   id;
   name;
   platform;
@@ -25,7 +25,7 @@ try {
 /**
  * Busca jogos instalados no Origin/EA Desktop
  */
-async function getOriginGames(): Promise<OriginGame[]> {
+async function getOriginGames(): Promise {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {

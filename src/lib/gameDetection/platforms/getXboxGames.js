@@ -317,4 +317,4 @@ async function findExecutablesRecursively(fs, dirPath, maxDepth = 3) {
 
 module.exports = { getXboxGames };
 
-export { getXboxGames }
+module.exports = {  getXboxGames  }

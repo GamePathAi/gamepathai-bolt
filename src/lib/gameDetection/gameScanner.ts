@@ -1,9 +1,10 @@
 import type { GameInfo } from './types';
-import { getSteamGames, getEpicGames, getXboxGames, getOriginGames, 
-  mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames } from './platforms';
+import { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, 
+  mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames } from './platforms/mockPlatforms';
 import { filterAndDeduplicateGames, prioritizeGames, enhanceGameInfo } from './gameDetectionUtils';
+import { isElectron } from './isElectron';
 
-// Interface para comunicação com o Electron
+// Interface for communication with Electron
 interface ElectronAPI {
   getInstalledGames?: () => Promise<GameInfo[]>;
   scanGames?: () => Promise<{ success: boolean; data: GameInfo[]; errors: string[] }>;
@@ -12,29 +13,33 @@ interface ElectronAPI {
   optimizeGame?: (gameId: string, profile?: string, settings?: any) => Promise<boolean>;
 }
 
-// Implementação para ambiente web
+// Web implementation
 class GameScannerWeb {
   async getInstalledGames(): Promise<{ data: GameInfo[] | null; error: Error | null }> {
     try {
-      // Simular um pequeno atraso de rede
+      // Simulate a small network delay
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Combinar jogos de diferentes plataformas
+      // Combine games from different platforms
       const steamGames = await mockGetSteamGames();
       const epicGames = await mockGetEpicGames();
       const xboxGames = await mockGetXboxGames();
       const originGames = await mockGetOriginGames();
       const battleNetGames = await mockGetBattleNetGames();
+      const gogGames = await mockGetGOGGames();
+      const uplayGames = await mockGetUplayGames();
       
       const allGames = [
         ...steamGames,
         ...epicGames,
         ...xboxGames,
         ...originGames,
-        ...battleNetGames
+        ...battleNetGames,
+        ...gogGames,
+        ...uplayGames
       ];
       
-      // Filtrar, deduplicate e priorizar jogos
+      // Filter, deduplicate and prioritize games
       const processedGames = prioritizeGames(
         filterAndDeduplicateGames(
           allGames.map(enhanceGameInfo)
@@ -52,7 +57,7 @@ class GameScannerWeb {
   
   async scanForGames(): Promise<{ success: boolean; data: GameInfo[]; errors: string[] }> {
     try {
-      // Simular um scan
+      // Simulate a scan
       await new Promise(resolve => setTimeout(resolve, 2000));
       
       const { data, error } = await this.getInstalledGames();
@@ -96,7 +101,7 @@ class GameScannerWeb {
   }
 }
 
-// Implementação para ambiente Electron
+// Electron implementation
 class GameScannerElectron {
   private api: ElectronAPI;
   
@@ -117,7 +122,7 @@ class GameScannerElectron {
         throw new Error('No method available to get installed games');
       }
       
-      // Processar os jogos para filtrar não-jogos e melhorar a qualidade dos dados
+      // Process games to filter non-games and improve data quality
       const processedGames = prioritizeGames(
         filterAndDeduplicateGames(
           games.map(enhanceGameInfo)
@@ -138,7 +143,7 @@ class GameScannerElectron {
       if (this.api.scanGames) {
         const result = await this.api.scanGames();
         
-        // Processar os jogos para filtrar não-jogos e melhorar a qualidade dos dados
+        // Process games to filter non-games and improve data quality
         const processedGames = prioritizeGames(
           filterAndDeduplicateGames(
             result.data.map(enhanceGameInfo)
@@ -207,10 +212,11 @@ class GameScannerElectron {
 }
 
 // Determine if we're in Electron or web environment
-const isElectron = typeof window !== 'undefined' && window.electronAPI;
+const electronEnv = isElectron();
+console.log(`GameScanner: Running in ${electronEnv ? 'Electron' : 'Web'} environment`);
 
 // Create the appropriate implementation
-const scanner = isElectron 
+const scanner = electronEnv 
   ? new GameScannerElectron(window.electronAPI as unknown as ElectronAPI)
   : new GameScannerWeb();
 

@@ -11,7 +11,7 @@ try {
   Registry = undefined;
 }
 
-// interface UplayGame {
+// // interface UplayGame {
   id;
   name;
   platform;
@@ -26,7 +26,7 @@ try {
 /**
  * Busca jogos instalados no Ubisoft Connect (antigo Uplay)
  */
-async function getUplayGames(): Promise<UplayGame[]> {
+async function getUplayGames(): Promise {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {

@@ -2,6 +2,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { GameInfo } from '../lib/gameDetection/types';
 import { useGameStore } from '../stores/gameStore';
+import { isElectron } from '../lib/gameDetection/isElectron';
+import { gameScanner } from '../lib/gameDetection/gameScanner';
 
 export interface Game extends GameInfo {
   id: string;
@@ -27,9 +29,7 @@ export function useGameScanner() {
 
   // Verificar se electronAPI está disponível
   const isElectronAPIAvailable = useCallback(() => {
-    const available = typeof window !== 'undefined' && 
-                     window.electronAPI && 
-                     typeof window.electronAPI === 'object';
+    const available = isElectron();
     
     if (!available) {
       console.warn('useGameScanner: electronAPI não disponível');
@@ -115,30 +115,27 @@ export function useGameScanner() {
         console.error('useGameScanner: Erro ao carregar do localStorage:', storageError);
       }
 
-      // Se localStorage falhar, usar API do electronAPI
-      if (isElectronAPIAvailable()) {
-        console.log('useGameScanner: Carregando jogos via electronAPI');
-        const result = await window.electronAPI!.games.scan();
+      // Se localStorage falhar, usar gameScanner
+      console.log('useGameScanner: Carregando jogos via gameScanner');
+      const { data, error } = await gameScanner.getInstalledGames();
+      
+      if (data && Array.isArray(data) && data.length > 0) {
+        console.log(`useGameScanner: ${data.length} jogos carregados via gameScanner`);
+        setGames(data);
         
-        if (result.success && Array.isArray(result.data)) {
-          console.log(`useGameScanner: ${result.data.length} jogos carregados via API`);
-          setGames(result.data);
-          
-          // Salvar no localStorage
-          try {
-            localStorage.setItem('detected-games', JSON.stringify(result.data));
-            console.log(`useGameScanner: ${result.data.length} jogos salvos no localStorage`);
-          } catch (storageError) {
-            console.error('useGameScanner: Erro ao salvar no localStorage:', storageError);
-          }
-        } else {
-          console.log('useGameScanner: Nenhum jogo encontrado via API');
-          setGames([]);
-          setError(result.error || 'Nenhum jogo encontrado');
+        // Salvar no localStorage
+        try {
+          localStorage.setItem('detected-games', JSON.stringify(data));
+          console.log(`useGameScanner: ${data.length} jogos salvos no localStorage`);
+        } catch (storageError) {
+          console.error('useGameScanner: Erro ao salvar no localStorage:', storageError);
         }
       } else {
-        console.warn('useGameScanner: electronAPI não disponível, usando jogos vazios');
+        console.log('useGameScanner: Nenhum jogo encontrado via gameScanner');
         setGames([]);
+        if (error) {
+          setError(error.message || 'Nenhum jogo encontrado');
+        }
       }
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'Falha ao carregar jogos';
@@ -154,19 +151,12 @@ export function useGameScanner() {
       return [];
     }
     
-    if (!isElectronAPIAvailable()) {
-      const errorMsg = 'electronAPI não disponível para escaneamento';
-      console.error('useGameScanner:', errorMsg);
-      setError(errorMsg);
-      return [];
-    }
-    
     console.log('useGameScanner: Iniciando escaneamento de jogos...');
     setIsScanning(true);
     setError(null);
     
     try {
-      const result = await window.electronAPI!.games.scan();
+      const result = await gameScanner.scanForGames();
       console.log('useGameScanner: Resultado do escaneamento:', result);
       
       if (result.success && Array.isArray(result.data)) {
@@ -192,7 +182,7 @@ export function useGameScanner() {
         return detectedGames;
       } else {
         console.log('useGameScanner: Nenhum jogo encontrado no escaneamento');
-        setError(result.error || 'Nenhum jogo encontrado');
+        setError(result.errors?.join(', ') || 'Nenhum jogo encontrado');
         setLastScanTime(new Date());
         return [];
       }
@@ -204,7 +194,7 @@ export function useGameScanner() {
     } finally {
       setIsScanning(false);
     }
-  }, [isScanning, isElectronAPIAvailable, setGames]);
+  }, [isScanning, setGames]);
 
   // Escanear apenas Xbox
   const scanXboxGames = useCallback(async (): Promise<Game[]> => {
@@ -219,6 +209,32 @@ export function useGameScanner() {
     try {
       console.log('useGameScanner: Escaneando jogos Xbox...');
       
+      // Use mock data in web environment
+      if (!isElectron()) {
+        const { mockGetXboxGames } = await import('../lib/gameDetection/platforms/mockPlatforms');
+        const xboxGames = await mockGetXboxGames();
+        
+        console.log(`useGameScanner: ${xboxGames.length} jogos Xbox encontrados (mock)`);
+        
+        // Adicionar ao store existente (manter outros jogos)
+        const currentGames = games || [];
+        const updatedGames = [...currentGames];
+        
+        xboxGames.forEach(xboxGame => {
+          const existingIndex = updatedGames.findIndex(g => g.id === xboxGame.id);
+          if (existingIndex >= 0) {
+            updatedGames[existingIndex] = xboxGame;
+          } else {
+            updatedGames.push(xboxGame);
+          }
+        });
+        
+        setGames(updatedGames);
+        
+        return xboxGames as Game[];
+      }
+      
+      // In Electron environment, use the real API
       const result = await window.electronAPI!.games.scanXbox();
       
       if (result.success && Array.isArray(result.data)) {
@@ -259,13 +275,6 @@ export function useGameScanner() {
 
   // Lançar jogo
   const launchGame = useCallback(async (gameId: string, profile: string = 'balanced-fps'): Promise<boolean> => {
-    if (!isElectronAPIAvailable()) {
-      const errorMsg = 'electronAPI não disponível para lançamento';
-      console.error('useGameScanner:', errorMsg);
-      setError(errorMsg);
-      return false;
-    }
-
     setIsLaunching(true);
     setError(null);
 
@@ -280,27 +289,35 @@ export function useGameScanner() {
         return false;
       }
 
-      // Validar arquivos primeiro
-      console.log(`useGameScanner: Validando arquivos do jogo ${game.name}`);
-      const validation = await window.electronAPI!.games.validate(gameId);
-      
-      if (!validation.success) {
-        console.error(`useGameScanner: Validação falhou para ${game.name}:`, validation.error);
-        setError('Arquivos do jogo corrompidos ou ausentes. Verifique a instalação.');
-        return false;
-      }
+      // In Electron environment, use the real API
+      if (isElectron()) {
+        // Validar arquivos primeiro
+        console.log(`useGameScanner: Validando arquivos do jogo ${game.name}`);
+        const validation = await gameScanner.validateGameFiles(gameId);
+        
+        if (!validation) {
+          console.error(`useGameScanner: Validação falhou para ${game.name}`);
+          setError('Arquivos do jogo corrompidos ou ausentes. Verifique a instalação.');
+          return false;
+        }
 
-      // Lançar jogo
-      console.log(`useGameScanner: Lançando ${game.name}...`);
-      const result = await window.electronAPI!.launcher.launch(game, profile);
-      
-      if (result.success) {
-        console.log(`useGameScanner: ${game.name} lançado com sucesso`);
-        return true;
+        // Lançar jogo
+        console.log(`useGameScanner: Lançando ${game.name}...`);
+        const result = await gameScanner.launchGame(gameId);
+        
+        if (result) {
+          console.log(`useGameScanner: ${game.name} lançado com sucesso`);
+          return true;
+        } else {
+          console.error(`useGameScanner: Erro no lançamento de ${game.name}`);
+          setError('Erro no lançamento');
+          return false;
+        }
       } else {
-        console.error(`useGameScanner: Erro no lançamento de ${game.name}:`, result.error);
-        setError(result.error || 'Erro no lançamento');
-        return false;
+        // In web environment, simulate launch
+        console.log(`useGameScanner: Simulando lançamento de ${game.name} (ambiente web)`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return true;
       }
       
     } catch (error) {
@@ -311,7 +328,7 @@ export function useGameScanner() {
     } finally {
       setIsLaunching(false);
     }
-  }, [isElectronAPIAvailable, games]);
+  }, [games]);
 
   // Lançamento rápido
   const quickLaunch = useCallback(async (gameId: string): Promise<boolean> => {
@@ -341,13 +358,6 @@ export function useGameScanner() {
 
   // Otimizar jogo
   const optimizeGame = useCallback(async (gameId: string, profile: string = 'ultra-performance'): Promise<boolean> => {
-    if (!isElectronAPIAvailable()) {
-      const errorMsg = 'electronAPI não disponível para otimização';
-      console.error('useGameScanner:', errorMsg);
-      setError(errorMsg);
-      return false;
-    }
-
     setIsOptimizing(true);
     setError(null);
 
@@ -362,10 +372,41 @@ export function useGameScanner() {
         return false;
       }
 
-      const result = await window.electronAPI!.optimization.optimizeForGame(game, profile);
-      
-      if (result.success) {
-        console.log(`useGameScanner: Otimização de ${game.name} concluída`);
+      // In Electron environment, use the real API
+      if (isElectron()) {
+        const result = await gameScanner.optimizeGame(gameId, profile);
+        
+        if (result) {
+          console.log(`useGameScanner: Otimização de ${game.name} concluída`);
+          
+          // Atualizar jogo no store
+          updateGame(gameId, { optimized: true });
+          
+          // Atualizar no localStorage
+          try {
+            const savedGames = localStorage.getItem('detected-games');
+            if (savedGames) {
+              const parsedGames = JSON.parse(savedGames);
+              const updatedGames = parsedGames.map((g: Game) => 
+                g.id === gameId ? { ...g, optimized: true } : g
+              );
+              localStorage.setItem('detected-games', JSON.stringify(updatedGames));
+              console.log(`useGameScanner: Status de otimização atualizado no localStorage para ${gameId}`);
+            }
+          } catch (storageError) {
+            console.error('useGameScanner: Erro ao atualizar localStorage:', storageError);
+          }
+          
+          return true;
+        } else {
+          console.error(`useGameScanner: Erro na otimização de ${game.name}`);
+          setError('Erro na otimização');
+          return false;
+        }
+      } else {
+        // In web environment, simulate optimization
+        console.log(`useGameScanner: Simulando otimização de ${game.name} (ambiente web)`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         // Atualizar jogo no store
         updateGame(gameId, { optimized: true });
@@ -379,17 +420,12 @@ export function useGameScanner() {
               g.id === gameId ? { ...g, optimized: true } : g
             );
             localStorage.setItem('detected-games', JSON.stringify(updatedGames));
-            console.log(`useGameScanner: Status de otimização atualizado no localStorage para ${gameId}`);
           }
         } catch (storageError) {
           console.error('useGameScanner: Erro ao atualizar localStorage:', storageError);
         }
         
         return true;
-      } else {
-        console.error(`useGameScanner: Erro na otimização de ${game.name}:`, result.error);
-        setError(result.error || 'Erro na otimização');
-        return false;
       }
       
     } catch (error) {
@@ -400,7 +436,7 @@ export function useGameScanner() {
     } finally {
       setIsOptimizing(false);
     }
-  }, [isElectronAPIAvailable, games, updateGame]);
+  }, [games, updateGame]);
 
   // Otimizar sistema
   const optimizeSystem = useCallback(async (profile: string = 'balanced-fps'): Promise<boolean> => {
