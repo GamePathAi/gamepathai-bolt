@@ -223,6 +223,7 @@
         "sharp": "^0.33.2",
         "systeminformation": "^5.22.0",
         "tcp-ping": "^0.1.1",
+        "vdf": "^0.0.2",
         "vdf-parser": "^1.2.1",
         "vite-plugin-image-optimizer": "^1.1.7",
         "vite-plugin-pwa": "^0.19.2",

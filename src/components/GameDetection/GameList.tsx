@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useGameDetectionContext } from './GameDetectionProvider';
 import { Gamepad2, Search, Filter, ChevronDown, Zap, Play, AlertTriangle } from 'lucide-react';
 import type { GameInfo } from '../../lib/gameDetection/types';
@@ -98,7 +98,7 @@ export const GameList: React.FC<GameListProps> = ({
     try {
       // If we're in Electron, try to launch the game using the Electron API
       if (window.electronAPI && game.executablePath) {
-        await window.electronAPI.game.launch(game.executablePath);
+        await window.electronAPI.launchGame(game);
       }
       
       onGameLaunch(game);
@@ -132,20 +132,20 @@ export const GameList: React.FC<GameListProps> = ({
   const runGameDiagnostic = async () => {
     try {
       setIsDiagnosticRunning(true);
-      console.log('GameList: Executando diagnóstico de detecção de jogos...');
+      console.log('GameList: Executando diagnÃ³stico de detecÃ§Ã£o de jogos...');
       
       if (window.electronAPI?.monitoring?.runDiagnostics) {
         const result = await window.electronAPI.monitoring.runDiagnostics();
-        console.log('GameList: Resultado do diagnóstico:', result);
+        console.log('GameList: Resultado do diagnÃ³stico:', result);
         setDiagnosticResults(result.data);
       } else {
-        console.warn('GameList: API de diagnóstico não disponível');
+        console.warn('GameList: API de diagnÃ³stico nÃ£o disponÃ­vel');
         setDiagnosticResults({
           message: 'Diagnostic API not available in this environment'
         });
       }
     } catch (error) {
-      console.error('GameList: Erro ao executar diagnóstico:', error);
+      console.error('GameList: Erro ao executar diagnÃ³stico:', error);
       setDiagnosticResults({
         error: error instanceof Error ? error.message : 'Unknown error'
       });
@@ -238,7 +238,7 @@ export const GameList: React.FC<GameListProps> = ({
           disabled={isDiagnosticRunning}
           className="px-4 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
         >
-          {isDiagnosticRunning ? 'Diagnosticando...' : 'Diagnóstico de Detecção'}
+          {isDiagnosticRunning ? 'Diagnosticando...' : 'DiagnÃ³stico de DetecÃ§Ã£o'}
         </button>
       </div>
 
@@ -330,7 +330,7 @@ export const GameList: React.FC<GameListProps> = ({
                     <span className="text-xs text-gray-400">{game.platform}</span>
                     {game.size && (
                       <>
-                        <span className="mx-2 text-gray-600">•</span>
+                        <span className="mx-2 text-gray-600">â€¢</span>
                         <span className="text-xs text-gray-400">{Math.round(game.size / 1024)} GB</span>
                       </>
                     )}
@@ -399,11 +399,11 @@ export const GameList: React.FC<GameListProps> = ({
 
       {diagnosticResults && (
         <div className="bg-gray-800 p-4 mt-4 rounded-lg overflow-auto max-h-96">
-          <h3 className="text-white font-medium mb-3">Resultados do Diagnóstico</h3>
+          <h3 className="text-white font-medium mb-3">Resultados do DiagnÃ³stico</h3>
           
           {diagnosticResults.systemInfo && (
             <div className="mb-4">
-              <h4 className="text-cyan-400 text-sm font-medium mb-2">Informações do Sistema</h4>
+              <h4 className="text-cyan-400 text-sm font-medium mb-2">InformaÃ§Ãµes do Sistema</h4>
               <div className="bg-gray-900 p-3 rounded-lg">
                 <pre className="text-xs text-gray-300 overflow-auto">
                   {JSON.stringify(diagnosticResults.systemInfo, null, 2)}

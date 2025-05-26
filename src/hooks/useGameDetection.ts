@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useSteamDetector } from './detectors/useSteamDetector';
 import { useEpicDetector } from './detectors/useEpicDetector';
 import { useXboxDetector } from './detectors/useXboxDetector';
@@ -26,13 +26,67 @@ export function useGameDetection() {
   const gogDetector = useGOGDetector();
   const uplayDetector = useUplayDetector();
 
+  // All detectors
+  const detectors = [
+    steamDetector,
+    epicDetector,
+    xboxDetector,
+    originDetector,
+    battleNetDetector,
+    gogDetector,
+    uplayDetector
+  ];
+
+  // Update allGames when any detector updates
+  useEffect(() => {
+    const games: GameInfo[] = [];
+    const detectionResults: DetectionResult[] = [];
+
+    detectors.forEach(detector => {
+      games.push(...detector.games);
+      detectionResults.push({
+        platform: detector.platform,
+        games: detector.games,
+        error: detector.error || undefined
+      });
+    });
+
+    setAllGames(games);
+    setResults(detectionResults);
+  }, [
+    steamDetector.games,
+    epicDetector.games,
+    xboxDetector.games,
+    originDetector.games,
+    battleNetDetector.games,
+    gogDetector.games,
+    uplayDetector.games
+  ]);
+
+  // Check if any detector is loading
+  useEffect(() => {
+    const anyLoading = detectors.some(d => d.isLoading);
+    setIsScanning(anyLoading);
+  }, [
+    steamDetector.isLoading,
+    epicDetector.isLoading,
+    xboxDetector.isLoading,
+    originDetector.isLoading,
+    battleNetDetector.isLoading,
+    gogDetector.isLoading,
+    uplayDetector.isLoading
+  ]);
+
   // Load cached games on mount
   useEffect(() => {
     const loadCachedGames = async () => {
       try {
         const cachedGames = await getItem<GameInfo[]>('detected-games');
         if (cachedGames && cachedGames.length > 0) {
-          setAllGames(cachedGames);
+          // Don't override if we already have games from detectors
+          if (allGames.length === 0) {
+            setAllGames(cachedGames);
+          }
         }
       } catch (error) {
         console.error('Error loading cached games:', error);
@@ -42,188 +96,47 @@ export function useGameDetection() {
     loadCachedGames();
   }, [getItem]);
 
-  // Scan for games on all platforms
-  const scanAllPlatforms = useCallback(async (options: DetectorOptions = {}) => {
-    if (isScanning) return;
-
-    setIsScanning(true);
-    setError(null);
-
-    try {
-      // Check if we should use cache
-      if (!options.forceRefresh) {
-        const cachedGames = await getItem<GameInfo[]>('detected-games');
-        const cachedTime = await getItem<string>('last-scan-time');
-        
-        if (cachedGames && cachedGames.length > 0 && cachedTime) {
-          const lastScan = new Date(cachedTime);
-          const now = new Date();
-          const timeDiff = now.getTime() - lastScan.getTime();
-          
-          // Use cache if it's less than 1 hour old
-          if (timeDiff < 60 * 60 * 1000) {
-            setAllGames(cachedGames);
-            setLastScanTime(lastScan);
-            setIsScanning(false);
-            return cachedGames;
-          }
-        }
-      }
-
-      // Run all detectors in parallel
-      const detectionPromises = [
-        steamDetector.detect(options),
-        epicDetector.detect(options),
-        xboxDetector.detect(options),
-        originDetector.detect(options),
-        battleNetDetector.detect(options),
-        gogDetector.detect(options),
-        uplayDetector.detect(options)
-      ];
-
-      // Set timeout for each detector if specified
-      const timeout = options.timeout || 30000; // Default 30 seconds
-      const timeoutPromises = detectionPromises.map(promise => {
-        return Promise.race([
-          promise,
-          new Promise<DetectionResult>((_, reject) => 
-            setTimeout(() => reject(new Error('Detector timed out')), timeout)
-          )
-        ]);
-      });
-
-      // Wait for all detectors to complete or timeout
-      const results = await Promise.allSettled(timeoutPromises);
-      
-      // Process results
-      const detectionResults: DetectionResult[] = [];
-      const allDetectedGames: GameInfo[] = [];
-      
-      results.forEach((result, index) => {
-        if (result.status === 'fulfilled') {
-          detectionResults.push(result.value);
-          allDetectedGames.push(...result.value.games);
-        } else {
-          const platforms = ['Steam', 'Epic', 'Xbox', 'Origin', 'Battle.net', 'GOG', 'Ubisoft Connect'];
-          detectionResults.push({
-            platform: platforms[index],
-            games: [],
-            error: result.reason?.message || 'Unknown error'
-          });
-        }
-      });
-
-      // Deduplicate games by ID
-      const uniqueGames = allDetectedGames.reduce((acc, game) => {
-        if (!acc.some(g => g.id === game.id)) {
-          acc.push(game);
-        }
-        return acc;
-      }, [] as GameInfo[]);
-
-      // Update state
-      setResults(detectionResults);
-      setAllGames(uniqueGames);
-      
-      // Cache results
-      const now = new Date();
-      setLastScanTime(now);
-      await setItem('detected-games', uniqueGames);
-      await setItem('last-scan-time', now.toISOString());
-      
-      return uniqueGames;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error during game detection';
-      setError(errorMessage);
-      console.error('Game detection error:', error);
-      return [];
-    } finally {
-      setIsScanning(false);
+  // Save games to cache when they change
+  useEffect(() => {
+    if (allGames.length > 0) {
+      setItem('detected-games', allGames);
+      setItem('last-scan-time', new Date().toISOString());
+      setLastScanTime(new Date());
     }
-  }, [
-    isScanning, 
-    getItem, 
-    setItem, 
-    steamDetector, 
-    epicDetector, 
-    xboxDetector, 
-    originDetector, 
-    battleNetDetector, 
-    gogDetector, 
-    uplayDetector
-  ]);
+  }, [allGames, setItem]);
+
+  // Scan for games on all platforms (triggers re-detection)
+  const scanAllPlatforms = useCallback(async (options: DetectorOptions = {}) => {
+    // For now, just return current games since detectors auto-detect
+    // In the future, we could trigger manual scans through electronAPI
+    console.log('Scanning all platforms...', options);
+    
+    // Clear cache if force refresh
+    if (options.forceRefresh) {
+      await setItem('detected-games', null);
+      await setItem('last-scan-time', null);
+      // Reload the page to trigger re-detection
+      window.location.reload();
+    }
+    
+    return allGames;
+  }, [allGames, setItem]);
 
   // Scan for games on a specific platform
   const scanPlatform = useCallback(async (platform: string, options: DetectorOptions = {}) => {
-    if (isScanning) return [];
-
-    setIsScanning(true);
-    setError(null);
-
-    try {
-      let detector;
-      switch (platform.toLowerCase()) {
-        case 'steam':
-          detector = steamDetector;
-          break;
-        case 'epic':
-          detector = epicDetector;
-          break;
-        case 'xbox':
-          detector = xboxDetector;
-          break;
-        case 'origin':
-          detector = originDetector;
-          break;
-        case 'battle.net':
-          detector = battleNetDetector;
-          break;
-        case 'gog':
-          detector = gogDetector;
-          break;
-        case 'ubisoft':
-        case 'uplay':
-          detector = uplayDetector;
-          break;
-        default:
-          throw new Error(`Unknown platform: ${platform}`);
-      }
-
-      const result = await detector.detect(options);
-      
-      // Update all games with the new platform games
-      setAllGames(prevGames => {
-        // Remove existing games from this platform
-        const filteredGames = prevGames.filter(game => game.platform !== result.platform);
-        // Add new games from this platform
-        return [...filteredGames, ...result.games];
-      });
-      
-      // Update cache
-      const updatedGames = [...allGames.filter(game => game.platform !== result.platform), ...result.games];
-      await setItem('detected-games', updatedGames);
-      
-      return result.games;
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Error detecting games on ${platform}`;
-      setError(errorMessage);
-      console.error(`Error detecting games on ${platform}:`, error);
-      return [];
-    } finally {
-      setIsScanning(false);
+    console.log(`Scanning ${platform}...`, options);
+    
+    // Find the detector for this platform
+    const detector = detectors.find(d => 
+      d.platform.toLowerCase() === platform.toLowerCase()
+    );
+    
+    if (detector) {
+      return detector.games;
     }
-  }, [
-    isScanning, 
-    allGames, 
-    setItem, 
-    steamDetector, 
-    epicDetector, 
-    xboxDetector, 
-    originDetector, 
-    battleNetDetector, 
-    gogDetector, 
-    uplayDetector
-  ]);
+    
+    return [];
+  }, [detectors]);
 
   // Clear cache
   const clearCache = useCallback(async () => {
@@ -233,6 +146,8 @@ export function useGameDetection() {
       setAllGames([]);
       setResults([]);
       setLastScanTime(null);
+      // Reload to trigger re-detection
+      window.location.reload();
       return true;
     } catch (error) {
       console.error('Error clearing cache:', error);
@@ -240,14 +155,41 @@ export function useGameDetection() {
     }
   }, [setItem]);
 
+  // Get games by platform
+  const getGamesByPlatform = useCallback((platform: string) => {
+    return allGames.filter(game => 
+      game.platform.toLowerCase() === platform.toLowerCase()
+    );
+  }, [allGames]);
+
+  // Get unique platforms
+  const platforms = [...new Set(allGames.map(game => game.platform))];
+
   return {
-    games: allGames,
-    results,
+    // State
     isScanning,
     error,
+    games: allGames,  // AQUI! Estava faltando
+    allGames,
+    results,
+    platforms,
     lastScanTime,
+    
+    // Actions
     scanAllPlatforms,
     scanPlatform,
-    clearCache
+    clearCache,
+    getGamesByPlatform,
+    
+    // Individual detector states
+    detectors: {
+      steam: steamDetector,
+      epic: epicDetector,
+      xbox: xboxDetector,
+      origin: originDetector,
+      battleNet: battleNetDetector,
+      gog: gogDetector,
+      uplay: uplayDetector
+    }
   };
 }

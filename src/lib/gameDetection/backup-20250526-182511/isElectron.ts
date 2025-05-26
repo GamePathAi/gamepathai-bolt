@@ -1,9 +1,9 @@
-﻿/**
+/**
  * Utility function to detect if we're running in Electron environment
  */
-function isElectron() {
+function () {
   // Check if window.electronAPI exists
-  const hasElectronAPI = typeof window !== 'undefined' &&
+  const hasElectronAPI = typeof window !== 'undefined' && 
                          window.electronAPI !== undefined;
   
   // Log detection result for debugging
@@ -17,4 +17,4 @@ function isElectron() {
   return hasElectronAPI;
 }
 
-module.exports = { isElectron };
+module.exports = { to, hasElectronAPI };

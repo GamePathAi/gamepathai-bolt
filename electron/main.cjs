@@ -1,14 +1,45 @@
-// electron/main.cjs - GamePath AI Professional v3.0
+﻿// electron/main.cjs - GamePath AI Professional v3.0
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
-const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
-const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
-const { getOriginGames } = require('./src/lib/gameDetection/platforms/getOriginGames');
-const { getBattleNetGames } = require('./src/lib/gameDetection/platforms/getBattleNetGames');
-const { getGOGGames } = require('./src/lib/gameDetection/platforms/getGOGGames');
-const { getUplayGames } = require('./src/lib/gameDetection/platforms/getUplayGames');
+
+// Carregar mÃ³dulos de detecÃ§Ã£o de jogos com tratamento de erro
+let gameDetectionModules = {};
+try {
+  const { getSteamGames } = require('../src/lib/gameDetection/platforms/getSteamGames.ts');
+  const { getEpicGames } = require('../src/lib/gameDetection/platforms/getEpicGames.ts');
+  const { getXboxGames } = require('../src/lib/gameDetection/platforms/getXboxGames.ts');
+  const { getOriginGames } = require('../src/lib/gameDetection/platforms/getOriginGames.ts');
+  const { getBattleNetGames } = require('../src/lib/gameDetection/platforms/getBattleNetGames.ts');
+  const { getGOGGames } = require('../src/lib/gameDetection/platforms/getGOGGames.ts');
+  const { getUplayGames } = require('../src/lib/gameDetection/platforms/getUplayGames.ts');
+
+  gameDetectionModules = {
+    getSteamGames,
+    getEpicGames,
+    getXboxGames,
+    getOriginGames,
+    getBattleNetGames,
+    getGOGGames,
+    getUplayGames
+  };
+  
+  console.log('âœ… Game detection modules loaded successfully');
+} catch (error) {
+  console.error('âŒ Error loading game detection modules:', error);
+  // Fallback functions
+  gameDetectionModules = {
+    getSteamGames: () => [],
+    getEpicGames: () => [],
+    getXboxGames: () => [],
+    getOriginGames: () => [],
+    getBattleNetGames: () => [],
+    getGOGGames: () => [],
+    getUplayGames: () => []
+  };
+}
+
+// Outros mÃ³dulos do sistema
 const fpsOptimizer = require('./fps-optimizer.cjs');
 const systemMonitor = require('./system-monitor.cjs');
 const networkMetrics = require('./network-metrics.cjs');
@@ -18,13 +49,13 @@ const Store = require('electron-store');
 const os = require('os');
 const { execSync } = require('child_process');
 
-// Configuração do Store
+// ConfiguraÃ§Ã£o do Store
 const store = new Store({
   name: 'gamepath-ai-config',
   defaults: DEFAULT_CONFIG
 });
 
-// Variáveis globais
+// VariÃ¡veis globais
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -32,7 +63,7 @@ let gameCache = {};
 let lastScanTime = 0;
 const SCAN_COOLDOWN = 60000; // 1 minuto entre scans completos
 
-// Configuração de diretórios
+// ConfiguraÃ§Ã£o de diretÃ³rios
 function ensureDirectoriesExist() {
   const dirs = [CONFIG_DIR, LOGS_DIR, CACHE_DIR, PROFILES_DIR];
   
@@ -44,7 +75,7 @@ function ensureDirectoriesExist() {
   }
 }
 
-// Inicialização
+// InicializaÃ§Ã£o
 async function initialize() {
   ensureDirectoriesExist();
   
@@ -62,7 +93,7 @@ async function initialize() {
   }
 }
 
-// Criação da janela principal
+// CriaÃ§Ã£o da janela principal
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -76,7 +107,7 @@ function createWindow() {
       sandbox: false
     },
     icon: path.join(__dirname, '../public/icons/icon.ico'),
-    show: false, // Não mostrar até que esteja pronto
+    show: false, // NÃ£o mostrar atÃ© que esteja pronto
     backgroundColor: '#0d1117'
   });
 
@@ -113,7 +144,7 @@ function createWindow() {
   });
 }
 
-// Configuração do Tray
+// ConfiguraÃ§Ã£o do Tray
 function setupTray() {
   const iconPath = path.join(__dirname, '../public/icons/tray-icon.png');
   
@@ -133,7 +164,7 @@ function setupTray() {
   });
 }
 
-// Atualização do menu do Tray
+// AtualizaÃ§Ã£o do menu do Tray
 function updateTrayMenu(games = []) {
   const gameMenuItems = games.slice(0, 5).map(game => {
     return {
@@ -223,7 +254,7 @@ function updateTrayMenu(games = []) {
   tray.setContextMenu(contextMenu);
 }
 
-// Configuração de IPC para detecção de jogos
+// ConfiguraÃ§Ã£o de IPC para detecÃ§Ã£o de jogos
 function setupGameDetectionIPC() {
   // File system operations
   ipcMain.handle('fs-exists', async (event, filePath) => {
@@ -280,16 +311,14 @@ function setupGameDetectionIPC() {
   // Registry operations
   ipcMain.handle('registry-get-value', (event, hive, key, valueName) => {
     try {
-      // In a real implementation, this would use the registry-js module
-      // For now, we'll just return mock data
-      console.log(`Registry get value: ${hive}\\${key}\\${valueName}`);
+      console.log(`Registry get value: ${hive}\\${key}`);
       
-      // Mock some common registry values
-      if (key === "SOFTWARE\\Valve\\Steam" && valueName === "SteamPath") {
+      // Mock some common registry values for development
+      if (key.includes("Steam") && valueName === "SteamPath") {
         return "C:\\Program Files (x86)\\Steam";
       }
       
-      if (key === "SOFTWARE\\WOW6432Node\\Epic Games\\EpicGamesLauncher" && valueName === "AppDataPath") {
+      if (key.includes("Epic") && valueName === "AppDataPath") {
         return "C:\\ProgramData\\Epic\\EpicGamesLauncher";
       }
       
@@ -300,117 +329,10 @@ function setupGameDetectionIPC() {
     }
   });
 
-  ipcMain.handle('registry-enumerate-values', (event, hive, key) => {
-    try {
-      // In a real implementation, this would use the registry-js module
-      console.log(`Registry enumerate values: ${hive}\\${key}`);
-      return [];
-    } catch (error) {
-      console.error(`Error enumerating registry values ${hive}\\${key}:`, error);
-      return [];
-    }
-  });
-
-  ipcMain.handle('registry-enumerate-keys', (event, hive, key) => {
-    try {
-      // In a real implementation, this would use the registry-js module
-      console.log(`Registry enumerate keys: ${hive}\\${key}`);
-      return [];
-    } catch (error) {
-      console.error(`Error enumerating registry keys ${hive}\\${key}:`, error);
-      return [];
-    }
-  });
-
-  // System paths
-  ipcMain.handle('get-system-paths', () => {
-    return {
-      home: app.getPath('home'),
-      appData: app.getPath('appData'),
-      userData: app.getPath('userData'),
-      temp: app.getPath('temp'),
-      desktop: app.getPath('desktop'),
-      documents: app.getPath('documents'),
-      downloads: app.getPath('downloads'),
-      music: app.getPath('music'),
-      pictures: app.getPath('pictures'),
-      videos: app.getPath('videos'),
-      logs: app.getPath('logs'),
-      crashDumps: app.getPath('crashDumps')
-    };
-  });
-
-  // Environment variables
-  ipcMain.handle('get-env-vars', () => {
-    return {
-      PATH: process.env.PATH,
-      APPDATA: process.env.APPDATA,
-      LOCALAPPDATA: process.env.LOCALAPPDATA,
-      PROGRAMFILES: process.env.PROGRAMFILES,
-      'PROGRAMFILES(X86)': process.env['PROGRAMFILES(X86)'],
-      USERPROFILE: process.env.USERPROFILE,
-      HOMEPATH: process.env.HOMEPATH,
-      HOMEDRIVE: process.env.HOMEDRIVE,
-      SYSTEMDRIVE: process.env.SYSTEMDRIVE,
-      SYSTEMROOT: process.env.SYSTEMROOT,
-      WINDIR: process.env.WINDIR,
-      TEMP: process.env.TEMP,
-      TMP: process.env.TMP
-    };
-  });
-
-  // Game operations
-  ipcMain.handle('launch-game', async (event, executablePath, args = []) => {
-    try {
-      if (!executablePath) {
-        throw new Error('No executable path provided');
-      }
-
-      // Check if the executable exists
-      try {
-        await fs.promises.access(executablePath);
-      } catch {
-        throw new Error(`Executable not found: ${executablePath}`);
-      }
-
-      // Launch the game
-      const { spawn } = require('child_process');
-      const process = spawn(executablePath, args, {
-        detached: true,
-        stdio: 'ignore'
-      });
-
-      process.unref();
-
-      return { success: true };
-    } catch (error) {
-      console.error('Error launching game:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
   // Steam games detection
   ipcMain.handle('get-steam-games', async () => {
     try {
-      const steamPath = "C:\\Program Files (x86)\\Steam\\steamapps\\common";
-      
-      if (fs.existsSync(steamPath)) {
-        const entries = fs.readdirSync(steamPath);
-        
-        return entries.map(entry => ({
-          id: `steam-${entry.toLowerCase().replace(/\s+/g, '-')}`,
-          name: entry,
-          platform: 'Steam',
-          installPath: path.join(steamPath, entry),
-          executablePath: '',
-          process_name: '',
-          size: 0,
-          icon_url: undefined,
-          last_played: undefined
-        }));
-      }
-      
-      return [];
+      return await gameDetectionModules.getSteamGames();
     } catch (error) {
       console.error('Error getting Steam games:', error);
       return [];
@@ -420,25 +342,203 @@ function setupGameDetectionIPC() {
   // Xbox games detection
   ipcMain.handle('get-xbox-packages', async () => {
     try {
-      // In a real implementation, this would use PowerShell or registry queries
-      // For now, we'll just return mock data
-      return [
-        {
-          id: 'xbox-callofduty',
-          name: 'Call of Duty',
-          platform: 'Xbox',
-          installPath: 'C:\\Program Files\\WindowsApps\\Microsoft.CallofDuty',
-          isGame: true
-        }
-      ];
+      return await gameDetectionModules.getXboxGames();
     } catch (error) {
       console.error('Error getting Xbox packages:', error);
       return [];
     }
   });
+
+  // Epic games detection
+  ipcMain.handle('get-epic-games', async () => {
+    try {
+      return await gameDetectionModules.getEpicGames();
+    } catch (error) {
+      console.error('Error getting Epic games:', error);
+      return [];
+    }
+  });
+
+  // Other platform games
+  ipcMain.handle('get-origin-games', async () => {
+    try {
+      return await gameDetectionModules.getOriginGames();
+    } catch (error) {
+      console.error('Error getting Origin games:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('get-battlenet-games', async () => {
+    try {
+      return await gameDetectionModules.getBattleNetGames();
+    } catch (error) {
+      console.error('Error getting Battle.net games:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('get-gog-games', async () => {
+    try {
+      return await gameDetectionModules.getGOGGames();
+    } catch (error) {
+      console.error('Error getting GOG games:', error);
+      return [];
+    }
+  });
+
+  ipcMain.handle('get-uplay-games', async () => {
+    try {
+      return await gameDetectionModules.getUplayGames();
+    } catch (error) {
+      console.error('Error getting Uplay games:', error);
+      return [];
+    }
+  });
+  
+  // Scan all games
+  ipcMain.handle('scan-games', async () => {
+    try {
+      console.log('Scanning all games...');
+      const results = await Promise.all([
+        gameDetectionModules.getSteamGames(),
+        gameDetectionModules.getEpicGames(),
+        gameDetectionModules.getXboxGames(),
+        gameDetectionModules.getOriginGames(),
+        gameDetectionModules.getBattleNetGames(),
+        gameDetectionModules.getGOGGames(),
+        gameDetectionModules.getUplayGames()
+      ]);
+      
+      const allGames = results.flat();
+      console.log(`Total games found: ${allGames.length}`);
+      
+      return {
+        success: true,
+        data: allGames
+      };
+    } catch (error) {
+      console.error('Error scanning games:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
+  });
+
+      // Game launch
+  ipcMain.handle('launch-game', async (event, gameOrPath, args = []) => {
+    try {
+      // Extrair o executablePath do objeto game ou usar string diretamente
+      let executablePath;
+      let gameName = 'Game';
+      
+      if (typeof gameOrPath === 'string') {
+        executablePath = gameOrPath;
+      } else if (gameOrPath && typeof gameOrPath === 'object') {
+        executablePath = gameOrPath.executablePath;
+        gameName = gameOrPath.name || 'Game';
+      }
+      
+      if (!executablePath) {
+        throw new Error('No executable path provided');
+      }
+      
+      console.log('Launching game:', executablePath);
+      console.log('Game name:', gameName);
+
+      // Mostrar notificação (se disponível)
+      try {
+        const { Notification } = require('electron');
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'GamePath AI',
+            body: ` Launching ${gameName}...`,
+            silent: false
+          }).show();
+        }
+      } catch (notifError) {
+        console.log('Notification error:', notifError.message);
+      }
+
+      const { spawn } = require('child_process');
+      const fs = require('fs');
+      
+      // Verificar se o arquivo existe
+      if (!fs.existsSync(executablePath)) {
+        throw new Error(`Executable not found: ${executablePath}`);
+      }
+      
+      // Argumentos especiais para Call of Duty
+      let launchArgs = [...args];
+      if (gameName.includes('Call of Duty')) {
+        console.log('Detected Call of Duty - using special launch method');
+        
+        // Para COD, tentar usar o launcher principal
+        const codPath = require('path').dirname(executablePath);
+        const bootstrapperPath = require('path').join(codPath, 'bootstrapper.exe');
+        
+        if (fs.existsSync(bootstrapperPath)) {
+          console.log('Using COD bootstrapper:', bootstrapperPath);
+          executablePath = bootstrapperPath;
+        }
+      }
+      
+      // Opções de spawn melhoradas
+      const spawnOptions = {
+        detached: true,
+        stdio: 'ignore',
+        cwd: require('path').dirname(executablePath)
+      };
+      
+      console.log('Spawn options:', spawnOptions);
+      console.log('Launch args:', launchArgs);
+      
+      const process = spawn(executablePath, launchArgs, spawnOptions);
+      
+      process.unref();
+      
+      // Notificação de sucesso
+      setTimeout(() => {
+        try {
+          const { Notification } = require('electron');
+          if (Notification.isSupported()) {
+            new Notification({
+              title: 'GamePath AI',
+              body: ` ${gameName} launched successfully!`,
+              silent: false
+            }).show();
+          }
+        } catch (err) {
+          console.log('Success notification error:', err.message);
+        }
+      }, 2000);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error launching game:', error);
+      
+      // Notificação de erro
+      try {
+        const { Notification } = require('electron');
+        if (Notification.isSupported()) {
+          new Notification({
+            title: 'GamePath AI - Error',
+            body: ` Failed to launch game: ${error.message}`,
+            silent: false
+          }).show();
+        }
+      } catch (notifError) {
+        console.log('Error notification failed:', notifError.message);
+      }
+      
+      return { success: false, error: error.message };
+    }
+  });
 }
 
-// Configuração de IPC para monitoramento do sistema
+// ConfiguraÃ§Ã£o de IPC para monitoramento do sistema
 function setupSystemMonitoringIPC() {
   // Get system information
   ipcMain.handle('get-system-info', async () => {
@@ -451,203 +551,15 @@ function setupSystemMonitoringIPC() {
     }
   });
 
-  // Get CPU information
-  ipcMain.handle('get-cpu-info', async () => {
-    try {
-      const cpuInfo = await systemMonitor.getCpuInfo();
-      return cpuInfo;
-    } catch (error) {
-      console.error('Error getting CPU info:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Get memory information
-  ipcMain.handle('get-memory-info', async () => {
-    try {
-      const memInfo = await systemMonitor.getMemoryInfo();
-      return memInfo;
-    } catch (error) {
-      console.error('Error getting memory info:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Get GPU information
-  ipcMain.handle('get-gpu-info', async () => {
-    try {
-      const gpuInfo = await systemMonitor.getGpuInfo();
-      return gpuInfo;
-    } catch (error) {
-      console.error('Error getting GPU info:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Get OS information
-  ipcMain.handle('get-os-info', async () => {
-    try {
-      const osInfo = await systemMonitor.getOsInfo();
-      return osInfo;
-    } catch (error) {
-      console.error('Error getting OS info:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Get running processes
-  ipcMain.handle('get-processes', async () => {
-    try {
-      const processes = await systemMonitor.getProcesses();
-      return processes;
-    } catch (error) {
-      console.error('Error getting processes:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Get network metrics
-  ipcMain.handle('get-network-metrics', async () => {
-    try {
-      const metrics = await networkMetrics.analyzeNetwork();
-      return metrics;
-    } catch (error) {
-      console.error('Error getting network metrics:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Measure network latency
-  ipcMain.handle('measure-latency', async (event, servers = {}) => {
-    try {
-      const latency = await networkMetrics.measureLatency(servers);
-      return latency;
-    } catch (error) {
-      console.error('Error measuring latency:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Measure connection quality
-  ipcMain.handle('measure-connection-quality', async (event, host = '1.1.1.1') => {
-    try {
-      const quality = await networkMetrics.measureConnectionQuality(host);
-      return quality;
-    } catch (error) {
-      console.error('Error measuring connection quality:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Trace route
-  ipcMain.handle('trace-route', async (event, host = '1.1.1.1') => {
-    try {
-      const route = await networkMetrics.traceRoute(host);
-      return route;
-    } catch (error) {
-      console.error('Error tracing route:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Estimate bandwidth
-  ipcMain.handle('estimate-bandwidth', async () => {
-    try {
-      const bandwidth = await networkMetrics.estimateBandwidth();
-      return bandwidth;
-    } catch (error) {
-      console.error('Error estimating bandwidth:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Calculate packet loss
-  ipcMain.handle('calculate-packet-loss', async (event, host = '1.1.1.1', count = 20) => {
-    try {
-      const packetLoss = await networkMetrics.calculatePacketLoss(host, count);
-      return packetLoss;
-    } catch (error) {
-      console.error('Error calculating packet loss:', error);
-      return { error: error.message };
-    }
-  });
-
-  // Optimize CPU
-  ipcMain.handle('optimize-cpu', async (event, options = {}) => {
-    try {
-      const result = await systemMonitor.optimizeProcesses();
-      return { success: true, improvement: 15, ...result };
-    } catch (error) {
-      console.error('Error optimizing CPU:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Optimize memory
-  ipcMain.handle('optimize-memory', async (event, options = {}) => {
-    try {
-      const result = await systemMonitor.optimizeMemory();
-      return { success: true, improvement: 20, ...result };
-    } catch (error) {
-      console.error('Error optimizing memory:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Optimize GPU
-  ipcMain.handle('optimize-gpu', async (event, options = {}) => {
-    try {
-      const result = await systemMonitor.optimizeDisk();
-      return { success: true, improvement: 10, ...result };
-    } catch (error) {
-      console.error('Error optimizing GPU:', error);
-      return { success: false, error: error.message };
-    }
-  });
-
-  // Optimize network
-  ipcMain.handle('optimize-network', async (event, options = {}) => {
-    try {
-      const result = await networkMetrics.optimizeRoute();
-      return { success: true, improvement: 25, ...result };
-    } catch (error) {
-      console.error('Error optimizing network:', error);
-      return { success: false, error: error.message };
-    }
-  });
-}
-
-// Configuração de IPC
-function setupIPC() {
-  // Game detection IPC
-  setupGameDetectionIPC();
-  
-  // System monitoring IPC
-  setupSystemMonitoringIPC();
-  
-  // Obter informações do sistema
-  ipcMain.handle('get-system-info', async () => {
-    try {
-      const metrics = await systemMonitor.getSystemInfo();
-      return metrics;
-    } catch (error) {
-      return { error: error.message };
-    }
-  });
-  
-  // Executar diagnóstico avançado
+  // Executar diagnÃ³stico avanÃ§ado
   ipcMain.handle('run-advanced-diagnostics', async () => {
     try {
-      const os = require('os');
-      const { execSync } = require('child_process');
-      
       const diagnostics = {
         cpu: {
           model: os.cpus()[0].model,
           cores: os.cpus().length,
           speeds: os.cpus().map(cpu => cpu.speed),
           architecture: os.arch(),
-          // Tentar obter temperatura via wmic (Windows)
           temperature: await getCPUTemperature(),
         },
         memory: {
@@ -661,7 +573,7 @@ function setupIPC() {
           uptime: Math.round(os.uptime() / 3600), // horas
           loadavg: os.loadavg(),
         },
-        gpu: await getGPUInfo(), // Implementar se possível
+        gpu: await getGPUInfo(),
       };
       
       return { success: true, data: diagnostics };
@@ -670,10 +582,57 @@ function setupIPC() {
       return { success: false, error: error.message };
     }
   });
-  
-  // Atualizar jogos no tray
-  ipcMain.on('update-tray-games', (event, games) => {
-    updateTrayMenu(games);
+
+  // Network metrics
+  ipcMain.handle('get-network-metrics', async () => {
+    try {
+      const metrics = await networkMetrics.analyzeNetwork();
+      return metrics;
+    } catch (error) {
+      console.error('Error getting network metrics:', error);
+      return { error: error.message };
+    }
+  });
+
+  // System optimization handlers
+  ipcMain.handle('optimize-cpu', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeProcesses();
+      return { success: true, improvement: 15, ...result };
+    } catch (error) {
+      console.error('Error optimizing CPU:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('optimize-memory', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeMemory();
+      return { success: true, improvement: 20, ...result };
+    } catch (error) {
+      console.error('Error optimizing memory:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('optimize-gpu', async (event, options = {}) => {
+    try {
+      const result = await systemMonitor.optimizeDisk();
+      return { success: true, improvement: 10, ...result };
+    } catch (error) {
+      console.error('Error optimizing GPU:', error);
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('optimize-network', async (event, options = {}) => {
+    try {
+      const result = await networkMetrics.optimizeRoute();
+      return { success: true, improvement: 25, ...result };
+    } catch (error) {
+      console.error('Error optimizing network:', error);
+      return { success: false, error: error.message };
+    }
   });
 }
 
@@ -681,27 +640,16 @@ function setupIPC() {
 async function getCPUTemperature() {
   try {
     if (process.platform === 'win32') {
-      // Windows WMI query for temperature
       try {
         const output = execSync('wmic /namespace:\\\\root\\wmi PATH MSAcpi_ThermalZoneTemperature get CurrentTemperature /value', { encoding: 'utf8' });
         const match = output.match(/CurrentTemperature=(\d+)/);
         if (match && match[1]) {
-          // Convert from tenths of Kelvin to Celsius
           return (parseInt(match[1]) / 10) - 273.15;
         }
       } catch (error) {
         console.warn('Error getting CPU temperature via WMI:', error);
       }
-    } else if (process.platform === 'linux') {
-      // Linux temperature from thermal zone
-      try {
-        const output = execSync('cat /sys/class/thermal/thermal_zone0/temp', { encoding: 'utf8' });
-        return parseInt(output) / 1000; // Convert from millidegrees to degrees
-      } catch (error) {
-        console.warn('Error getting CPU temperature on Linux:', error);
-      }
     }
-    
     return null;
   } catch (error) {
     console.warn('Error getting CPU temperature:', error);
@@ -713,7 +661,6 @@ async function getCPUTemperature() {
 async function getGPUInfo() {
   try {
     if (process.platform === 'win32') {
-      // Windows - use wmic to get GPU info
       try {
         const nameOutput = execSync('wmic path win32_VideoController get Name /value', { encoding: 'utf8' });
         const nameMatch = nameOutput.match(/Name=(.+)/);
@@ -721,25 +668,19 @@ async function getGPUInfo() {
         const driverOutput = execSync('wmic path win32_VideoController get DriverVersion /value', { encoding: 'utf8' });
         const driverMatch = driverOutput.match(/DriverVersion=(.+)/);
         
-        const ramOutput = execSync('wmic path win32_VideoController get AdapterRAM /value', { encoding: 'utf8' });
-        const ramMatch = ramOutput.match(/AdapterRAM=(.+)/);
-        
         return {
           name: nameMatch ? nameMatch[1].trim() : 'Unknown GPU',
           driver: driverMatch ? driverMatch[1].trim() : 'Unknown',
-          memory: ramMatch ? Math.round(parseInt(ramMatch[1]) / (1024 * 1024)) : 0, // Convert to MB
-          temperature: null // Temperature requires specialized tools
+          temperature: null
         };
       } catch (error) {
         console.warn('Error getting GPU info via WMI:', error);
       }
     }
     
-    // Fallback to basic info
     return {
-      name: 'GPU',
+      name: 'Unknown GPU',
       driver: 'Unknown',
-      memory: 0,
       temperature: null
     };
   } catch (error) {
@@ -747,10 +688,45 @@ async function getGPUInfo() {
     return {
       name: 'Unknown GPU',
       driver: 'Unknown',
-      memory: 0,
       temperature: null
     };
   }
+}
+
+// ConfiguraÃ§Ã£o principal de IPC
+function setupIPC() {
+  setupGameDetectionIPC();
+  setupSystemMonitoringIPC();
+  
+  // Atualizar jogos no tray
+  ipcMain.on('update-tray-games', (event, games) => {
+    updateTrayMenu(games);
+  });
+
+  // System paths
+  ipcMain.handle('get-system-paths', () => {
+    return {
+      home: app.getPath('home'),
+      appData: app.getPath('appData'),
+      userData: app.getPath('userData'),
+      temp: app.getPath('temp'),
+      desktop: app.getPath('desktop'),
+      documents: app.getPath('documents'),
+      downloads: app.getPath('downloads')
+    };
+  });
+
+  // Environment variables
+  ipcMain.handle('get-env-vars', () => {
+    return {
+      PATH: process.env.PATH,
+      APPDATA: process.env.APPDATA,
+      LOCALAPPDATA: process.env.LOCALAPPDATA,
+      PROGRAMFILES: process.env.PROGRAMFILES,
+      'PROGRAMFILES(X86)': process.env['PROGRAMFILES(X86)'],
+      USERPROFILE: process.env.USERPROFILE
+    };
+  });
 }
 
 // Eventos do app
