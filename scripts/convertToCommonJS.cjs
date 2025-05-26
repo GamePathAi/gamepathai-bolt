@@ -27,6 +27,12 @@ const convertESModuleToCommonJS = (filePath) => {
   content = content.replace(/interface (\w+)/g, '// interface $1');
   content = content.replace(/type (\w+)/g, '// type $1');
   
+  // Remover tipos TypeScript
+  content = content.replace(/:\s*string\b/g, '');
+  content = content.replace(/:\s*number\b/g, '');
+  content = content.replace(/:\s*boolean\b/g, '');
+  content = content.replace(/\?\s*:/g, ':');
+  
   // Remove TypeScript types
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+(\s*=)/g, '$1');
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+;/g, ';');

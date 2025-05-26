@@ -26,14 +26,22 @@ const requireGameModule = (moduleName) => {
 // Carregar módulos de detecção de jogos
 let gameDetectionModules;
 try {
+  const { getSteamGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getSteamGames'));
+  const { getEpicGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getEpicGames'));  
+  const { getBattleNetGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getBattleNetGames'));
+  const { getOriginGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getOriginGames'));
+  const { getXboxGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getXboxGames'));
+  const { getGOGGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getGOGGames'));
+  const { getUplayGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getUplayGames'));
+  
   gameDetectionModules = {
-    getSteamGames: requireGameModule('getSteamGames').getSteamGames,
-    getEpicGames: requireGameModule('getEpicGames').getEpicGames,
-    getXboxGames: requireGameModule('getXboxGames').getXboxGames,
-    getOriginGames: requireGameModule('getOriginGames').getOriginGames,
-    getBattleNetGames: requireGameModule('getBattleNetGames').getBattleNetGames,
-    getGOGGames: requireGameModule('getGOGGames').getGOGGames,
-    getUplayGames: requireGameModule('getUplayGames').getUplayGames
+    getSteamGames,
+    getEpicGames,
+    getXboxGames,
+    getOriginGames,
+    getBattleNetGames,
+    getGOGGames,
+    getUplayGames
   };
   console.log('✅ Game detection modules loaded successfully');
 } catch (error) {
