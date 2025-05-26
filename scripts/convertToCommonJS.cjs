@@ -8,6 +8,17 @@ const convertESModuleToCommonJS = (filePath) => {
   console.log(`Converting: ${filePath}`);
   let content = fs.readFileSync(filePath, 'utf8');
   
+  // Remove TypeScript interfaces completely
+  content = content.replace(/interface\s+\w+\s*{[\s\S]*?}/g, '');
+  
+  // Remove type annotations
+  content = content.replace(/:\s*string\??/g, '');
+  content = content.replace(/:\s*number\??/g, '');
+  content = content.replace(/:\s*boolean\??/g, '');
+  content = content.replace(/:\s*\w+\[\]\??/g, '');
+  content = content.replace(/:\s*any\??/g, '');
+  content = content.replace(/\?\s*:/g, ':');
+  
   // Converter exports
   content = content.replace(/export const (\w+)/g, 'const $1');
   content = content.replace(/export default/g, 'module.exports =');
@@ -27,12 +38,6 @@ const convertESModuleToCommonJS = (filePath) => {
   content = content.replace(/interface (\w+)/g, '// interface $1');
   content = content.replace(/type (\w+)/g, '// type $1');
   
-  // Remover tipos TypeScript
-  content = content.replace(/:\s*string\b/g, '');
-  content = content.replace(/:\s*number\b/g, '');
-  content = content.replace(/:\s*boolean\b/g, '');
-  content = content.replace(/\?\s*:/g, ':');
-  
   // Remove TypeScript types
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+(\s*=)/g, '$1');
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+;/g, ';');
@@ -48,6 +53,10 @@ const convertESModuleToCommonJS = (filePath) => {
   // Convert .ts imports to .js
   content = content.replace(/require\(['"]([^'"]+)\.ts['"]\)/g, 'require("$1.js")');
   content = content.replace(/from\s+['"]([^'"]+)\.ts['"]/g, 'from "$1.js"');
+  
+  // Clean up double semicolons
+  content = content.replace(/;;/g, ';');
+  content = content.replace(/;\s*;/g, ';');
   
   // Add module.exports at the end if not already present
   if (!content.includes('module.exports')) {

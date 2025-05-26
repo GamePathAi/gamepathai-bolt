@@ -7,7 +7,7 @@ const isDev = process.env.NODE_ENV === 'development';
 // Função helper para resolver caminhos de módulos de detecção de jogos
 const requireGameModule = (moduleName) => {
   try {
-    const modulePath = path.join(__dirname, 'src', 'lib', 'gameDetection', 'platforms', `${moduleName}.js`);
+    const modulePath = path.join(__dirname, '..', 'src', 'lib', 'gameDetection', 'platforms', `${moduleName}.js`);
     return require(modulePath);
   } catch (error) {
     console.error(`Error loading game detection module ${moduleName}:`, error.message);
