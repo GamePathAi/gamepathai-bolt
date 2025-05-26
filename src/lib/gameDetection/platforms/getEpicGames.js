@@ -1,25 +1,13 @@
 const fs = require("fs/promises");
 const path = require("path-browserify");
 const os = require("os");
-const {  isLikelyGameExecutable  } = require("../gameDetectionUtils");
-const {  isElectron  } = require("../isElectron");
-
-// interface EpicGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
+const { isLikelyGameExecutable } = require("../gameDetectionUtils");
+const { isElectron } = require("../isElectron");
 
 /**
  * Busca jogos instalados no Epic Games Launcher
  */
-async function getEpicGames(): Promise<EpicGame[]> {
+async function getEpicGames() {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -193,7 +181,7 @@ async function getEpicGames(): Promise<EpicGame[]> {
 }
 
 // Fallback function to scan common Epic Games directories
-async function scanEpicDirectories(fs: any, directories): Promise<any[]> {
+async function scanEpicDirectories(fs, directories) {
   const games = [];
   
   for (const dir of directories) {
