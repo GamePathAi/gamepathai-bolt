@@ -10,22 +10,10 @@ try {
   Registry = undefined;
 }
 
-// // interface OriginGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
-
 /**
  * Busca jogos instalados no Origin/EA Desktop
  */
-async function getOriginGames(): Promise {
+async function getOriginGames() {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -246,4 +234,4 @@ async function getOriginGames(): Promise {
   }
 }
 
-module.exports = getOriginGames;
+module.exports = { getOriginGames };

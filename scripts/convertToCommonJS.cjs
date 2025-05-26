@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log('🔍 INICIANDO TESTE DOS DETECTORES DE JOGOS');
+console.log('🔍 INICIANDO CONVERSÃO DE MÓDULOS ES PARA COMMONJS');
 console.log('==========================================\n');
 
 const convertESModuleToCommonJS = (filePath) => {
@@ -31,6 +31,7 @@ const convertESModuleToCommonJS = (filePath) => {
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+(\s*=)/g, '$1');
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+;/g, ';');
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+\)/g, ')');
+  content = content.replace(/:\s*Promise<[^>]+>/g, '');
   
   // Remove optional property indicators
   content = content.replace(/\?:/g, ':');
@@ -40,6 +41,7 @@ const convertESModuleToCommonJS = (filePath) => {
   
   // Convert .ts imports to .js
   content = content.replace(/require\(['"]([^'"]+)\.ts['"]\)/g, 'require("$1.js")');
+  content = content.replace(/from\s+['"]([^'"]+)\.ts['"]/g, 'from "$1.js"');
   
   // Add module.exports at the end if not already present
   if (!content.includes('module.exports')) {

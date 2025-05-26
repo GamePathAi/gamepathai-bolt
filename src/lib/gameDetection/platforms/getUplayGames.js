@@ -1,7 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const os = require("os");
-const {  isLikelyGameExecutable  } = require("../gameDetectionUtils");
+const { isLikelyGameExecutable } = require("../gameDetectionUtils");
 
 // Se estiver no Windows, usar o Registry
 let Registry;
@@ -11,22 +11,10 @@ try {
   Registry = undefined;
 }
 
-// // interface UplayGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
-
 /**
  * Busca jogos instalados no Ubisoft Connect (antigo Uplay)
  */
-async function getUplayGames(): Promise {
+async function getUplayGames() {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -127,7 +115,7 @@ async function getUplayGames(): Promise {
             
             try {
               // Procurar recursivamente por executáveis
-              const findExecutables = async (dir: string, depth = 0) => {
+              const findExecutables = async (dir, depth = 0) => {
                 if (depth > 2) return []; // Limitar profundidade da busca
                 
                 const files = await fs.readdir(dir, { withFileTypes: true });
@@ -211,4 +199,4 @@ async function getUplayGames(): Promise {
   }
 }
 
-module.exports = getUplayGames;
+module.exports = { getUplayGames };
