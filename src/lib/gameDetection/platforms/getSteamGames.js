@@ -4,17 +4,18 @@ const os = require("os");
 const {  isLikelyGameExecutable, fileExists  } = require("../gameDetectionUtils");
 const {  isElectron  } = require("../isElectron");
 
-// interface SteamGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
+/**
+ * @typedef {Object} SteamGame
+ * @property {string} id - Unique identifier for the game
+ * @property {string} name - Name of the game
+ * @property {string} platform - Gaming platform (e.g., "Steam")
+ * @property {string} installPath - Path where the game is installed
+ * @property {string} executablePath - Path to the game's executable
+ * @property {string} process_name - Name of the game's process
+ * @property {number} size - Size of the game in MB
+ * @property {string} [icon_url] - URL of the game's icon
+ * @property {Date} [last_played] - When the game was last played
+ */
 
 // Steam game blacklist - these are not actual games but tools, redistributables, etc.
 const STEAM_GAME_BLACKLIST = [
@@ -56,8 +57,10 @@ const MAX_GAMES_PER_PLATFORM = 50;
 
 /**
  * Checks if a Steam game should be included in the results
+ * @param {string} name - Name of the game to check
+ * @returns {boolean} Whether the game should be included
  */
-function isSteamGameValid(name): boolean {
+function isSteamGameValid(name) {
   // Check if the game is in the blacklist
   return !STEAM_GAME_BLACKLIST.some(blacklisted => 
     name.toLowerCase().includes(blacklisted.toLowerCase())
@@ -65,9 +68,10 @@ function isSteamGameValid(name): boolean {
 }
 
 /**
- * Busca jogos instalados no Steam
+ * Retrieves installed Steam games
+ * @returns {Promise<SteamGame[]>} Array of installed Steam games
  */
-async function getSteamGames(): Promise<SteamGame[]> {
+async function getSteamGames() {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -78,10 +82,10 @@ async function getSteamGames(): Promise<SteamGame[]> {
     const { fs, registry, Registry } = window.electronAPI;
     const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
 
-    // Encontrar o diretório de instalação do Steam
+    // Find Steam installation directory
     let steamPath = "";
     
-    // No Windows, tentar pelo registro
+    // Try registry on Windows
     if (window.electronAPI.system.platform === "win32") {
       try {
         steamPath = await registry.getValue(
@@ -90,7 +94,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
           "SteamPath"
         );
         
-        // Se não encontrar pelo CURRENT_USER, tentar LOCAL_MACHINE
+        // Try LOCAL_MACHINE if not found in CURRENT_USER
         if (!steamPath) {
           steamPath = await registry.getValue(
             Registry.HKEY.LOCAL_MACHINE,
@@ -103,9 +107,9 @@ async function getSteamGames(): Promise<SteamGame[]> {
       }
     }
     
-    // Caminhos padrão para diferentes plataformas
+    // Default paths for different platforms
     if (!steamPath) {
-      const defaultPaths: Record<string, string[]> = {
+      const defaultPaths = {
         win32: [
           "C:\\Program Files (x86)\\Steam",
           "C:\\Program Files\\Steam",
@@ -119,9 +123,9 @@ async function getSteamGames(): Promise<SteamGame[]> {
         ],
       };
       
-      const platformPaths = defaultPaths[window.electronAPI.system.platform as keyof typeof defaultPaths] || [];
+      const platformPaths = defaultPaths[window.electronAPI.system.platform] || [];
       
-      // Verificar cada caminho padrão
+      // Check each default path
       for (const defaultPath of platformPaths) {
         if (await fs.exists(defaultPath)) {
           steamPath = defaultPath;
@@ -137,15 +141,15 @@ async function getSteamGames(): Promise<SteamGame[]> {
     
     console.log(`Steam installation found at: ${steamPath}`);
     
-    // Encontrar as bibliotecas de jogos do Steam
+    // Find Steam game libraries
     const libraries = [steamPath];
     
-    // Ler o arquivo libraryfolders.vdf para encontrar mais bibliotecas
+    // Read libraryfolders.vdf to find additional libraries
     try {
-      // Caminhos possíveis para o arquivo libraryfolders.vdf
+      // Possible paths for libraryfolders.vdf
       const libraryFoldersPaths = [
-        path.join(steamPath, "steamapps", "libraryfolders.vdf"), // Caminho mais recente
-        path.join(steamPath, "config", "libraryfolders.vdf"), // Caminho mais antigo
+        path.join(steamPath, "steamapps", "libraryfolders.vdf"), // Newer path
+        path.join(steamPath, "config", "libraryfolders.vdf"), // Older path
       ];
       
       let libraryFoldersContent = "";
@@ -157,12 +161,12 @@ async function getSteamGames(): Promise<SteamGame[]> {
             break;
           }
         } catch {
-          // Arquivo não existe, continuar para o próximo
+          // File doesn't exist, try next
         }
       }
       
       if (libraryFoldersContent) {
-        // Extrair caminhos das bibliotecas
+        // Extract library paths
         const pathRegex = /"path"\s+"([^"]+)"/g;
         const matches = Array.from(libraryFoldersContent.matchAll(pathRegex));
         
@@ -170,7 +174,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
           libraries.push(match[1].replace(/\\\\/g, "\\"));
         }
         
-        // Se não encontrar com o regex acima, tentar outro formato
+        // Try alternative format if no paths found
         if (libraries.length === 1) {
           const altRegex = /"([0-9]+)"\s+{[^}]*?"path"\s+"([^"]+)"/g;
           const altMatches = Array.from(libraryFoldersContent.matchAll(altRegex));
@@ -186,19 +190,19 @@ async function getSteamGames(): Promise<SteamGame[]> {
     
     console.log(`Found ${libraries.length} Steam libraries: ${libraries.join(", ")}`);
     
-    // Escanear cada biblioteca por jogos
+    // Scan each library for games
     const games = [];
     
     for (const library of libraries) {
       const appsDir = path.join(library, "steamapps");
       
       try {
-        // Verificar se o diretório steamapps existe
+        // Check if steamapps directory exists
         if (await fs.exists(appsDir)) {
-          // Ler o diretório em busca de arquivos de manifesto
+          // Read directory for manifest files
           const files = await fs.readDir(appsDir);
           
-          // Filtrar por arquivos de manifesto de jogos
+          // Filter for game manifest files
           const manifestFiles = files.filter(file => 
             file.name.startsWith("appmanifest_") && file.name.endsWith(".acf")
           );
@@ -208,7 +212,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
               const manifestPath = manifestFile.path;
               const manifestContent = await fs.readFile(manifestPath);
               
-              // Extrair informações do manifesto
+              // Extract manifest information
               const appIdMatch = /"appid"\s+"(\d+)"/.exec(manifestContent);
               const nameMatch = /"name"\s+"([^"]+)"/.exec(manifestContent);
               const installDirMatch = /"installdir"\s+"([^"]+)"/.exec(manifestContent);
@@ -226,17 +230,17 @@ async function getSteamGames(): Promise<SteamGame[]> {
                   continue;
                 }
                 
-                // Calcular tamanho em MB
+                // Calculate size in MB
                 const sizeInBytes = sizeOnDiskMatch ? parseInt(sizeOnDiskMatch[1]) : 0;
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
                 
-                // Data da última vez jogado
-                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) ;
+                // Last played date
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
                 
-                // Caminho de instalação do jogo
+                // Game installation path
                 const installPath = path.join(appsDir, "common", installDir);
                 
-                // Encontrar o executável principal
+                // Find main executable
                 let executablePath = "";
                 let processName = "";
                 
@@ -246,7 +250,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
                     const exeFiles = gameFiles.filter(file => file.name.toLowerCase().endsWith(".exe"));
                     
                     if (exeFiles.length > 0) {
-                      // Preferir executável com o mesmo nome que o diretório de instalação
+                      // Prefer executable with same name as install directory
                       const mainExe = exeFiles.find(file => 
                         file.name.toLowerCase() === `${installDir.toLowerCase()}.exe`
                       ) || exeFiles[0];
@@ -259,7 +263,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
                   }
                 }
                 
-                // URL do ícone do Steam para o jogo
+                // Steam game icon URL
                 const iconUrl = `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/header.jpg`;
                 
                 games.push({
@@ -276,7 +280,7 @@ async function getSteamGames(): Promise<SteamGame[]> {
                 
                 console.log(`Found Steam game: ${name} (${appId})`);
                 
-                // Limit the number of games to prevent overwhelming the UI
+                // Limit number of games
                 if (games.length >= MAX_GAMES_PER_PLATFORM) {
                   console.log(`Reached maximum number of Steam games (${MAX_GAMES_PER_PLATFORM}), stopping scan`);
                   break;
