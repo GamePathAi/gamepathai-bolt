@@ -235,7 +235,7 @@ async function getSteamGames() {
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
                 
                 // Last played date
-                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : undefined;
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) ;
                 
                 // Game installation path
                 const installPath = path.join(appsDir, "common", installDir);
@@ -307,4 +307,4 @@ module.exports = getSteamGames;
 
 module.exports = {  getSteamGames  }
 
-export { getSteamGames }
+module.exports = {  getSteamGames  }

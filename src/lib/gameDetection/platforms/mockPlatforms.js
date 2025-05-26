@@ -264,4 +264,4 @@ module.exports = {
   mockGetUplayGames 
 };
 
-export { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames }
+module.exports = {  mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames  }
