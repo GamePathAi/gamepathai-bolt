@@ -304,3 +304,5 @@ async function getSteamGames() {
 }
 
 module.exports = getSteamGames;
+
+export { getSteamGames }
