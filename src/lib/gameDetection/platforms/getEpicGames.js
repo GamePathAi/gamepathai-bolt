@@ -254,3 +254,5 @@ async function scanEpicDirectories(fs, directories) {
 }
 
 module.exports = getEpicGames;
+
+export { getEpicGames }
