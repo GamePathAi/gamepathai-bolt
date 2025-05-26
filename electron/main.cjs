@@ -663,27 +663,8 @@ function setupSystemMonitoringIPC() {
       return { success: false, error: error.message };
     }
   });
-}
 
-// Configuração de IPC
-function setupIPC() {
-  // Game detection IPC
-  setupGameDetectionIPC();
-  
-  // System monitoring IPC
-  setupSystemMonitoringIPC();
-  
-  // Obter informações do sistema
-  ipcMain.handle('get-system-info', async () => {
-    try {
-      const metrics = await systemMonitor.getSystemInfo();
-      return metrics;
-    } catch (error) {
-      return { error: error.message };
-    }
-  });
-  
-  // Executar diagnóstico avançado
+  // Run advanced diagnostics
   ipcMain.handle('run-advanced-diagnostics', async () => {
     try {
       const os = require('os');
@@ -717,11 +698,6 @@ function setupIPC() {
       console.error('Advanced diagnostics error:', error);
       return { success: false, error: error.message };
     }
-  });
-  
-  // Atualizar jogos no tray
-  ipcMain.on('update-tray-games', (event, games) => {
-    updateTrayMenu(games);
   });
 }
 
@@ -799,6 +775,66 @@ async function getGPUInfo() {
       temperature: null
     };
   }
+}
+
+// Configuração de IPC
+function setupIPC() {
+  // Game detection IPC
+  setupGameDetectionIPC();
+  
+  // System monitoring IPC
+  setupSystemMonitoringIPC();
+  
+  // Obter informações do sistema
+  ipcMain.handle('get-system-info', async () => {
+    try {
+      const metrics = await systemMonitor.getSystemInfo();
+      return metrics;
+    } catch (error) {
+      return { error: error.message };
+    }
+  });
+  
+  // Executar diagnóstico avançado
+  ipcMain.handle('run-advanced-diagnostics', async () => {
+    try {
+      const os = require('os');
+      const { execSync } = require('child_process');
+      
+      const diagnostics = {
+        cpu: {
+          model: os.cpus()[0].model,
+          cores: os.cpus().length,
+          speeds: os.cpus().map(cpu => cpu.speed),
+          architecture: os.arch(),
+          // Tentar obter temperatura via wmic (Windows)
+          temperature: await getCPUTemperature(),
+        },
+        memory: {
+          total: Math.round(os.totalmem() / 1024 / 1024 / 1024), // GB
+          free: Math.round(os.freemem() / 1024 / 1024 / 1024),   // GB
+          usage: process.memoryUsage(),
+        },
+        system: {
+          platform: os.platform(),
+          version: os.version(),
+          uptime: Math.round(os.uptime() / 3600), // horas
+          loadavg: os.loadavg(),
+        },
+        gpu: await getGPUInfo(), // Implementar se possível
+      };
+      
+      return { success: true, data: diagnostics };
+    } catch (error) {
+      console.error('Advanced diagnostics error:', error);
+      return { success: false, error: error.message };
+    }
+  });
+  
+  // Atualizar jogos no tray
+  ipcMain.on('update-tray-games', (event, games) => {
+    updateTrayMenu(games);
+  });
 }
 
 // Eventos do app
