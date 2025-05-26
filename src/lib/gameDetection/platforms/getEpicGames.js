@@ -1,25 +1,25 @@
-import * as fs from "fs/promises";
-import * as path from "path-browserify";
-import * as os from "os";
-import { isLikelyGameExecutable } from "../gameDetectionUtils";
-import { isElectron } from "../isElectron";
+const fs = require("fs/promises");
+const path = require("path-browserify");
+const os = require("os");
+const {  isLikelyGameExecutable  } = require("../gameDetectionUtils");
+const {  isElectron  } = require("../isElectron");
 
-interface EpicGame {
-  id: string;
-  name: string;
-  platform: string;
-  installPath: string;
-  executablePath: string;
-  process_name: string;
-  size: number; // em MB
-  icon_url?: string;
-  last_played?: Date;
+// interface EpicGame {
+  id;
+  name;
+  platform;
+  installPath;
+  executablePath;
+  process_name;
+  size; // em MB
+  icon_url?;
+  last_played?;
 }
 
 /**
  * Busca jogos instalados no Epic Games Launcher
  */
-export async function getEpicGames(): Promise<EpicGame[]> {
+async function getEpicGames(): Promise<EpicGame[]> {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -117,7 +117,7 @@ export async function getEpicGames(): Promise<EpicGame[]> {
     }
     
     // Extrair informações dos jogos instalados
-    const games: EpicGame[] = [];
+    const games = [];
     const installations = manifest.InstallationList || [];
     
     console.log(`Found ${installations.length} Epic games in manifest`);
@@ -193,7 +193,7 @@ export async function getEpicGames(): Promise<EpicGame[]> {
 }
 
 // Fallback function to scan common Epic Games directories
-async function scanEpicDirectories(fs: any, directories: string[]): Promise<any[]> {
+async function scanEpicDirectories(fs: any, directories): Promise<any[]> {
   const games = [];
   
   for (const dir of directories) {
@@ -211,11 +211,11 @@ async function scanEpicDirectories(fs: any, directories: string[]): Promise<any[
             
             try {
               const gameFiles = await fs.readDir(gamePath);
-              const exeFiles = gameFiles.filter((file: any) => file.name.toLowerCase().endsWith(".exe"));
+              const exeFiles = gameFiles.filter((file) => file.name.toLowerCase().endsWith(".exe"));
               
               if (exeFiles.length > 0) {
                 // Filter out non-game executables
-                const gameExes = exeFiles.filter((file: any) => 
+                const gameExes = exeFiles.filter((file) => 
                   !file.name.toLowerCase().includes("installer") &&
                   !file.name.toLowerCase().includes("setup") &&
                   !file.name.toLowerCase().includes("unins") &&
@@ -265,4 +265,4 @@ async function scanEpicDirectories(fs: any, directories: string[]): Promise<any[
   return games;
 }
 
-export default getEpicGames;
+module.exports = getEpicGames;

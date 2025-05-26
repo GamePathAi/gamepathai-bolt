@@ -1,6 +1,9 @@
 const fs = require('fs');
 const path = require('path');
 
+console.log('🔍 INICIANDO TESTE DOS DETECTORES DE JOGOS');
+console.log('==========================================\n');
+
 const convertESModuleToCommonJS = (filePath) => {
   console.log(`Converting: ${filePath}`);
   let content = fs.readFileSync(filePath, 'utf8');
@@ -23,6 +26,11 @@ const convertESModuleToCommonJS = (filePath) => {
   // Handle TypeScript interfaces and types
   content = content.replace(/interface (\w+)/g, '// interface $1');
   content = content.replace(/type (\w+)/g, '// type $1');
+  
+  // Remove TypeScript types
+  content = content.replace(/:\s*[A-Za-z<>\[\]|]+(\s*=)/g, '$1');
+  content = content.replace(/:\s*[A-Za-z<>\[\]|]+;/g, ';');
+  content = content.replace(/:\s*[A-Za-z<>\[\]|]+\)/g, ')');
   
   // Add module.exports at the end if not already present
   if (!content.includes('module.exports')) {
@@ -58,6 +66,17 @@ try {
     if (file.endsWith('.js') || file.endsWith('.ts')) {
       const filePath = path.join(gameDetectionDir, file);
       convertESModuleToCommonJS(filePath);
+    }
+  });
+
+  // Renomear arquivos .ts para .js após conversão
+  console.log("\nRenaming .ts files to .js...");
+  files.forEach(file => {
+    if (file.endsWith('.ts') && !file.endsWith('.d.ts')) {
+      const oldPath = path.join(gameDetectionDir, file);
+      const newPath = path.join(gameDetectionDir, file.replace('.ts', '.js'));
+      fs.renameSync(oldPath, newPath);
+      console.log(`✅ Renamed: ${file} → ${file.replace('.ts', '.js')}`);
     }
   });
 

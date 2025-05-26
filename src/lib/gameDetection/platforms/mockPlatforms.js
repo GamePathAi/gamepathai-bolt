@@ -1,7 +1,7 @@
 import type { GameInfo } from '../types';
 
 // Mock implementations for web environment
-export const mockGetSteamGames = async (): Promise<GameInfo[]> => {
+const mockGetSteamGames = async () => {
   return [
     {
       id: 'steam-730',
@@ -56,7 +56,7 @@ export const mockGetSteamGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetEpicGames = async (): Promise<GameInfo[]> => {
+const mockGetEpicGames = async () => {
   return [
     {
       id: 'epic-fortnite',
@@ -91,7 +91,7 @@ export const mockGetEpicGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetXboxGames = async (): Promise<GameInfo[]> => {
+const mockGetXboxGames = async () => {
   return [
     {
       id: 'xbox-forza',
@@ -136,7 +136,7 @@ export const mockGetXboxGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetOriginGames = async (): Promise<GameInfo[]> => {
+const mockGetOriginGames = async () => {
   return [
     {
       id: 'origin-battlefield',
@@ -171,7 +171,7 @@ export const mockGetOriginGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetBattleNetGames = async (): Promise<GameInfo[]> => {
+const mockGetBattleNetGames = async () => {
   return [
     {
       id: 'battlenet-overwatch2',
@@ -206,7 +206,7 @@ export const mockGetBattleNetGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetGOGGames = async (): Promise<GameInfo[]> => {
+const mockGetGOGGames = async () => {
   return [
     {
       id: 'gog-witcher3',
@@ -231,7 +231,7 @@ export const mockGetGOGGames = async (): Promise<GameInfo[]> => {
   ];
 };
 
-export const mockGetUplayGames = async (): Promise<GameInfo[]> => {
+const mockGetUplayGames = async () => {
   return [
     {
       id: 'uplay-assassinscreed',
@@ -255,3 +255,5 @@ export const mockGetUplayGames = async (): Promise<GameInfo[]> => {
     }
   ];
 };
+
+module.exports = { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames };

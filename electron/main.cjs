@@ -2,13 +2,53 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { getSteamGames } = require('./src/lib/gameDetection/platforms/getSteamGames');
-const { getEpicGames } = require('./src/lib/gameDetection/platforms/getEpicGames');
-const { getXboxGames } = require('./src/lib/gameDetection/platforms/getXboxGames');
-const { getOriginGames } = require('./src/lib/gameDetection/platforms/getOriginGames');
-const { getBattleNetGames } = require('./src/lib/gameDetection/platforms/getBattleNetGames');
-const { getGOGGames } = require('./src/lib/gameDetection/platforms/getGOGGames');
-const { getUplayGames } = require('./src/lib/gameDetection/platforms/getUplayGames');
+const isDev = process.env.NODE_ENV === 'development';
+
+// Função helper para resolver caminhos de módulos de detecção de jogos
+const requireGameModule = (moduleName) => {
+  try {
+    const modulePath = path.join(__dirname, 'src', 'lib', 'gameDetection', 'platforms', `${moduleName}.js`);
+    return require(modulePath);
+  } catch (error) {
+    console.error(`Error loading game detection module ${moduleName}:`, error.message);
+    
+    // Tentar caminho alternativo
+    try {
+      const altPath = path.join(__dirname, '..', 'src', 'lib', 'gameDetection', 'platforms', `${moduleName}.js`);
+      return require(altPath);
+    } catch (altError) {
+      console.error(`Error loading alternative path for ${moduleName}:`, altError.message);
+      return { [moduleName.replace('get', '')]: () => [] };
+    }
+  }
+};
+
+// Carregar módulos de detecção de jogos
+let gameDetectionModules;
+try {
+  gameDetectionModules = {
+    getSteamGames: requireGameModule('getSteamGames').getSteamGames,
+    getEpicGames: requireGameModule('getEpicGames').getEpicGames,
+    getXboxGames: requireGameModule('getXboxGames').getXboxGames,
+    getOriginGames: requireGameModule('getOriginGames').getOriginGames,
+    getBattleNetGames: requireGameModule('getBattleNetGames').getBattleNetGames,
+    getGOGGames: requireGameModule('getGOGGames').getGOGGames,
+    getUplayGames: requireGameModule('getUplayGames').getUplayGames
+  };
+  console.log('✅ Game detection modules loaded successfully');
+} catch (error) {
+  console.error('❌ Error loading game detection modules:', error);
+  gameDetectionModules = {
+    getSteamGames: () => [],
+    getEpicGames: () => [],
+    getXboxGames: () => [],
+    getOriginGames: () => [],
+    getBattleNetGames: () => [],
+    getGOGGames: () => [],
+    getUplayGames: () => []
+  };
+}
+
 const fpsOptimizer = require('./fps-optimizer.cjs');
 const systemMonitor = require('./system-monitor.cjs');
 const networkMetrics = require('./network-metrics.cjs');

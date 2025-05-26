@@ -1,7 +1,7 @@
-import getSteamGames from './getSteamGames';
-import getEpicGames from './getEpicGames';
-import getXboxGames from './getXboxGames';
-import { 
+const getSteamGames = require("./getSteamGames");
+const getEpicGames = require("./getEpicGames");
+const getXboxGames = require("./getXboxGames");
+const {  
   mockGetSteamGames, 
   mockGetEpicGames, 
   mockGetXboxGames, 
@@ -9,10 +9,10 @@ import {
   mockGetBattleNetGames,
   mockGetGOGGames,
   mockGetUplayGames
-} from './mockPlatforms';
+ } = require("./mockPlatforms");
 
 // Export all platform-specific game detection functions
-export {
+module.exports = { 
   getSteamGames,
   getEpicGames,
   getXboxGames,
@@ -24,4 +24,4 @@ export {
   mockGetBattleNetGames,
   mockGetGOGGames,
   mockGetUplayGames
-};
+ };

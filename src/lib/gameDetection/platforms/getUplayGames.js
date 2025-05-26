@@ -1,32 +1,32 @@
-import * as fs from "fs/promises";
-import * as path from "path";
-import * as os from "os";
-import { isLikelyGameExecutable } from "../gameDetectionUtils";
+const fs = require("fs/promises");
+const path = require("path");
+const os = require("os");
+const {  isLikelyGameExecutable  } = require("../gameDetectionUtils");
 
 // Se estiver no Windows, usar o Registry
-let Registry: any;
+let Registry;
 try {
   Registry = require("registry-js").Registry;
 } catch {
   Registry = undefined;
 }
 
-interface UplayGame {
-  id: string;
-  name: string;
-  platform: string;
-  installPath: string;
-  executablePath: string;
-  process_name: string;
-  size: number; // em MB
-  icon_url?: string;
-  last_played?: Date;
+// interface UplayGame {
+  id;
+  name;
+  platform;
+  installPath;
+  executablePath;
+  process_name;
+  size; // em MB
+  icon_url?;
+  last_played?;
 }
 
 /**
  * Busca jogos instalados no Ubisoft Connect (antigo Uplay)
  */
-export async function getUplayGames(): Promise<UplayGame[]> {
+async function getUplayGames(): Promise<UplayGame[]> {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -107,7 +107,7 @@ export async function getUplayGames(): Promise<UplayGame[]> {
       }
     }
     
-    const games: UplayGame[] = [];
+    const games = [];
     
     // Escanear cada caminho possível
     for (const gamePath of gamePaths) {
@@ -127,11 +127,11 @@ export async function getUplayGames(): Promise<UplayGame[]> {
             
             try {
               // Procurar recursivamente por executáveis
-              const findExecutables = async (dir: string, depth = 0): Promise<string[]> => {
+              const findExecutables = async (dir: string, depth = 0) => {
                 if (depth > 2) return []; // Limitar profundidade da busca
                 
                 const files = await fs.readdir(dir, { withFileTypes: true });
-                let executables: string[] = [];
+                let executables = [];
                 
                 for (const file of files) {
                   const filePath = path.join(dir, file.name);
@@ -211,4 +211,4 @@ export async function getUplayGames(): Promise<UplayGame[]> {
   }
 }
 
-export default getUplayGames;
+module.exports = getUplayGames;

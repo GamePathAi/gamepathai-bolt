@@ -1,19 +1,19 @@
-import * as fs from "fs/promises";
-import * as path from "path-browserify";
-import * as os from "os";
-import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
-import { isElectron } from "../isElectron";
+const fs = require("fs/promises");
+const path = require("path-browserify");
+const os = require("os");
+const {  isLikelyGameExecutable, fileExists  } = require("../gameDetectionUtils");
+const {  isElectron  } = require("../isElectron");
 
-interface SteamGame {
-  id: string;
-  name: string;
-  platform: string;
-  installPath: string;
-  executablePath: string;
-  process_name: string;
-  size: number; // em MB
-  icon_url?: string;
-  last_played?: Date;
+// interface SteamGame {
+  id;
+  name;
+  platform;
+  installPath;
+  executablePath;
+  process_name;
+  size; // em MB
+  icon_url?;
+  last_played?;
 }
 
 // Steam game blacklist - these are not actual games but tools, redistributables, etc.
@@ -57,7 +57,7 @@ const MAX_GAMES_PER_PLATFORM = 50;
 /**
  * Checks if a Steam game should be included in the results
  */
-function isSteamGameValid(name: string): boolean {
+function isSteamGameValid(name): boolean {
   // Check if the game is in the blacklist
   return !STEAM_GAME_BLACKLIST.some(blacklisted => 
     name.toLowerCase().includes(blacklisted.toLowerCase())
@@ -67,7 +67,7 @@ function isSteamGameValid(name: string): boolean {
 /**
  * Busca jogos instalados no Steam
  */
-export async function getSteamGames(): Promise<SteamGame[]> {
+async function getSteamGames(): Promise<SteamGame[]> {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -187,7 +187,7 @@ export async function getSteamGames(): Promise<SteamGame[]> {
     console.log(`Found ${libraries.length} Steam libraries: ${libraries.join(", ")}`);
     
     // Escanear cada biblioteca por jogos
-    const games: SteamGame[] = [];
+    const games = [];
     
     for (const library of libraries) {
       const appsDir = path.join(library, "steamapps");
@@ -231,7 +231,7 @@ export async function getSteamGames(): Promise<SteamGame[]> {
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
                 
                 // Data da última vez jogado
-                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : undefined;
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) ;
                 
                 // Caminho de instalação do jogo
                 const installPath = path.join(appsDir, "common", installDir);
@@ -299,4 +299,4 @@ export async function getSteamGames(): Promise<SteamGame[]> {
   }
 }
 
-export default getSteamGames;
+module.exports = getSteamGames;

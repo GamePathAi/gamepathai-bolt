@@ -1,31 +1,31 @@
-import * as fs from "fs/promises";
-import * as path from "path";
-import * as os from "os";
+const fs = require("fs/promises");
+const path = require("path");
+const os = require("os");
 
 // Se estiver no Windows, usar o Registry
-let Registry: any;
+let Registry;
 try {
   Registry = require("registry-js").Registry;
 } catch {
   Registry = undefined;
 }
 
-interface OriginGame {
-  id: string;
-  name: string;
-  platform: string;
-  installPath: string;
-  executablePath: string;
-  process_name: string;
-  size: number; // em MB
-  icon_url?: string;
-  last_played?: Date;
+// interface OriginGame {
+  id;
+  name;
+  platform;
+  installPath;
+  executablePath;
+  process_name;
+  size; // em MB
+  icon_url?;
+  last_played?;
 }
 
 /**
  * Busca jogos instalados no Origin/EA Desktop
  */
-export async function getOriginGames(): Promise<OriginGame[]> {
+async function getOriginGames(): Promise<OriginGame[]> {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -104,7 +104,7 @@ export async function getOriginGames(): Promise<OriginGame[]> {
     }
     
     // Encontrar os diretórios de jogos
-    let gamesPaths: string[] = [];
+    let gamesPaths = [];
     
     // Origin
     if (originPath) {
@@ -172,7 +172,7 @@ export async function getOriginGames(): Promise<OriginGame[]> {
     console.log(`Found ${gamesPaths.length} Origin/EA games paths: ${gamesPaths.join(", ")}`);
     
     // Escanear cada diretório de jogos
-    const games: OriginGame[] = [];
+    const games = [];
     
     for (const gamesPath of gamesPaths) {
       try {
@@ -246,4 +246,4 @@ export async function getOriginGames(): Promise<OriginGame[]> {
   }
 }
 
-export default getOriginGames;
+module.exports = getOriginGames;

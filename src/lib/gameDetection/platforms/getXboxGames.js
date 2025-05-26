@@ -1,19 +1,19 @@
-import * as fs from "fs/promises";
-import * as path from "path-browserify";
-import * as os from "os";
-import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
-import { isElectron } from "../isElectron";
+const fs = require("fs/promises");
+const path = require("path-browserify");
+const os = require("os");
+const {  isLikelyGameExecutable, fileExists  } = require("../gameDetectionUtils");
+const {  isElectron  } = require("../isElectron");
 
-interface XboxGame {
-  id: string;
-  name: string;
-  platform: string;
-  installPath: string;
-  executablePath: string;
-  process_name: string;
-  size: number; // em MB
-  icon_url?: string;
-  last_played?: Date;
+// interface XboxGame {
+  id;
+  name;
+  platform;
+  installPath;
+  executablePath;
+  process_name;
+  size; // em MB
+  icon_url?;
+  last_played?;
 }
 
 // System apps that should be filtered out
@@ -55,7 +55,7 @@ const MAX_GAMES_PER_PLATFORM = 50;
 /**
  * Checks if a package is a real game based on its name and other indicators
  */
-function isActualGame(packageName: string): boolean {
+function isActualGame(packageName): boolean {
   // Filter out obvious system apps
   if (SYSTEM_APPS.some(app => packageName.includes(app))) {
     return false;
@@ -86,7 +86,7 @@ function isActualGame(packageName: string): boolean {
 /**
  * Busca jogos instalados via Xbox App/Microsoft Store
  */
-export async function getXboxGames(): Promise<XboxGame[]> {
+async function getXboxGames(): Promise<XboxGame[]> {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -140,7 +140,7 @@ export async function getXboxGames(): Promise<XboxGame[]> {
       possiblePaths.push(path.join(envVars['PROGRAMFILES(X86)'], "WindowsApps"));
     }
     
-    const games: XboxGame[] = [];
+    const games = [];
     
     // Escanear cada caminho possível
     for (const basePath of possiblePaths) {
@@ -265,7 +265,7 @@ export async function getXboxGames(): Promise<XboxGame[]> {
 /**
  * Verifica se um diretório contém arquivos de jogo
  */
-async function containsGameFiles(fs: any, dirPath: string): Promise<boolean> {
+async function containsGameFiles(fs: any, dirPath): Promise<boolean> {
   try {
     const files = await fs.readDir(dirPath);
     
@@ -293,7 +293,7 @@ async function findExecutablesRecursively(fs: any, dirPath: string, maxDepth = 3
   
   try {
     const entries = await fs.readDir(dirPath);
-    let executables: string[] = [];
+    let executables = [];
     
     for (const entry of entries) {
       if (entry.isDirectory) {
@@ -311,4 +311,4 @@ async function findExecutablesRecursively(fs: any, dirPath: string, maxDepth = 3
   }
 }
 
-export default getXboxGames;
+module.exports = getXboxGames;
