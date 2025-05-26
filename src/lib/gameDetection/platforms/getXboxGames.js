@@ -1,20 +1,24 @@
 const fs = require("fs/promises");
 const path = require("path-browserify");
 const os = require("os");
-const {  isLikelyGameExecutable, fileExists  } = require("../gameDetectionUtils");
-const {  isElectron  } = require("../isElectron");
+const { isLikelyGameExecutable, fileExists } = require("../gameDetectionUtils");
+const { isElectron } = require("../isElectron");
 
-// interface XboxGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
+/**
+ * Interface for Xbox Game information
+ */
+// Game information interface
+const XboxGame = {
+  id: '',
+  name: '',
+  platform: '',
+  installPath: '',
+  executablePath: '',
+  process_name: '',
+  size: 0, // em MB
+  icon_url: '',
+  last_played: null
+};
 
 // System apps that should be filtered out
 const SYSTEM_APPS = [
@@ -55,7 +59,7 @@ const MAX_GAMES_PER_PLATFORM = 50;
 /**
  * Checks if a package is a real game based on its name and other indicators
  */
-function isActualGame(packageName): boolean {
+function isActualGame(packageName) {
   // Filter out obvious system apps
   if (SYSTEM_APPS.some(app => packageName.includes(app))) {
     return false;
@@ -86,7 +90,7 @@ function isActualGame(packageName): boolean {
 /**
  * Busca jogos instalados via Xbox App/Microsoft Store
  */
-async function getXboxGames(): Promise<XboxGame[]> {
+async function getXboxGames() {
   try {
     // Check if we're in Electron environment
     if (!isElectron()) {
@@ -265,7 +269,7 @@ async function getXboxGames(): Promise<XboxGame[]> {
 /**
  * Verifica se um diretório contém arquivos de jogo
  */
-async function containsGameFiles(fs: any, dirPath): Promise<boolean> {
+async function containsGameFiles(fs, dirPath) {
   try {
     const files = await fs.readDir(dirPath);
     
@@ -288,7 +292,7 @@ async function containsGameFiles(fs: any, dirPath): Promise<boolean> {
 /**
  * Encontra executáveis recursivamente em um diretório
  */
-async function findExecutablesRecursively(fs: any, dirPath: string, maxDepth = 3): Promise<string[]> {
+async function findExecutablesRecursively(fs, dirPath, maxDepth = 3) {
   if (maxDepth <= 0) return [];
   
   try {
@@ -311,4 +315,4 @@ async function findExecutablesRecursively(fs: any, dirPath: string, maxDepth = 3
   }
 }
 
-module.exports = getXboxGames;
+module.exports = { getXboxGames };

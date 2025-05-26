@@ -32,6 +32,15 @@ const convertESModuleToCommonJS = (filePath) => {
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+;/g, ';');
   content = content.replace(/:\s*[A-Za-z<>\[\]|]+\)/g, ')');
   
+  // Remove optional property indicators
+  content = content.replace(/\?:/g, ':');
+  
+  // Fix Promise<Type> to Promise
+  content = content.replace(/Promise<[^>]+>/g, 'Promise');
+  
+  // Convert .ts imports to .js
+  content = content.replace(/require\(['"]([^'"]+)\.ts['"]\)/g, 'require("$1.js")');
+  
   // Add module.exports at the end if not already present
   if (!content.includes('module.exports')) {
     // Find all exported constants, functions, and classes

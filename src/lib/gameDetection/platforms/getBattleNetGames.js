@@ -1,7 +1,7 @@
 const fs = require("fs/promises");
 const path = require("path");
 const os = require("os");
-const {  isLikelyGameExecutable  } = require("../gameDetectionUtils");
+const { isLikelyGameExecutable } = require("../gameDetectionUtils");
 
 // Se estiver no Windows, usar o Registry
 let Registry;
@@ -11,22 +11,10 @@ try {
   Registry = undefined;
 }
 
-// interface BattleNetGame {
-  id;
-  name;
-  platform;
-  installPath;
-  executablePath;
-  process_name;
-  size; // em MB
-  icon_url?;
-  last_played?;
-}
-
 /**
  * Busca jogos instalados no Battle.net
  */
-async function getBattleNetGames(): Promise<BattleNetGame[]> {
+async function getBattleNetGames() {
   try {
     // Verificar se estamos no Windows
     if (process.platform !== "win32") {
@@ -140,12 +128,12 @@ async function getBattleNetGames(): Promise<BattleNetGame[]> {
             const gameDir = path.join(gamePath, entry.name);
             
             // Verificar se é um jogo conhecido
-            const knownGame = Object.entries(knownGames).find(([key]) => 
+            const knownGameEntry = Object.entries(knownGames).find(([key]) => 
               entry.name.includes(key)
             );
             
-            if (knownGame) {
-              const [key, gameInfo] = knownGame;
+            if (knownGameEntry) {
+              const [key, gameInfo] = knownGameEntry;
               
               // Procurar pelo executável
               let executablePath = "";
@@ -241,4 +229,4 @@ async function getBattleNetGames(): Promise<BattleNetGame[]> {
   }
 }
 
-module.exports = getBattleNetGames;
+module.exports = { getBattleNetGames };
