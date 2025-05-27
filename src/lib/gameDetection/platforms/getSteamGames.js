@@ -1,8 +1,8 @@
-const fs = require("fs/promises");
-const path = require("path-browserify");
-const os = require("os");
-const {  isLikelyGameExecutable, fileExists  } = require("../gameDetectionUtils");
-const {  isElectron  } = require("../isElectron");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import {  isLikelyGameExecutable, fileExists  } from "../gameDetectionUtils";
+import {  isElectron  } from "../isElectron";
 
 /**
  * @typedef {Object} SteamGame
@@ -235,7 +235,7 @@ async function getSteamGames() {
                 const sizeInMB = Math.round(sizeInBytes / (1024 * 1024));
                 
                 // Last played date
-                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) ;
+                const lastPlayed = lastPlayedMatch ? new Date(parseInt(lastPlayedMatch[1]) * 1000) : null;
                 
                 // Game installation path
                 const installPath = path.join(appsDir, "common", installDir);
@@ -303,8 +303,4 @@ async function getSteamGames() {
   }
 }
 
-module.exports = getSteamGames;
-
-module.exports = {  getSteamGames  }
-
-module.exports = {  getSteamGames  }
+export { getSteamGames };

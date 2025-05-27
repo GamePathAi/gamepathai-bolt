@@ -1,12 +1,12 @@
-const fs = require("fs/promises");
-const path = require("path");
-const os = require("os");
-const { isLikelyGameExecutable } = require("../gameDetectionUtils");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
 // Se estiver no Windows, usar o Registry
 let Registry;
 try {
-  Registry = require("registry-js").Registry;
+  // Registry import removed - will use mock
 } catch {
   Registry = undefined;
 }
@@ -22,7 +22,7 @@ async function getBattleNetGames() {
       return [];
     }
     
-    // Encontrar o diretório de instalação do Battle.net
+    // Encontrar o diretÃ³rio de instalaÃ§Ã£o do Battle.net
     let battleNetPath = "";
     
     // Tentar encontrar pelo registro
@@ -42,7 +42,7 @@ async function getBattleNetGames() {
       }
     }
     
-    // Caminhos padrão
+    // Caminhos padrÃ£o
     const defaultPaths = [
       "C:\\Program Files (x86)\\Battle.net",
       "C:\\Program Files\\Battle.net"
@@ -55,7 +55,7 @@ async function getBattleNetGames() {
           battleNetPath = defaultPath;
           break;
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -67,14 +67,14 @@ async function getBattleNetGames() {
     
     console.log(`Battle.net installation found at: ${battleNetPath}`);
     
-    // Possíveis locais de jogos
+    // PossÃ­veis locais de jogos
     const gamePaths = [
       path.join(battleNetPath, "Games"),
       "C:\\Program Files (x86)\\Blizzard Entertainment",
       "C:\\Program Files\\Blizzard Entertainment"
     ];
     
-    // Mapeamento de diretórios para jogos conhecidos
+    // Mapeamento de diretÃ³rios para jogos conhecidos
     const knownGames = {
       "Overwatch": {
         name: "Overwatch 2",
@@ -115,7 +115,7 @@ async function getBattleNetGames() {
     
     const games = [];
     
-    // Escanear cada caminho possível
+    // Escanear cada caminho possÃ­vel
     for (const gamePath of gamePaths) {
       try {
         await fs.access(gamePath);
@@ -127,7 +127,7 @@ async function getBattleNetGames() {
           if (entry.isDirectory()) {
             const gameDir = path.join(gamePath, entry.name);
             
-            // Verificar se é um jogo conhecido
+            // Verificar se Ã© um jogo conhecido
             const knownGameEntry = Object.entries(knownGames).find(([key]) => 
               entry.name.includes(key)
             );
@@ -135,13 +135,13 @@ async function getBattleNetGames() {
             if (knownGameEntry) {
               const [key, gameInfo] = knownGameEntry;
               
-              // Procurar pelo executável
+              // Procurar pelo executÃ¡vel
               let executablePath = "";
               try {
                 const files = await fs.readdir(gameDir);
                 const exeFiles = files.filter(file => file.endsWith('.exe'));
                 
-                // Procurar pelo executável conhecido
+                // Procurar pelo executÃ¡vel conhecido
                 const mainExe = exeFiles.find(exe => exe === gameInfo.process) || 
                                 exeFiles.find(exe => isLikelyGameExecutable(path.join(gameDir, exe)));
                 
@@ -176,7 +176,7 @@ async function getBattleNetGames() {
                 console.log(`Found Battle.net game: ${gameInfo.name}`);
               }
             } else {
-              // Verificar se é um diretório de jogo genérico
+              // Verificar se Ã© um diretÃ³rio de jogo genÃ©rico
               try {
                 const files = await fs.readdir(gameDir);
                 const exeFiles = files.filter(file => 
@@ -229,4 +229,4 @@ async function getBattleNetGames() {
   }
 }
 
-module.exports = { getBattleNetGames };
+export { getBattleNetGames };

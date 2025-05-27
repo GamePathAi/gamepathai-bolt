@@ -1,12 +1,12 @@
-const fs = require("fs/promises");
-const path = require("path");
-const os = require("os");
-const { isLikelyGameExecutable } = require("../gameDetectionUtils");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
 // Se estiver no Windows, usar o Registry
 let Registry;
 try {
-  Registry = require("registry-js").Registry;
+  // Registry import removed - will use mock
 } catch {
   Registry = undefined;
 }
@@ -22,7 +22,7 @@ async function getGOGGames() {
       return [];
     }
     
-    // Encontrar o diretório de instalação do GOG Galaxy
+    // Encontrar o diretÃ³rio de instalaÃ§Ã£o do GOG Galaxy
     let gogPath = "";
     
     // Tentar encontrar pelo registro
@@ -42,7 +42,7 @@ async function getGOGGames() {
       }
     }
     
-    // Caminhos padrão
+    // Caminhos padrÃ£o
     const defaultPaths = [
       "C:\\Program Files (x86)\\GOG Galaxy",
       "C:\\Program Files\\GOG Galaxy"
@@ -55,7 +55,7 @@ async function getGOGGames() {
           gogPath = defaultPath;
           break;
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -67,7 +67,7 @@ async function getGOGGames() {
     
     console.log(`GOG Galaxy installation found at: ${gogPath}`);
     
-    // Possíveis locais de jogos
+    // PossÃ­veis locais de jogos
     const gamePaths = [
       path.join(gogPath, "Games"),
       "C:\\GOG Games",
@@ -77,7 +77,7 @@ async function getGOGGames() {
     
     const games = [];
     
-    // Escanear cada caminho possível
+    // Escanear cada caminho possÃ­vel
     for (const gamePath of gamePaths) {
       try {
         await fs.access(gamePath);
@@ -89,12 +89,12 @@ async function getGOGGames() {
           if (entry.isDirectory()) {
             const gameDir = path.join(gamePath, entry.name);
             
-            // Procurar pelo executável
+            // Procurar pelo executÃ¡vel
             let executablePath = "";
             let processName = "";
             
             try {
-              // Procurar recursivamente por executáveis
+              // Procurar recursivamente por executÃ¡veis
               const findExecutables = async (dir, depth = 0) => {
                 if (depth > 2) return []; // Limitar profundidade da busca
                 
@@ -117,7 +117,7 @@ async function getGOGGames() {
               
               const executables = await findExecutables(gameDir);
               
-              // Filtrar executáveis que são provavelmente jogos
+              // Filtrar executÃ¡veis que sÃ£o provavelmente jogos
               const gameExecutables = executables.filter(exe => 
                 isLikelyGameExecutable(exe) &&
                 !exe.toLowerCase().includes('unins') &&
@@ -127,7 +127,7 @@ async function getGOGGames() {
               );
               
               if (gameExecutables.length > 0) {
-                // Preferir executável com o mesmo nome que o diretório
+                // Preferir executÃ¡vel com o mesmo nome que o diretÃ³rio
                 const dirName = entry.name.toLowerCase();
                 const mainExe = gameExecutables.find(exe => 
                   path.basename(exe).toLowerCase().includes(dirName)
@@ -153,7 +153,7 @@ async function getGOGGames() {
               // Formatar nome do jogo
               const gameName = entry.name
                 .replace(/^GOG\s+/, '') // Remover prefixo "GOG "
-                .replace(/\s*\(.*?\)$/, ''); // Remover sufixo entre parênteses
+                .replace(/\s*\(.*?\)$/, ''); // Remover sufixo entre parÃªnteses
               
               games.push({
                 id: `gog-${Buffer.from(gameDir).toString('base64')}`,
@@ -182,4 +182,4 @@ async function getGOGGames() {
   }
 }
 
-module.exports = getGOGGames;
+export { getGOGGames };

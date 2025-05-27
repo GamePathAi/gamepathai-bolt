@@ -1,8 +1,8 @@
-const fs = require("fs/promises");
-const path = require("path-browserify");
-const os = require("os");
-const { isLikelyGameExecutable } = require("../gameDetectionUtils");
-const { isElectron } = require("../isElectron");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
+import { isElectron } from "../isElectron";
 
 /**
  * Busca jogos instalados no Epic Games Launcher
@@ -55,13 +55,13 @@ async function getEpicGames() {
       return [];
     }
     
-    // Verificar se o diretório existe
+    // Verificar se o diretÃ³rio existe
     if (!await fs.exists(manifestPath)) {
       console.log("Epic Games Launcher config directory not found");
       return [];
     }
     
-    // Ler os arquivos do diretório
+    // Ler os arquivos do diretÃ³rio
     const files = await fs.readDir(manifestPath);
     
     // Encontrar o arquivo de manifesto
@@ -104,7 +104,7 @@ async function getEpicGames() {
       return await scanEpicDirectories(fs, commonPaths);
     }
     
-    // Extrair informações dos jogos instalados
+    // Extrair informaÃ§Ãµes dos jogos instalados
     const games = [];
     const installations = manifest.InstallationList || [];
     
@@ -122,7 +122,7 @@ async function getEpicGames() {
         const installLocation = installation.InstallLocation;
         const launchExecutable = installation.LaunchExecutable;
         
-        // Verificar se é realmente um jogo (não um aplicativo ou ferramenta)
+        // Verificar se Ã© realmente um jogo (nÃ£o um aplicativo ou ferramenta)
         if (appName && (
           appName.includes("UE_") || 
           appName.includes("Editor") || 
@@ -148,10 +148,10 @@ async function getEpicGames() {
           console.warn(`Could not determine size for Epic game ${name}:`, error);
         }
         
-        // Tentar encontrar um ícone para o jogo
+        // Tentar encontrar um Ã­cone para o jogo
         let iconUrl;
         if (appName) {
-          // Usar o CDN da Epic para ícones (formato aproximado)
+          // Usar o CDN da Epic para Ã­cones (formato aproximado)
           iconUrl = `https://cdn1.epicgames.com/offer/store/item/${appName}/landscape-2560x1440`;
         }
         
@@ -253,6 +253,4 @@ async function scanEpicDirectories(fs, directories) {
   return games;
 }
 
-module.exports = getEpicGames;
-
-module.exports = {  getEpicGames  }
+export { getEpicGames };

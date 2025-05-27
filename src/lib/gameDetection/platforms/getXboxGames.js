@@ -1,8 +1,8 @@
-const fs = require("fs/promises");
-const path = require("path-browserify");
-const os = require("os");
-const { isLikelyGameExecutable, fileExists } = require("../gameDetectionUtils");
-const { isElectron } = require("../isElectron");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { isLikelyGameExecutable, fileExists } from "../gameDetectionUtils";
+import { isElectron } from "../isElectron";
 
 /**
  * Interface for Xbox Game information
@@ -106,7 +106,7 @@ async function getXboxGames() {
       return [];
     }
     
-    // Possíveis locais de instalação de jogos do Xbox
+    // PossÃ­veis locais de instalaÃ§Ã£o de jogos do Xbox
     const possiblePaths = [
       "C:\\XboxGames",
       "D:\\XboxGames", 
@@ -146,7 +146,7 @@ async function getXboxGames() {
     
     const games = [];
     
-    // Escanear cada caminho possível
+    // Escanear cada caminho possÃ­vel
     for (const basePath of possiblePaths) {
       try {
         if (await fs.exists(basePath)) {
@@ -164,7 +164,7 @@ async function getXboxGames() {
                 continue;
               }
               
-              // Verificar se é um diretório de jogo do Xbox
+              // Verificar se Ã© um diretÃ³rio de jogo do Xbox
               const isXboxGame = entry.name.startsWith("Microsoft.") || 
                                 gamePath.includes("XboxGames") ||
                                 await containsGameFiles(fs, gamePath);
@@ -182,7 +182,7 @@ async function getXboxGames() {
                 
                 // Limpar ainda mais o nome
                 gameName = gameName
-                  .replace(/([a-z])([A-Z])/g, '$1 $2') // Adicionar espaços entre camelCase
+                  .replace(/([a-z])([A-Z])/g, '$1 $2') // Adicionar espaÃ§os entre camelCase
                   .replace(/^[a-z]/, c => c.toUpperCase()); // Capitalizar primeira letra
               }
               
@@ -192,14 +192,14 @@ async function getXboxGames() {
                 gameName = "Call of Duty";
               }
               
-              // Tentar encontrar o executável principal
+              // Tentar encontrar o executÃ¡vel principal
               let executablePath = "";
               let processName = "";
               
               try {
                 const gameFiles = await findExecutablesRecursively(fs, gamePath);
                 
-                // Filtrar para executáveis que parecem ser jogos
+                // Filtrar para executÃ¡veis que parecem ser jogos
                 const gameExecutables = gameFiles.filter(file => 
                   isLikelyGameExecutable(file) && 
                   !path.basename(file).toLowerCase().includes("setup") &&
@@ -212,7 +212,7 @@ async function getXboxGames() {
                   executablePath = gameExecutables[0];
                   processName = path.basename(executablePath);
                 } else if (gameFiles.length > 0) {
-                  // Se não encontrar executáveis que parecem ser jogos, usar o primeiro executável
+                  // Se nÃ£o encontrar executÃ¡veis que parecem ser jogos, usar o primeiro executÃ¡vel
                   executablePath = gameFiles[0];
                   processName = path.basename(executablePath);
                 }
@@ -231,7 +231,7 @@ async function getXboxGames() {
                 console.warn(`Could not determine size for Xbox game ${gameName}:`, error);
               }
               
-              // Adicionar jogo à lista mesmo sem executável para Xbox (UWP apps)
+              // Adicionar jogo Ã  lista mesmo sem executÃ¡vel para Xbox (UWP apps)
               games.push({
                 id: `xbox-${entry.name.replace(/[^a-zA-Z0-9]/g, "").toLowerCase()}`,
                 name: gameName,
@@ -267,13 +267,13 @@ async function getXboxGames() {
 }
 
 /**
- * Verifica se um diretório contém arquivos de jogo
+ * Verifica se um diretÃ³rio contÃ©m arquivos de jogo
  */
 async function containsGameFiles(fs, dirPath) {
   try {
     const files = await fs.readDir(dirPath);
     
-    // Verificar extensões comuns de jogos
+    // Verificar extensÃµes comuns de jogos
     const gameExtensions = [".exe", ".dll", ".pak", ".dat", ".bin", ".ini", ".cfg"];
     
     for (const file of files) {
@@ -290,7 +290,7 @@ async function containsGameFiles(fs, dirPath) {
 }
 
 /**
- * Encontra executáveis recursivamente em um diretório
+ * Encontra executÃ¡veis recursivamente em um diretÃ³rio
  */
 async function findExecutablesRecursively(fs, dirPath, maxDepth = 3) {
   if (maxDepth <= 0) return [];
@@ -301,7 +301,7 @@ async function findExecutablesRecursively(fs, dirPath, maxDepth = 3) {
     
     for (const entry of entries) {
       if (entry.isDirectory) {
-        // Recursivamente buscar em subdiretórios
+        // Recursivamente buscar em subdiretÃ³rios
         const subDirExecutables = await findExecutablesRecursively(fs, entry.path, maxDepth - 1);
         executables = executables.concat(subDirExecutables);
       } else if (entry.name.toLowerCase().endsWith(".exe")) {
@@ -315,6 +315,4 @@ async function findExecutablesRecursively(fs, dirPath, maxDepth = 3) {
   }
 }
 
-module.exports = { getXboxGames };
-
-module.exports = {  getXboxGames  }
+export { getXboxGames };

@@ -1,6 +1,6 @@
-const { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, 
-  mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames } = require("./mockPlatforms");
-const { isElectron } = require("../isElectron");
+﻿import { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames,
+  mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames } from "./mockPlatforms";
+import { isElectron } from "../isElectron";
 
 // Dynamically import platform-specific modules only in Electron environment
 let getSteamGames = mockGetSteamGames;
@@ -15,18 +15,18 @@ let getUplayGames = mockGetUplayGames;
 if (isElectron()) {
   try {
     // Try to load the real implementations
-    getSteamGames = require('./getSteamGames').getSteamGames;
-    getEpicGames = require('./getEpicGames').getEpicGames;
-    getXboxGames = require('./getXboxGames').getXboxGames;
-    getOriginGames = require('./getOriginGames').getOriginGames;
-    getBattleNetGames = require('./getBattleNetGames').getBattleNetGames;
-    getGOGGames = require('./getGOGGames').getGOGGames;
-    getUplayGames = require('./getUplayGames').getUplayGames;
+    import { getSteamGames } from "./getSteamGames";
+    import { getEpicGames } from "./getEpicGames";
+    import { getXboxGames } from "./getXboxGames";
+    import { getOriginGames } from "./getOriginGames";
+    import { getBattleNetGames } from "./getBattleNetGames";
+    import { getGOGGames } from "./getGOGGames";
+    import { getUplayGames } from "./getUplayGames";
     
-    console.log('✅ Successfully loaded real game detection modules');
+    console.log('âœ… Successfully loaded real game detection modules');
   } catch (error) {
-    console.error('❌ Error loading game detection modules:', error);
-    console.log('⚠️ Falling back to mock implementations');
+    console.error('âŒ Error loading game detection modules:', error);
+    console.log('âš ï¸ Falling back to mock implementations');
   }
 }
 

@@ -1,9 +1,8 @@
-import { useState, useCallback } from 'react';
+﻿import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
 import path from 'path-browserify';
-import { mockGetUplayGames } from '../../lib/gameDetection/platforms/mockPlatforms';
 
 // Function to detect if we're in Electron environment
 const isElectron = () => {
@@ -47,12 +46,12 @@ export function useUplayDetector() {
       // Check if we're in Electron environment
       if (!isElectron()) {
         console.log('Not in Electron environment, using mock data for Ubisoft Connect games');
-        const mockGames = await mockGetUplayGames();
+        const mockGames = await getGetUplayGames();
         return { platform: Platform.Ubisoft, games: mockGames };
       }
 
       // Electron environment - use real detection
-      console.log('✅ Electron environment detected, using real detection for Ubisoft Connect games');
+      console.log('âœ… Electron environment detected, using real detection for Ubisoft Connect games');
       const games = await detectUplayGames();
       
       // Cache results

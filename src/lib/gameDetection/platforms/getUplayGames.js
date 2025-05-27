@@ -1,12 +1,12 @@
-const fs = require("fs/promises");
-const path = require("path");
-const os = require("os");
-const { isLikelyGameExecutable } = require("../gameDetectionUtils");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
+import { isLikelyGameExecutable } from "../gameDetectionUtils";
 
 // Se estiver no Windows, usar o Registry
 let Registry;
 try {
-  Registry = require("registry-js").Registry;
+  // Registry import removed - will use mock
 } catch {
   Registry = undefined;
 }
@@ -22,7 +22,7 @@ async function getUplayGames() {
       return [];
     }
     
-    // Encontrar o diretório de instalação do Ubisoft Connect
+    // Encontrar o diretÃ³rio de instalaÃ§Ã£o do Ubisoft Connect
     let uplayPath = "";
     
     // Tentar encontrar pelo registro
@@ -42,7 +42,7 @@ async function getUplayGames() {
       }
     }
     
-    // Caminhos padrão
+    // Caminhos padrÃ£o
     const defaultPaths = [
       "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher",
       "C:\\Program Files\\Ubisoft\\Ubisoft Game Launcher",
@@ -57,7 +57,7 @@ async function getUplayGames() {
           uplayPath = defaultPath;
           break;
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -69,7 +69,7 @@ async function getUplayGames() {
     
     console.log(`Ubisoft Connect installation found at: ${uplayPath}`);
     
-    // Possíveis locais de jogos
+    // PossÃ­veis locais de jogos
     const gamePaths = [
       path.join(uplayPath, "games"),
       "C:\\Program Files (x86)\\Ubisoft\\Ubisoft Game Launcher\\games",
@@ -97,7 +97,7 @@ async function getUplayGames() {
     
     const games = [];
     
-    // Escanear cada caminho possível
+    // Escanear cada caminho possÃ­vel
     for (const gamePath of gamePaths) {
       try {
         await fs.access(gamePath);
@@ -109,12 +109,12 @@ async function getUplayGames() {
           if (entry.isDirectory()) {
             const gameDir = path.join(gamePath, entry.name);
             
-            // Procurar pelo executável
+            // Procurar pelo executÃ¡vel
             let executablePath = "";
             let processName = "";
             
             try {
-              // Procurar recursivamente por executáveis
+              // Procurar recursivamente por executÃ¡veis
               const findExecutables = async (dir, depth = 0) => {
                 if (depth > 2) return []; // Limitar profundidade da busca
                 
@@ -137,7 +137,7 @@ async function getUplayGames() {
               
               const executables = await findExecutables(gameDir);
               
-              // Filtrar executáveis que são provavelmente jogos
+              // Filtrar executÃ¡veis que sÃ£o provavelmente jogos
               const gameExecutables = executables.filter(exe => 
                 isLikelyGameExecutable(exe) &&
                 !exe.toLowerCase().includes('upc') &&
@@ -168,8 +168,8 @@ async function getUplayGames() {
             if (executablePath) {
               // Formatar nome do jogo
               const gameName = entry.name
-                .replace(/([A-Z])/g, ' $1') // Adicionar espaços antes de letras maiúsculas
-                .replace(/_/g, ' ') // Substituir underscores por espaços
+                .replace(/([A-Z])/g, ' $1') // Adicionar espaÃ§os antes de letras maiÃºsculas
+                .replace(/_/g, ' ') // Substituir underscores por espaÃ§os
                 .trim();
               
               games.push({
@@ -199,4 +199,4 @@ async function getUplayGames() {
   }
 }
 
-module.exports = { getUplayGames };
+export { getUplayGames };

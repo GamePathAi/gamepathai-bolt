@@ -1,10 +1,10 @@
-// electron/main.cjs - GamePath AI Professional v3.0
+﻿// electron/main.cjs - GamePath AI Professional v3.0
 const { app, BrowserWindow, ipcMain, Menu, Tray, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const isDev = process.env.NODE_ENV === 'development';
 
-// Função helper para resolver caminhos de módulos de detecção de jogos
+// FunÃ§Ã£o helper para resolver caminhos de mÃ³dulos de detecÃ§Ã£o de jogos
 const requireGameModule = (moduleName) => {
   try {
     const modulePath = path.join(__dirname, '..', 'src', 'lib', 'gameDetection', 'platforms', `${moduleName}.js`);
@@ -23,16 +23,26 @@ const requireGameModule = (moduleName) => {
   }
 };
 
-// Carregar módulos de detecção de jogos
+// Carregar mÃ³dulos de detecÃ§Ã£o de jogos
 let gameDetectionModules;
 try {
-  const { getSteamGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getSteamGames'));
-  const { getEpicGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getEpicGames'));  
-  const { getBattleNetGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getBattleNetGames'));
-  const { getOriginGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getOriginGames'));
-  const { getXboxGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getXboxGames'));
-  const { getGOGGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getGOGGames'));
-  const { getUplayGames } = require(path.join(__dirname, '../src/lib/gameDetection/platforms/getUplayGames'));
+  // const { getSteamGames } = require...
+  // const { getEpicGames } = require...
+  // const { getBattleNetGames } = require...
+  // const { getOriginGames } = require...
+  // const { getXboxGames } = require...
+  // const { getGOGGames } = require...
+  // const { getUplayGames } = require...
+
+// Funções temporárias vazias
+const getSteamGames = async () => [];
+const getEpicGames = async () => [];
+const getXboxGames = async () => [];
+const getOriginGames = async () => [];
+const getBattleNetGames = async () => [];
+const getGOGGames = async () => [];
+const getUplayGames = async () => [];
+
   
   gameDetectionModules = {
     getSteamGames,
@@ -43,9 +53,9 @@ try {
     getGOGGames,
     getUplayGames
   };
-  console.log('✅ Game detection modules loaded successfully');
+  console.log('âœ… Game detection modules loaded successfully');
 } catch (error) {
-  console.error('❌ Error loading game detection modules:', error);
+  console.error('âŒ Error loading game detection modules:', error);
   gameDetectionModules = {
     getSteamGames: () => [],
     getEpicGames: () => [],
@@ -66,13 +76,13 @@ const Store = require('electron-store');
 const os = require('os');
 const { execSync } = require('child_process');
 
-// Configuração do Store
+// ConfiguraÃ§Ã£o do Store
 const store = new Store({
   name: 'gamepath-ai-config',
   defaults: DEFAULT_CONFIG
 });
 
-// Variáveis globais
+// VariÃ¡veis globais
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -80,7 +90,7 @@ let gameCache = {};
 let lastScanTime = 0;
 const SCAN_COOLDOWN = 60000; // 1 minuto entre scans completos
 
-// Configuração de diretórios
+// ConfiguraÃ§Ã£o de diretÃ³rios
 function ensureDirectoriesExist() {
   const dirs = [CONFIG_DIR, LOGS_DIR, CACHE_DIR, PROFILES_DIR];
   
@@ -92,7 +102,7 @@ function ensureDirectoriesExist() {
   }
 }
 
-// Inicialização
+// InicializaÃ§Ã£o
 async function initialize() {
   ensureDirectoriesExist();
   
@@ -110,7 +120,7 @@ async function initialize() {
   }
 }
 
-// Criação da janela principal
+// CriaÃ§Ã£o da janela principal
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -122,9 +132,13 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false
+    ,
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: false
     },
     icon: path.join(__dirname, '../public/icons/icon.ico'),
-    show: false, // Não mostrar até que esteja pronto
+    show: false, // NÃ£o mostrar atÃ© que esteja pronto
     backgroundColor: '#0d1117'
   });
 
@@ -135,7 +149,9 @@ function createWindow() {
 
   // Carregar URL
   const startUrl = process.env.ELECTRON_START_URL || 'http://localhost:5173';
-  mainWindow.loadURL(startUrl);
+  app.isPackaged 
+    ? mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    : mainWindow.loadURL('http://localhost:5173');
 
   // Abrir DevTools em desenvolvimento
   if (process.env.NODE_ENV === 'development') {
@@ -161,7 +177,7 @@ function createWindow() {
   });
 }
 
-// Configuração do Tray
+// ConfiguraÃ§Ã£o do Tray
 function setupTray() {
   const iconPath = path.join(__dirname, '../public/icons/tray-icon.png');
   
@@ -181,7 +197,7 @@ function setupTray() {
   });
 }
 
-// Atualização do menu do Tray
+// AtualizaÃ§Ã£o do menu do Tray
 function updateTrayMenu(games = []) {
   const gameMenuItems = games.slice(0, 5).map(game => {
     return {
@@ -271,7 +287,7 @@ function updateTrayMenu(games = []) {
   tray.setContextMenu(contextMenu);
 }
 
-// Configuração de IPC para detecção de jogos
+// ConfiguraÃ§Ã£o de IPC para detecÃ§Ã£o de jogos
 function setupGameDetectionIPC() {
   // File system operations
   ipcMain.handle('fs-exists', async (event, filePath) => {
@@ -486,7 +502,7 @@ function setupGameDetectionIPC() {
   });
 }
 
-// Configuração de IPC para monitoramento do sistema
+// ConfiguraÃ§Ã£o de IPC para monitoramento do sistema
 function setupSystemMonitoringIPC() {
   // Get system information
   ipcMain.handle('get-system-info', async () => {
@@ -690,7 +706,7 @@ function setupSystemMonitoringIPC() {
           uptime: Math.round(os.uptime() / 3600), // horas
           loadavg: os.loadavg(),
         },
-        gpu: await getGPUInfo(), // Implementar se possível
+        gpu: await getGPUInfo(), // Implementar se possÃ­vel
       };
       
       return { success: true, data: diagnostics };
@@ -777,7 +793,7 @@ async function getGPUInfo() {
   }
 }
 
-// Configuração de IPC
+// ConfiguraÃ§Ã£o de IPC
 function setupIPC() {
   // Game detection IPC
   setupGameDetectionIPC();
@@ -785,7 +801,7 @@ function setupIPC() {
   // System monitoring IPC
   setupSystemMonitoringIPC();
   
-  // Obter informações do sistema
+  // Obter informaÃ§Ãµes do sistema
   ipcMain.handle('get-system-info', async () => {
     try {
       const metrics = await systemMonitor.getSystemInfo();
@@ -795,7 +811,7 @@ function setupIPC() {
     }
   });
   
-  // Executar diagnóstico avançado
+  // Executar diagnÃ³stico avanÃ§ado
   ipcMain.handle('run-advanced-diagnostics', async () => {
     try {
       const os = require('os');
@@ -821,7 +837,7 @@ function setupIPC() {
           uptime: Math.round(os.uptime() / 3600), // horas
           loadavg: os.loadavg(),
         },
-        gpu: await getGPUInfo(), // Implementar se possível
+        gpu: await getGPUInfo(), // Implementar se possÃ­vel
       };
       
       return { success: true, data: diagnostics };

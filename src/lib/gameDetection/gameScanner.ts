@@ -1,6 +1,11 @@
-import type { GameInfo } from './types';
-import { mockGetSteamGames, mockGetEpicGames, mockGetXboxGames, mockGetOriginGames, 
-  mockGetBattleNetGames, mockGetGOGGames, mockGetUplayGames } from './platforms/mockPlatforms';
+﻿
+import { getSteamGames } from './platforms/getSteamGames';
+import { getEpicGames } from './platforms/getEpicGames';
+import { getXboxGames } from './platforms/getXboxGames';
+import { getOriginGames } from './platforms/getOriginGames';
+import { getBattleNetGames } from './platforms/getBattleNetGames';
+import { getGOGGames } from './platforms/getGOGGames';
+import { getUplayGames } from './platforms/getUplayGames';
 import { filterAndDeduplicateGames, prioritizeGames, enhanceGameInfo } from './gameDetectionUtils';
 import { isElectron } from './isElectron';
 
@@ -21,13 +26,13 @@ class GameScannerWeb {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Combine games from different platforms
-      const steamGames = await mockGetSteamGames();
-      const epicGames = await mockGetEpicGames();
-      const xboxGames = await mockGetXboxGames();
-      const originGames = await mockGetOriginGames();
-      const battleNetGames = await mockGetBattleNetGames();
-      const gogGames = await mockGetGOGGames();
-      const uplayGames = await mockGetUplayGames();
+      const steamGames = await getSteamGames();
+      const epicGames = await getEpicGames();
+      const xboxGames = await getXboxGames();
+      const originGames = await getOriginGames();
+      const battleNetGames = await getBattleNetGames();
+      const gogGames = await getGOGGames();
+      const uplayGames = await getUplayGames();
       
       const allGames = [
         ...steamGames,

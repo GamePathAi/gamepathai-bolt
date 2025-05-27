@@ -1,11 +1,11 @@
-const fs = require("fs/promises");
-const path = require("path");
-const os = require("os");
+﻿import fs from "fs/promises";
+import path from "path";
+import os from "os";
 
 // Se estiver no Windows, usar o Registry
 let Registry;
 try {
-  Registry = require("registry-js").Registry;
+  // Registry import removed - will use mock
 } catch {
   Registry = undefined;
 }
@@ -21,7 +21,7 @@ async function getOriginGames() {
       return [];
     }
     
-    // Encontrar o diretório de instalação da Origin
+    // Encontrar o diretÃ³rio de instalaÃ§Ã£o da Origin
     let originPath = "";
     let eaDesktopPath = "";
     
@@ -51,7 +51,7 @@ async function getOriginGames() {
       );
     }
     
-    // Caminhos padrão
+    // Caminhos padrÃ£o
     const defaultOriginPaths = [
       "C:\\Program Files (x86)\\Origin",
       "C:\\Program Files\\Origin"
@@ -69,7 +69,7 @@ async function getOriginGames() {
           originPath = defaultPath;
           break;
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -81,7 +81,7 @@ async function getOriginGames() {
           eaDesktopPath = defaultPath;
           break;
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -91,7 +91,7 @@ async function getOriginGames() {
       return [];
     }
     
-    // Encontrar os diretórios de jogos
+    // Encontrar os diretÃ³rios de jogos
     let gamesPaths = [];
     
     // Origin
@@ -111,7 +111,7 @@ async function getOriginGames() {
         }
       }
       
-      // Caminhos padrão para jogos da Origin
+      // Caminhos padrÃ£o para jogos da Origin
       const defaultOriginGamesPaths = [
         "C:\\Program Files (x86)\\Origin Games",
         "C:\\Program Files\\Origin Games",
@@ -125,7 +125,7 @@ async function getOriginGames() {
             gamesPaths.push(defaultPath);
           }
         } catch {
-          // Caminho não existe, continuar para o próximo
+          // Caminho nÃ£o existe, continuar para o prÃ³ximo
         }
       }
     }
@@ -148,7 +148,7 @@ async function getOriginGames() {
           gamesPaths.push(eaContentPath);
         }
       } catch {
-        // Caminho não existe
+        // Caminho nÃ£o existe
       }
     }
     
@@ -159,7 +159,7 @@ async function getOriginGames() {
     
     console.log(`Found ${gamesPaths.length} Origin/EA games paths: ${gamesPaths.join(", ")}`);
     
-    // Escanear cada diretório de jogos
+    // Escanear cada diretÃ³rio de jogos
     const games = [];
     
     for (const gamesPath of gamesPaths) {
@@ -172,7 +172,7 @@ async function getOriginGames() {
               const gamePath = path.join(gamesPath, entry.name);
               const name = entry.name;
               
-              // Tentar encontrar executáveis
+              // Tentar encontrar executÃ¡veis
               let executablePath = "";
               let processName = "";
               
@@ -181,7 +181,7 @@ async function getOriginGames() {
                 const exeFiles = gameFiles.filter(file => file.toLowerCase().endsWith(".exe"));
                 
                 if (exeFiles.length > 0) {
-                  // Preferir executável com o mesmo nome que o diretório
+                  // Preferir executÃ¡vel com o mesmo nome que o diretÃ³rio
                   const mainExe = exeFiles.find(file => 
                     file.toLowerCase().includes(name.toLowerCase()) 
                   ) || exeFiles[0];
@@ -234,4 +234,4 @@ async function getOriginGames() {
   }
 }
 
-module.exports = { getOriginGames };
+export { getOriginGames };

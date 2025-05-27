@@ -1,4 +1,4 @@
-// Mock implementations for web environment
+﻿// Mock implementations for web environment
 const mockGetSteamGames = async () => {
   return [
     {
