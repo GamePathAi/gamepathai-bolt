@@ -815,6 +815,7 @@ app.on('ready', async () => {
   setupIPC();
 });
 
+
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
