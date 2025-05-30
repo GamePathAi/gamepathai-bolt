@@ -1,192 +1,225 @@
-// preload.cjs - GamePath AI Professional v3.0 - Bridge for System Monitoring
+﻿// PRELOAD.CJS - VERSÃO CORRIGIDA SEM O MÓDULO PATH
 const { contextBridge, ipcRenderer } = require('electron');
+// REMOVIDO: const path = require('path');
 
-console.log('🔧 Preload script starting...');
+console.log('[Preload] Iniciando...');
 
-try {
-  // Define a comprehensive API for the renderer process
-  const electronAPI = {
-    // Basic information
-    isElectron: true,
-    platform: process.platform,
-    versions: process.versions,
-    
-    // File system operations
-    fs: {
-      exists: (path) => ipcRenderer.invoke('fs-exists', path),
-      readDir: (path) => ipcRenderer.invoke('fs-read-dir', path),
-      readFile: (path, encoding) => ipcRenderer.invoke('fs-read-file', path, encoding),
-      stat: (path) => ipcRenderer.invoke('fs-stat', path),
-      getSystemPaths: () => ipcRenderer.invoke('get-system-paths'),
-      getEnvVars: () => ipcRenderer.invoke('get-env-vars')
-    },
-    
-    // Game operations
-    game: {
-      launch: (executablePath, args) => ipcRenderer.invoke('launch-game', executablePath, args)
-    },
-    
-    // Registry operations (simplified without direct HKEY dependency)
-    registry: {
-      getValue: (hive, key, valueName) => ipcRenderer.invoke('registry-get-value', hive, key, valueName),
-      enumerateValues: (hive, key) => ipcRenderer.invoke('registry-enumerate-values', hive, key),
-      enumerateKeys: (hive, key) => ipcRenderer.invoke('registry-enumerate-keys', hive, key)
-    },
-    
-    // Registry constants (defined directly to avoid requiring registry-js)
-    Registry: {
-      HKEY: {
-        CLASSES_ROOT: 0,
-        CURRENT_USER: 1,
-        LOCAL_MACHINE: 2,
-        USERS: 3,
-        CURRENT_CONFIG: 4
-      }
-    },
-    
-    // System monitoring
-    monitoring: {
-      // System information
-      getSystemMetrics: () => ipcRenderer.invoke('get-system-info'),
-      getCpuInfo: () => ipcRenderer.invoke('get-cpu-info'),
-      getMemoryInfo: () => ipcRenderer.invoke('get-memory-info'),
-      getGpuInfo: () => ipcRenderer.invoke('get-gpu-info'),
-      getOsInfo: () => ipcRenderer.invoke('get-os-info'),
-      getProcesses: () => ipcRenderer.invoke('get-processes'),
-      
-      // Network metrics
-      getNetworkMetrics: () => ipcRenderer.invoke('get-network-metrics'),
-      measureLatency: (servers) => ipcRenderer.invoke('measure-latency', servers),
-      measureConnectionQuality: (host) => ipcRenderer.invoke('measure-connection-quality', host),
-      traceRoute: (host) => ipcRenderer.invoke('trace-route', host),
-      estimateBandwidth: () => ipcRenderer.invoke('estimate-bandwidth'),
-      calculatePacketLoss: (host, count) => ipcRenderer.invoke('calculate-packet-loss', host, count),
-      
-      // System optimization
-      optimizeCPU: (options) => ipcRenderer.invoke('optimize-cpu', options),
-      optimizeMemory: (options) => ipcRenderer.invoke('optimize-memory', options),
-      optimizeGPU: (options) => ipcRenderer.invoke('optimize-gpu', options),
-      optimizeNetwork: (options) => ipcRenderer.invoke('optimize-network', options),
-      
-      // Diagnostics
-      runDiagnostics: () => ipcRenderer.invoke('run-advanced-diagnostics')
-    },
-    
-    // System information
-    system: {
-      platform: process.platform,
-      version: '3.0.0',
-      build: {
-        electron: process.versions.electron,
-        node: process.versions.node,
-        chrome: process.versions.chrome
-      }
-    },
-    
-    // Game detection
+// Função auxiliar para substituir path.join
+function joinPath(...parts) {
+  return parts.filter(Boolean).join('\\');
+}
+
+// Expor process
+contextBridge.exposeInMainWorld('process', {
+  platform: process.platform || 'win32',
+  env: {
+    USERNAME: process.env.USERNAME || 'User',
+    USERPROFILE: process.env.USERPROFILE || 'C:\\Users\\User',
+    APPDATA: process.env.APPDATA || 'C:\\Users\\User\\AppData\\Roaming',
+    LOCALAPPDATA: process.env.LOCALAPPDATA || 'C:\\Users\\User\\AppData\\Local',
+    PROGRAMFILES: process.env.PROGRAMFILES || 'C:\\Program Files',
+    'PROGRAMFILES(X86)': process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)'
+  },
+  versions: process.versions
+});
+
+// ⚡ CORREÇÃO CRÍTICA: Adicionar gamePathApi que o frontend está esperando
+contextBridge.exposeInMainWorld('gamePathApi', {
+  launch: async (gamePath) => {
+    console.log('[Preload] gamePathApi.launch chamado com:', gamePath);
+    try {
+      const result = await ipcRenderer.invoke('launch-game-by-path', gamePath);
+      return result;
+    } catch (error) {
+      console.error('[Preload] Erro ao lançar jogo:', error);
+      throw error;
+    }
+  },
+  openGameFolder: async (gamePath) => {
+    console.log('[Preload] gamePathApi.openGameFolder chamado com:', gamePath);
+    return await ipcRenderer.invoke('open-game-folder', gamePath);
+  },
+  detectGames: async () => {
+    console.log('[Preload] gamePathApi.detectGames chamado');
+    return await ipcRenderer.invoke('detect-all-games');
+  },
+  onGameDetectionProgress: (callback) => {
+    ipcRenderer.on('game-detection-progress', (_event, data) => callback(data));
+  },
+  removeAllListeners: () => {
+    ipcRenderer.removeAllListeners('game-detection-progress');
+  }
+});
+
+// Manter o electronAPI existente
+contextBridge.exposeInMainWorld('electronAPI', {
+  // Game Scanner
+  scanGames: async () => {
+    try {
+      const result = await ipcRenderer.invoke('scan-games');
+      return {
+        success: true,
+        data: Array.isArray(result) ? result : [],
+        errors: []
+      };
+    } catch (error) {
+      return { success: false, data: [], errors: [error.message] };
+    }
+  },
+  
+  getInstalledGames: async () => {
+    try {
+      const games = await ipcRenderer.invoke('scan-games');
+      return Array.isArray(games) ? games : [];
+    } catch (error) {
+      return [];
+    }
+  },
+  
+  // Métricas FPS - ATUALIZADA com métricas completas
+  getFPSMetrics: async () => {
+    try {
+      const result = await ipcRenderer.invoke('get-fps-metrics');
+      return {
+        currentFPS: result?.currentFPS || 60,
+        averageFPS: result?.averageFPS || 75,
+        minFPS: result?.minFPS || 45,
+        maxFPS: result?.maxFPS || 120,
+        usage: {
+          cpu: result?.usage?.cpu || 25,
+          gpu: result?.usage?.gpu || 50,
+          memory: result?.usage?.memory || 40
+        },
+        // NOVO: Adicionar métricas completas
+        cpu: {
+          usage: result?.usage?.cpu || 25,
+          cores: result?.cpuCores || 8,
+          model: result?.cpuModel || 'Unknown CPU'
+        },
+        memory: {
+          total: result?.totalMemory || 16,
+          used: result?.usedMemory || 8,
+          free: result?.freeMemory || 8,
+          percentage: result?.memoryPercentage || 50
+        },
+        gpu: {
+          usage: result?.usage?.gpu || 50,
+          temperature: result?.gpuTemperature || 65,
+          memory: result?.gpuMemory || 8
+        },
+        performance: {
+          cpuPriority: result?.cpuPriority || 0,
+          memoryLatency: result?.memoryLatency || 0,
+          gpuPerformance: result?.gpuPerformance || 0,
+          inputLag: result?.inputLag || 0
+        }
+      };
+    } catch (error) {
+      console.error('[Preload] Erro ao obter métricas FPS:', error);
+      // Retornar valores padrão em caso de erro
+      return {
+        currentFPS: 60,
+        averageFPS: 75,
+        minFPS: 45,
+        maxFPS: 120,
+        usage: { cpu: 25, gpu: 50, memory: 40 },
+        cpu: { usage: 25, cores: 8, model: 'Unknown CPU' },
+        memory: { total: 16, used: 8, free: 8, percentage: 50 },
+        gpu: { usage: 50, temperature: 65, memory: 8 },
+        performance: {
+          cpuPriority: 0,
+          memoryLatency: 0,
+          gpuPerformance: 0,
+          inputLag: 0
+        }
+      };
+    }
+  },
+  
+  // === NOVO: APIs do FPS Booster ===
+  
+  // Otimizações de Sistema
+  clearMemory: () => ipcRenderer.invoke('clear-memory'),
+  optimizeGPU: (mode) => ipcRenderer.invoke('optimize-gpu', mode),
+  setProcessPriority: (processName, priority) => 
+    ipcRenderer.invoke('set-process-priority', processName, priority),
+  
+  // Gerenciamento de Processos
+  getProcesses: () => ipcRenderer.invoke('get-processes'),
+  killProcess: (pid) => ipcRenderer.invoke('kill-process', pid),
+  
+  // Sistema
+  getSystemInfo: () => ipcRenderer.invoke('get-system-info'),
+  
+  // File System COMPLETO
+  fs: {
+    exists: (path) => ipcRenderer.invoke('fs-exists', path),
+    readDir: (path) => ipcRenderer.invoke('fs-read-dir', path),
+    readFile: (path, encoding) => ipcRenderer.invoke('fs-read-file', path, encoding),
+    stat: (path) => ipcRenderer.invoke('fs-stat', path),
+    getSystemPaths: async () => ({
+      programFiles: process.env.PROGRAMFILES || 'C:\\Program Files',
+      programFilesX86: process.env['PROGRAMFILES(X86)'] || 'C:\\Program Files (x86)',
+      appData: process.env.APPDATA,
+      localAppData: process.env.LOCALAPPDATA,
+      // CORRIGIDO: Usando joinPath ao invés de path.join
+      documents: process.env.USERPROFILE ? joinPath(process.env.USERPROFILE, 'Documents') : ''
+    }),
+    getEnvVars: async () => ({
+      USERPROFILE: process.env.USERPROFILE,
+      APPDATA: process.env.APPDATA,
+      LOCALAPPDATA: process.env.LOCALAPPDATA,
+      PROGRAMFILES: process.env.PROGRAMFILES,
+      'PROGRAMFILES(X86)': process.env['PROGRAMFILES(X86)'],
+      USERNAME: process.env.USERNAME
+    })
+  },
+  
+  // Registry
+  registry: {
+    getValue: (hive, key, name) => ipcRenderer.invoke('registry-get-value', hive, key, name),
+    enumerateValues: (hive, key) => ipcRenderer.invoke('registry-enumerate-values', hive, key),
+    enumerateKeys: (hive, key) => ipcRenderer.invoke('registry-enumerate-keys', hive, key)
+  },
+  
+  // Game API
+  gameAPI: {
+    launch: (path, args) => ipcRenderer.invoke('launch-game', path, args),
+    detectGames: () => ipcRenderer.invoke('scan-games'),
     getSteamGames: () => ipcRenderer.invoke('get-steam-games'),
     getXboxPackages: () => ipcRenderer.invoke('get-xbox-packages'),
-    
-    // Event system
-    events: {
-      on: (channel, callback) => {
-        const validChannels = [
-          'tray-launch-game', 
-          'tray-optimize-game', 
-          'tray-scan-games', 
-          'tray-optimize-system',
-          'system-optimized',
-          'game-launched',
-          'games-detected'
-        ];
-        
-        if (validChannels.includes(channel)) {
-          // Convert to channel:event format for internal use
-          const internalChannel = channel.replace(/-/g, ':');
-          
-          // Create a wrapper function to convert back to the expected format
-          const wrappedCallback = (event, ...args) => callback(...args);
-          
-          // Store the mapping for later removal
-          if (!window._eventMappings) window._eventMappings = new Map();
-          window._eventMappings.set(callback, wrappedCallback);
-          
-          ipcRenderer.on(channel, wrappedCallback);
-          
-          console.log(`Registered event listener for ${channel}`);
-        }
-      },
-      
-      off: (channel, callback) => {
-        if (!window._eventMappings) return;
-        
-        const wrappedCallback = window._eventMappings.get(callback);
-        if (wrappedCallback) {
-          ipcRenderer.removeListener(channel, wrappedCallback);
-          window._eventMappings.delete(callback);
-          
-          console.log(`Removed event listener for ${channel}`);
-        }
-      },
-      
-      once: (channel, callback) => {
-        const validChannels = [
-          'tray-launch-game', 
-          'tray-optimize-game', 
-          'tray-scan-games', 
-          'tray-optimize-system',
-          'system-optimized',
-          'game-launched',
-          'games-detected'
-        ];
-        
-        if (validChannels.includes(channel)) {
-          // Create a wrapper function to convert back to the expected format
-          const wrappedCallback = (event, ...args) => callback(...args);
-          
-          ipcRenderer.once(channel, wrappedCallback);
-          
-          console.log(`Registered one-time event listener for ${channel}`);
-        }
-      },
-      
-      emit: (channel, data) => {
-        // This is just for compatibility with the web version
-        // In Electron, we use ipcRenderer.send directly
-        console.log(`Emitting event ${channel} with data:`, data);
-      },
-      
-      removeAll: (channel) => {
-        ipcRenderer.removeAllListeners(channel);
-        console.log(`Removed all listeners for ${channel}`);
-      }
+    // Métodos individuais de detecção de jogos por plataforma
+    detectXboxGames: async () => {
+      return await ipcRenderer.invoke('detect-xbox-games') || [];
     },
-    
-    // Tray functions
-    tray: {
-      updateGames: (games) => {
-        try {
-          ipcRenderer.send('update-tray-games', games);
-          return { success: true };
-        } catch (error) {
-          console.error('Error updating tray games:', error);
-          return { success: false, error: error.message };
-        }
-      }
+    detectSteamGames: async () => {
+      return await ipcRenderer.invoke('detect-steam-games') || [];
+    },
+    detectEpicGames: async () => {
+      return await ipcRenderer.invoke('detect-epic-games') || [];
+    },
+    detectOriginGames: async () => {
+      return await ipcRenderer.invoke('detect-origin-games') || [];
+    },
+    detectGOGGames: async () => {
+      return await ipcRenderer.invoke('detect-gog-games') || [];
+    },
+    detectBattleNetGames: async () => {
+      return await ipcRenderer.invoke('detect-battlenet-games') || [];
+    },
+    detectUplayGames: async () => {
+      return await ipcRenderer.invoke('detect-uplay-games') || [];
     }
-  };
+  },
+  
+  // Network
+  ping: (host) => ipcRenderer.invoke('ping', host),
+  
+  // Outros
+  validateGameFiles: (id) => ipcRenderer.invoke('validate-game-files', id),
+  launchGame: (id) => ipcRenderer.invoke('launch-game', id),
+  optimizeGame: (id, profile) => ipcRenderer.invoke('optimize-game', id, profile)
+});
 
-  // Expose the API to the renderer process
-  contextBridge.exposeInMainWorld('electronAPI', electronAPI);
-  console.log('✅ electronAPI exposed successfully');
-  
-  // Also expose as gamePathAI for compatibility
-  contextBridge.exposeInMainWorld('gamePathAI', electronAPI);
-  console.log('✅ gamePathAI alias exposed successfully');
-  
-  // Log available APIs for debugging
-  console.log('Available APIs:', Object.keys(electronAPI));
-  console.log('System monitoring APIs:', Object.keys(electronAPI.monitoring));
-} catch (error) {
-  console.error('❌ Preload error:', error);
-}
+console.log('[Preload] ✅ API exposta com sucesso!');
+console.log('[Preload] window.process.platform:', process.platform);

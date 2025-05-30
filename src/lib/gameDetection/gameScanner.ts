@@ -1,4 +1,4 @@
-﻿
+﻿import path from 'path';
 import { getSteamGames } from './platforms/getSteamGames';
 import { getEpicGames } from './platforms/getEpicGames';
 import { getXboxGames } from './platforms/getXboxGames';
@@ -114,23 +114,73 @@ class GameScannerElectron {
     this.api = api;
   }
   
+  private processXboxGames(games: any[]): GameInfo[] {
+    const processedGames: GameInfo[] = [];
+    const xboxGameMap: Record<string, { name: string; exe: string }> = {
+      'BO6': { name: 'Call of Duty: Black Ops 6', exe: 'cod_bo6.exe' },
+      'MW3': { name: 'Call of Duty: Modern Warfare III', exe: 'cod23-cod.exe' },
+      'MWII': { name: 'Call of Duty: Modern Warfare II', exe: 'cod22-cod.exe' },
+      'Call of Duty': { name: 'Call of Duty', exe: 'cod.exe' }
+    };
+
+    for (const game of games) {
+      if (game && game.path) {
+        const folderName = path.basename(game.path);
+        for (const [key, info] of Object.entries(xboxGameMap)) {
+          if (folderName.includes(key)) {
+            processedGames.push({
+              id: `xbox-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              name: info.name,
+              platform: 'PC',
+              path: game.path,
+              executablePath: path.join(game.path, info.exe),
+              isInstalled: true,
+              lastPlayed: null,
+              playtime: 0,
+              favorite: false,
+              addedAt: new Date().toISOString(),
+              coverUrl: `/assets/games/${key.toLowerCase().replace(/\s+/g, '-')}.jpg`
+            });
+            break;
+          }
+        }
+      }
+    }
+
+    return processedGames;
+  }
+  
   async getInstalledGames(): Promise<{ data: GameInfo[] | null; error: Error | null }> {
     try {
       let games: GameInfo[] = [];
       
       if (this.api.getInstalledGames) {
         games = await this.api.getInstalledGames();
+        console.log('[GameScanner] getInstalledGames retornou:', games);
+        if (!Array.isArray(games)) {
+          console.warn('[GameScanner] games não é um array, usando array vazio');
+          games = [];
+        }
       } else if (this.api.scanGames) {
         const result = await this.api.scanGames();
+        console.log('[GameScanner] scanGames resultado:', result);
         games = result.data;
       } else {
         throw new Error('No method available to get installed games');
       }
       
+      // Process Xbox games
+      const xboxProcessedGames = this.processXboxGames(games);
+      // Merge with other games, avoiding duplicates
+      games = [
+        ...xboxProcessedGames,
+        ...games.filter(g => !xboxProcessedGames.some(xb => xb.path === g.path))
+      ];
+      
       // Process games to filter non-games and improve data quality
       const processedGames = prioritizeGames(
         filterAndDeduplicateGames(
-          games.map(enhanceGameInfo)
+          (Array.isArray(games) ? games : []).map(enhanceGameInfo)
         )
       );
       

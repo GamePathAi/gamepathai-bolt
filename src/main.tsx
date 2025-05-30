@@ -7,6 +7,7 @@ import { GameDetectionProvider } from './components/GameDetection/GameDetectionP
 import './i18n';
 import App from './App';
 import './index.css';
+import './utils/initGames';
 
 // Logs para depuração
 console.log('main.tsx carregado');

@@ -46,8 +46,11 @@ export function useXboxDetector() {
       // Check if we're in Electron environment
       if (!isElectron()) {
         console.log('Not in Electron environment, using mock data for Xbox games');
-        const mockGames = await getGetXboxGames();
-        return { platform: Platform.Xbox, games: mockGames };
+        let games = [];
+        if (window.electronAPI?.gameAPI?.detectXboxGames) {
+          games = await window.electronAPI.gameAPI.detectXboxGames();
+        }
+        return { platform: Platform.Xbox, games };
       }
 
       // Electron environment - use real detection

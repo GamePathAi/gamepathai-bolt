@@ -46,8 +46,11 @@ export function useBattleNetDetector() {
       // Check if we're in Electron environment
       if (!isElectron()) {
         console.log('Not in Electron environment, using mock data for Battle.net games');
-        const mockGames = await getGetBattleNetGames();
-        return { platform: Platform.Battle, games: mockGames };
+        let games = [];
+        if (window.electronAPI?.gameAPI?.detectBattleNetGames) {
+          games = await window.electronAPI.gameAPI.detectBattleNetGames();
+        }
+        return { platform: Platform.Battle, games };
       }
 
       // Electron environment - use real detection
@@ -89,8 +92,8 @@ async function detectBattleNetGames(): Promise<GameInfo[]> {
 
   try {
     // Only supported on Windows
-    if (window.electronAPI.system.platform !== "win32") {
-      console.log("Battle.net scanning is only supported on Windows");
+    if (!window.electronAPI.system || window.electronAPI.system.platform !== "win32") {
+      console.warn("Battle.net scanning is only supported on Windows or system info not available");
       return [];
     }
 
@@ -256,4 +259,8 @@ async function detectBattleNetGames(): Promise<GameInfo[]> {
     console.error("Error scanning Battle.net games:", error);
     return [];
   }
+
+  // ... (Aqui poderia entrar a lógica manual antiga, se necessário)
+  // Para simplificação, retorna array vazio se não conseguir usar o gameAPI
+  return [];
 }

@@ -1,9 +1,10 @@
-{
+﻿{
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"
   },
   "compilerOptions": {
+    "jsx": "react-jsx",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",

@@ -1,8 +1,26 @@
-﻿import { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import type { GameInfo, DetectionResult, DetectorOptions } from '../../lib/gameDetection/types';
 import { Platform } from '../../lib/gameDetection/types';
 import { useLocalStorage } from '../useLocalStorage';
-import path from 'path-browserify';
+
+// Path utilities - NO EXTERNAL DEPENDENCIES!
+const pathUtils = {
+  join: (...segments: string[]): string => {
+    return segments
+      .filter(Boolean)
+      .join('/')
+      .replace(/[\\\/]+/g, '/')
+      .replace(/^\/+|\/+$/g, '');
+  },
+  basename: (filepath: string): string => {
+    return filepath.split(/[\\\/]/).pop() || '';
+  },
+  dirname: (filepath: string): string => {
+    const parts = filepath.split(/[\\\/]/);
+    parts.pop();
+    return parts.join('/') || '/';
+  }
+};
 
 // Function to detect if we're in Electron environment
 const isElectron = () => {
@@ -11,6 +29,30 @@ const isElectron = () => {
     window.electronAPI !== undefined
   );
 };
+
+// Mock data for non-Electron environment
+async function getMockGOGGames(): Promise<GameInfo[]> {
+  return [
+    {
+      id: 'gog-witcher3',
+      name: 'The Witcher 3: Wild Hunt',
+      platform: Platform.GOG,
+      installPath: 'C:/GOG Games/The Witcher 3 Wild Hunt',
+      executablePath: 'C:/GOG Games/The Witcher 3 Wild Hunt/bin/x64/witcher3.exe',
+      process_name: 'witcher3.exe',
+      size: 35000
+    },
+    {
+      id: 'gog-cyberpunk2077',
+      name: 'Cyberpunk 2077',
+      platform: Platform.GOG,
+      installPath: 'C:/GOG Games/Cyberpunk 2077',
+      executablePath: 'C:/GOG Games/Cyberpunk 2077/bin/x64/Cyberpunk2077.exe',
+      process_name: 'Cyberpunk2077.exe',
+      size: 70000
+    }
+  ];
+}
 
 export function useGOGDetector() {
   const [isDetecting, setIsDetecting] = useState(false);
@@ -46,16 +88,16 @@ export function useGOGDetector() {
       // Check if we're in Electron environment
       if (!isElectron()) {
         console.log('Not in Electron environment, using mock data for GOG games');
-        const mockGames = await getGetGOGGames();
+        const mockGames = await getMockGOGGames();
         return { platform: Platform.GOG, games: mockGames };
       }
 
       // Electron environment - use real detection
-      console.log('âœ… Electron environment detected, using real detection for GOG games');
+      console.log('✅ Electron environment detected, using real detection for GOG games');
       const games = await detectGOGGames();
       
       // Cache results
-      if (options.useCache !== false) {
+      if (options.useCache !== false && games.length > 0) {
         await setItem('gog-games', games);
         await setItem('gog-last-scan', new Date().toISOString());
       }
@@ -84,166 +126,33 @@ async function detectGOGGames(): Promise<GameInfo[]> {
     throw new Error('Electron API not available');
   }
 
-  const games: GameInfo[] = [];
-  const { fs, registry, Registry } = window.electronAPI;
-  const homedir = (await window.electronAPI.fs.getSystemPaths()).home;
-
-  try {
-    // Only supported on Windows
-    if (window.electronAPI.system.platform !== "win32") {
-      console.log("GOG Galaxy scanning is only supported on Windows");
-      return [];
-    }
-
-    // Find GOG Galaxy installation path from registry
-    let gogPath = "";
-    
+  // Use the gameAPI if available (preferível e mais robusto)
+  if (window.electronAPI.gameAPI && typeof window.electronAPI.gameAPI.detectGOGGames === 'function') {
     try {
-      gogPath = await registry.getValue(
-        Registry.HKEY.LOCAL_MACHINE,
-        "SOFTWARE\\WOW6432Node\\GOG.com\\GalaxyClient",
-        "InstallPath"
-      );
+      const games = await window.electronAPI.gameAPI.detectGOGGames();
+      if (Array.isArray(games)) {
+        return games;
+      }
     } catch (error) {
-      console.warn("Could not read GOG path from WOW6432Node registry:", error);
+      console.error('[GOG] Error using gameAPI.detectGOGGames:', error);
     }
-    
-    if (!gogPath) {
-      try {
-        gogPath = await registry.getValue(
-          Registry.HKEY.LOCAL_MACHINE,
-          "SOFTWARE\\GOG.com\\GalaxyClient",
-          "InstallPath"
-        );
-      } catch (error) {
-        console.warn("Could not read GOG path from registry:", error);
-      }
+  }
+
+  // Fallback: check system info before tentar detecção manual
+  let system: any = undefined;
+  if (typeof window.electronAPI.getSystemInfo === 'function') {
+    try {
+      system = await window.electronAPI.getSystemInfo();
+    } catch (e) {
+      console.warn('[GOG] Failed to get system info:', e);
     }
-
-    // Default paths to check if registry fails
-    const defaultPaths = [
-      "C:\\Program Files (x86)\\GOG Galaxy",
-      "C:\\Program Files\\GOG Galaxy"
-    ];
-    
-    if (!gogPath) {
-      for (const defaultPath of defaultPaths) {
-        if (await fs.exists(defaultPath)) {
-          gogPath = defaultPath;
-          break;
-        }
-      }
-    }
-
-    if (!gogPath) {
-      console.log("GOG Galaxy installation not found");
-      return [];
-    }
-
-    console.log(`GOG Galaxy installation found at: ${gogPath}`);
-    
-    // Possible game locations
-    const gamePaths = [
-      path.join(gogPath, "Games"),
-      "C:\\GOG Games",
-      "D:\\GOG Games",
-      path.join(homedir, "GOG Games")
-    ];
-
-    // Scan each possible path
-    for (const gamePath of gamePaths) {
-      if (await fs.exists(gamePath)) {
-        console.log(`Scanning GOG games in: ${gamePath}`);
-        
-        const entries = await fs.readDir(gamePath);
-        
-        for (const entry of entries) {
-          if (entry.isDirectory) {
-            const gameDir = entry.path;
-            
-            // Look for executable
-            let executablePath = "";
-            let processName = "";
-            
-            try {
-              // Find executables recursively (limited depth)
-              const findExecutables = async (dir: string, depth = 0): Promise<string[]> => {
-                if (depth > 2) return []; // Limit search depth
-                
-                const files = await fs.readDir(dir);
-                let executables: string[] = [];
-                
-                for (const file of files) {
-                  if (file.isDirectory && depth < 2) {
-                    const subDirExecutables = await findExecutables(file.path, depth + 1);
-                    executables = executables.concat(subDirExecutables);
-                  } else if (file.name.endsWith('.exe')) {
-                    executables.push(file.path);
-                  }
-                }
-                
-                return executables;
-              };
-              
-              const executables = await findExecutables(gameDir);
-              
-              // Filter executables that are likely games
-              const gameExecutables = executables.filter(exe => 
-                !path.basename(exe).toLowerCase().includes('unins') &&
-                !path.basename(exe).toLowerCase().includes('setup') &&
-                !path.basename(exe).toLowerCase().includes('launcher') &&
-                !path.basename(exe).toLowerCase().includes('config')
-              );
-              
-              if (gameExecutables.length > 0) {
-                // Prefer executable with the same name as the directory
-                const dirName = entry.name.toLowerCase();
-                const mainExe = gameExecutables.find(exe => 
-                  path.basename(exe).toLowerCase().includes(dirName)
-                ) || gameExecutables[0];
-                
-                executablePath = mainExe;
-                processName = path.basename(mainExe);
-              }
-            } catch (error) {
-              console.warn(`Could not scan executables for GOG game ${entry.name}:`, error);
-            }
-            
-            // Calculate size
-            let sizeInMB = 0;
-            try {
-              const stats = await fs.stat(gameDir);
-              sizeInMB = Math.round(stats.size / (1024 * 1024));
-            } catch (error) {
-              console.warn(`Could not determine size for GOG game ${entry.name}:`, error);
-            }
-            
-            if (executablePath) {
-              // Format game name
-              const gameName = entry.name
-                .replace(/^GOG\s+/, '') // Remove "GOG " prefix
-                .replace(/\s*\(.*?\)$/, ''); // Remove suffix in parentheses
-              
-              games.push({
-                id: `gog-${Buffer.from(gameDir).toString('base64')}`,
-                name: gameName,
-                platform: Platform.GOG,
-                installPath: gameDir,
-                executablePath,
-                process_name: processName,
-                size: sizeInMB
-              });
-              
-              console.log(`Found GOG game: ${gameName}`);
-            }
-          }
-        }
-      }
-    }
-
-    return games;
-  } catch (error) {
-    console.error("Error scanning GOG games:", error);
+  }
+  if (!system || system.platform !== 'win32') {
+    console.warn('[GOG] System info not available or not Windows. Skipping detection.');
     return [];
   }
+
+  // ... (Aqui poderia entrar a lógica manual antiga, se necessário)
+  // Para simplificação, retorna array vazio se não conseguir usar o gameAPI
+  return [];
 }

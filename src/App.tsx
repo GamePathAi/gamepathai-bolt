@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   RouterProvider,
   createBrowserRouter,
@@ -26,12 +26,21 @@ import { CheckoutCancel } from './pages/checkout/Cancel';
 import { Header } from './components/Header';
 import { AuthGuard } from './components/auth/AuthGuard';
 import { useMediaQuery } from './hooks/useMediaQuery';
-import { PerformanceReport } from './components/analysis/PerformanceReport';
+import PerformanceReport from './components/analysis/PerformanceReport';
 import { DownloadPage } from './pages/DownloadPage';
 import { SystemMonitoring } from './pages/SystemMonitoring';
-// Import the TrayManager
 import { TrayManager } from './components/TrayManager';
 
+// Providers - IMPORTANTE: Importar todos os providers necessários
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { LanguageProvider } from './providers/LanguageProvider';
+import { AuthProvider } from './lib/auth/authContext';
+import { GameDetectionProvider } from './components/GameDetection/GameDetectionProvider';
+import { NetworkProvider } from './contexts/NetworkContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { FpsBoosterProvider } from './contexts/FpsBoosterContext';
+
+// Layout do App com Sidebar
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -58,12 +67,16 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+// Configuração das rotas
 const router = createBrowserRouter(
   createRoutesFromElements(
     <Route>
+      {/* Rotas públicas */}
       <Route path="/" element={<Landing />} />
       <Route path="/pricing" element={<Pricing />} />
       <Route path="/download" element={<DownloadPage />} />
+      
+      {/* Rotas de autenticação */}
       <Route path="/auth">
         <Route path="login" element={<Login />} />
         <Route path="register" element={<Register />} />
@@ -72,10 +85,14 @@ const router = createBrowserRouter(
         <Route path="update-password" element={<UpdatePassword />} />
         <Route path="verification" element={<Verification />} />
       </Route>
+      
+      {/* Rotas de checkout */}
       <Route path="/checkout">
         <Route path="success" element={<CheckoutSuccess />} />
         <Route path="cancel" element={<CheckoutCancel />} />
       </Route>
+      
+      {/* Rotas protegidas do app */}
       <Route
         path="/app"
         element={
@@ -156,6 +173,8 @@ const router = createBrowserRouter(
           </AuthGuard>
         }
       />
+      
+      {/* Rota 404 - redireciona para home */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Route>
   ),
@@ -167,32 +186,48 @@ const router = createBrowserRouter(
   }
 );
 
+// Componente principal do App
 function App() {
-  // Verify if we're in the Electron environment
+  // Verificar se estamos no ambiente Electron
   const isElectron = typeof window !== 'undefined' && window.electronAPI;
 
-  // Only register service worker in production and when not in StackBlitz
+  // Registrar service worker apenas em produção e fora do Electron
   React.useEffect(() => {
     if (
       process.env.NODE_ENV === 'production' && 
       'serviceWorker' in navigator &&
       !window.location.hostname.includes('stackblitz') &&
-      !isElectron // Don't register service worker in Electron
+      !isElectron
     ) {
       navigator.serviceWorker.register('/service-worker.js')
         .catch(error => {
           console.warn('Service worker registration failed:', error);
         });
     }
-  }, []);
+  }, [isElectron]);
 
   return (
-    <>
-      {/* Render TrayManager only in the Electron environment */}
-      {isElectron && <TrayManager />}
-      <RouterProvider router={router} />
-    </>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <AuthProvider>
+          <SubscriptionProvider>
+            <GameDetectionProvider>
+              <NetworkProvider>
+                <FpsBoosterProvider>
+                  {/* TrayManager apenas no Electron */}
+                  {isElectron && <TrayManager />}
+                  
+                  {/* Router principal da aplicação */}
+                  <RouterProvider router={router} />
+                </FpsBoosterProvider>
+              </NetworkProvider>
+            </GameDetectionProvider>
+          </SubscriptionProvider>
+        </AuthProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 }
 
+// EXPORT DEFAULT - MUITO IMPORTANTE!
 export default App;

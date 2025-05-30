@@ -46,8 +46,11 @@ export function useEpicDetector() {
       // Check if we're in Electron environment
       if (!isElectron()) {
         console.log('Not in Electron environment, using mock data for Epic games');
-        const mockGames = await getGetEpicGames();
-        return { platform: Platform.Epic, games: mockGames };
+        let games = [];
+        if (window.electronAPI?.gameAPI?.detectEpicGames) {
+          games = await window.electronAPI.gameAPI.detectEpicGames();
+        }
+        return { platform: Platform.Epic, games };
       }
 
       // Electron environment - use real detection

@@ -1,10 +1,37 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GamePath AI Application</title>
+    
+    <!-- Script de inicialização do Electron -->
+    <script id="electronAPIInit">
+      // Inicializar API do Electron no início
+      if (typeof require !== 'undefined' && !window.electronAPI) {
+        try {
+          const { ipcRenderer } = require('electron');
+          window.electronAPI = {
+            scanGames: () => ipcRenderer.invoke('scan-games'),
+            gameAPI: {
+              launch: (path) => ipcRenderer.invoke('launch-game', path),
+              detectGames: () => ipcRenderer.invoke('scan-games')
+            },
+            fs: {
+              readDir: (path) => ipcRenderer.invoke('fs-read-dir', path),
+              exists: (path) => ipcRenderer.invoke('fs-exists', path)
+            }
+          };
+          console.log('[index.html] ✅ Electron API inicializada!');
+          // Disparar evento para notificar componentes React
+          window.dispatchEvent(new Event('electron-api-ready'));
+        } catch (e) {
+          console.error('[index.html] Erro:', e);
+        }
+      }
+    </script>
+    
     <!-- Remove preload directives and let Vite handle module loading -->
     <script type="module" src="/src/main.tsx"></script>
     <link rel="stylesheet" href="/src/index.css">

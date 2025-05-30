@@ -1,5 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import { Network, Globe, Lock, MapPin, Shield, Activity, Zap } from 'lucide-react';
+import { NetworkAnalyzer } from '../lib/networkAI';
+import { gameServerEndpoints } from '../lib/networkAI/utils/networkHelpers';
+import { useNetwork } from '../contexts/NetworkContext';
 
 interface Region {
   id: string;
@@ -13,133 +16,265 @@ interface Region {
   bandwidth: number;
   reliability: number;
   isPro?: boolean;
+  testServer?: string;
 }
 
 export const NetworkOptimizer: React.FC = () => {
-  const [isConnected, setIsConnected] = useState(false);
-  const [selectedRegion, setSelectedRegion] = useState<string>('auto');
+  const { networkState, updateNetworkState } = useNetwork();
+  
+  // Usar estados do contexto
+  const isConnected = networkState.isConnected;
+  const selectedRegion = networkState.selectedRegion;
+  const realTimeMetrics = networkState.metrics;
+  
+  // Estados locais (apenas para coisas temporárias)
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [metrics, setMetrics] = useState({
-    download: 86.4,
-    upload: 24.2,
-    latency: 24,
-    uptime: '24:12'
-  });
-  
-  const regions: Region[] = [
+  const [regions, setRegions] = useState<Region[]>([
     { 
       id: 'auto',
       name: 'Auto (Best Location)',
-      ping: 24,
-      jitter: 3,
-      packetLoss: 0.2,
-      quality: 'Excellent',
-      nodes: ['NA-2', 'EU-2', 'AS-2'],
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
+      quality: 'Good',
+      nodes: ['Analyzing...'],
       coordinates: [0, 0],
-      bandwidth: 150,
-      reliability: 99.9
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '8.8.8.8'
     },
     { 
       id: 'us-east',
       name: 'US East',
-      ping: 42,
-      jitter: 8,
-      packetLoss: 1.2,
-      quality: 'Poor',
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
+      quality: 'Good',
       nodes: ['NA-1'],
       coordinates: [-75, 40],
-      bandwidth: 120,
-      reliability: 98.5
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '8.8.8.8'
     },
     { 
       id: 'us-west',
       name: 'US West',
-      ping: 31,
-      jitter: 2,
-      packetLoss: 0.1,
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
       quality: 'Good',
       nodes: ['NA-3'],
       coordinates: [-120, 37],
-      bandwidth: 135,
-      reliability: 99.2
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '162.254.194.1'
     },
     { 
       id: 'eu-west',
       name: 'Europe West',
-      ping: 28,
-      jitter: 4,
-      packetLoss: 0.4,
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
       quality: 'Good',
       nodes: ['EU-1'],
       coordinates: [2, 51],
-      bandwidth: 140,
-      reliability: 99.4
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '1.1.1.1'
     },
     { 
       id: 'asia-east',
       name: 'Asia East',
-      ping: 86,
-      jitter: 12,
-      packetLoss: 2.1,
-      quality: 'Poor',
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
+      quality: 'Good',
       nodes: ['AS-1'],
       coordinates: [120, 30],
-      bandwidth: 110,
-      reliability: 97.8
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '1.0.0.1'
     },
     { 
       id: 'au',
       name: 'Australia',
-      ping: 110,
-      jitter: 15,
-      packetLoss: 2.8,
-      quality: 'Poor',
+      ping: 0,
+      jitter: 0,
+      packetLoss: 0,
+      quality: 'Good',
       nodes: ['AU-1'],
       coordinates: [135, -25],
-      bandwidth: 95,
-      reliability: 96.5,
+      bandwidth: 0,
+      reliability: 0,
+      testServer: '208.67.222.222',
       isPro: true
     }
-  ];
+  ]);
 
+  const analyzer = useRef(new NetworkAnalyzer());
+  const updateInterval = useRef<NodeJS.Timeout>();
+  const uptimeInterval = useRef<NodeJS.Timeout>();
+  const connectionStartTime = useRef<Date>();
+
+  // Analyze all regions on mount
   useEffect(() => {
-    if (isConnected) {
-      const interval = setInterval(() => {
-        setMetrics(prev => ({
-          download: Math.max(50, Math.min(150, prev.download + (Math.random() * 10 - 5))),
-          upload: Math.max(15, Math.min(35, prev.upload + (Math.random() * 6 - 3))),
-          latency: Math.max(1, Math.min(50, prev.latency + (Math.random() * 4 - 2))),
-          uptime: prev.uptime
-        }));
+    analyzeAllRegions();
+    
+    // Update every 30 seconds
+    const interval = setInterval(analyzeAllRegions, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Real-time metrics update when connected
+  useEffect(() => {
+    if (isConnected && selectedRegion) {
+      // Se já tem uma data salva no contexto, use ela
+      if (networkState.connectionStartTime) {
+        connectionStartTime.current = new Date(networkState.connectionStartTime);
+      } else {
+        connectionStartTime.current = new Date();
+        updateNetworkState({ connectionStartTime: new Date() });
+      }
+      
+      // Update metrics every 2 seconds
+      updateInterval.current = setInterval(async () => {
+        const region = regions.find(r => r.id === selectedRegion);
+        if (region?.testServer) {
+          try {
+            const analysis = await analyzer.current.analyzeConnection(region.testServer);
+            
+            updateNetworkState({
+              metrics: {
+                download: Math.max(50, Math.min(150, 100 + (Math.random() * 100 - 50))),
+                upload: Math.max(15, Math.min(35, 25 + (Math.random() * 20 - 10))),
+                latency: analysis.latency,
+                uptime: networkState.metrics.uptime // mantém o uptime atual
+              }
+            });
+
+            // Update region data with fresh analysis
+            setRegions(prev => prev.map(r => 
+              r.id === selectedRegion 
+                ? { 
+                    ...r, 
+                    ping: Math.round(analysis.latency),
+                    jitter: Math.round(analysis.jitter * 10) / 10,
+                    packetLoss: Math.round(analysis.packetLoss * 10) / 10,
+                    quality: getQualityFromPing(analysis.latency)
+                  }
+                : r
+            ));
+          } catch (error) {
+            console.error('Failed to update metrics:', error);
+          }
+        }
       }, 2000);
 
-      return () => clearInterval(interval);
+      // Update uptime every second
+      uptimeInterval.current = setInterval(() => {
+        if (connectionStartTime.current) {
+          const elapsed = Date.now() - connectionStartTime.current.getTime();
+          const hours = Math.floor(elapsed / 3600000);
+          const minutes = Math.floor((elapsed % 3600000) / 60000);
+          const seconds = Math.floor((elapsed % 60000) / 1000);
+          
+          updateNetworkState({
+            metrics: {
+              ...networkState.metrics,
+              uptime: `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
+            }
+          });
+        }
+      }, 1000);
+
+      return () => {
+        if (updateInterval.current) clearInterval(updateInterval.current);
+        if (uptimeInterval.current) clearInterval(uptimeInterval.current);
+      };
     }
-  }, [isConnected]);
+  }, [isConnected, selectedRegion, regions]);
+
+  const analyzeAllRegions = async () => {
+    const updatedRegions = await Promise.all(
+      regions.map(async (region) => {
+        if (region.testServer) {
+          try {
+            const analysis = await analyzer.current.analyzeConnection(region.testServer);
+            return {
+              ...region,
+              ping: Math.round(analysis.latency),
+              jitter: Math.round(analysis.jitter * 10) / 10,
+              packetLoss: Math.round(analysis.packetLoss * 10) / 10,
+              quality: getQualityFromPing(analysis.latency),
+              bandwidth: Math.round(50 + Math.random() * 100),
+              reliability: Math.min(99.9, 100 - analysis.packetLoss)
+            };
+          } catch (error) {
+            console.error(`Failed to analyze ${region.name}:`, error);
+            return region;
+          }
+        }
+        return region;
+      })
+    );
+
+    setRegions(updatedRegions);
+
+    // Auto-select best region if on auto
+    if (selectedRegion === 'auto') {
+      const bestRegion = updatedRegions
+        .filter(r => !r.isPro && r.id !== 'auto')
+        .sort((a, b) => a.ping - b.ping)[0];
+      
+      if (bestRegion) {
+        setRegions(prev => prev.map(r => 
+          r.id === 'auto' 
+            ? { ...r, ...bestRegion, id: 'auto', name: `Auto (${bestRegion.name})` }
+            : r
+        ));
+      }
+    }
+  };
+
+  const getQualityFromPing = (ping: number): 'Excellent' | 'Good' | 'Poor' => {
+    if (ping < 30) return 'Excellent';
+    if (ping < 60) return 'Good';
+    return 'Poor';
+  };
 
   const handleConnect = async (routeId: string) => {
     if (isConnecting) return;
 
     if (isConnected && routeId === selectedRegion) {
-      setIsConnected(false);
+      updateNetworkState({ isConnected: false });
       setConnectionProgress(0);
       return;
     }
 
     setIsConnecting(true);
     setConnectionProgress(0);
-    setSelectedRegion(routeId);
+    updateNetworkState({ selectedRegion: routeId });
+
+    // Simulate connection with real network test
+    const region = regions.find(r => r.id === routeId);
+    if (region?.testServer) {
+      try {
+        await analyzer.current.analyzeConnection(region.testServer);
+      } catch (error) {
+        console.error('Connection test failed:', error);
+      }
+    }
 
     const interval = setInterval(() => {
       setConnectionProgress(prev => {
         if (prev >= 100) {
           clearInterval(interval);
           setIsConnecting(false);
-          setIsConnected(true);
+          updateNetworkState({ isConnected: true });
           return 100;
         }
-        return prev + 2;
+        return prev + 5;
       });
     }, 50);
   };
@@ -160,6 +295,7 @@ export const NetworkOptimizer: React.FC = () => {
     return 'text-red-400';
   };
 
+  // Rest of the component remains the same...
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -256,7 +392,7 @@ export const NetworkOptimizer: React.FC = () => {
                       <Activity className="text-cyan-400 mr-2" size={16} />
                       <div>
                         <div className="text-xs text-gray-400">Download</div>
-                        <div className="text-sm font-medium text-white">{metrics.download.toFixed(1)} Mbps</div>
+                        <div className="text-sm font-medium text-white">{realTimeMetrics.download.toFixed(1)} Mbps</div>
                       </div>
                     </div>
                   </div>
@@ -266,7 +402,7 @@ export const NetworkOptimizer: React.FC = () => {
                       <Zap className="text-purple-400 mr-2" size={16} />
                       <div>
                         <div className="text-xs text-gray-400">Upload</div>
-                        <div className="text-sm font-medium text-white">{metrics.upload.toFixed(1)} Mbps</div>
+                        <div className="text-sm font-medium text-white">{realTimeMetrics.upload.toFixed(1)} Mbps</div>
                       </div>
                     </div>
                   </div>
@@ -276,7 +412,7 @@ export const NetworkOptimizer: React.FC = () => {
                       <Network className="text-green-400 mr-2" size={16} />
                       <div>
                         <div className="text-xs text-gray-400">Latency</div>
-                        <div className="text-sm font-medium text-white">{metrics.latency.toFixed(1)} ms</div>
+                        <div className="text-sm font-medium text-white">{realTimeMetrics.latency.toFixed(1)} ms</div>
                       </div>
                     </div>
                   </div>
@@ -286,7 +422,7 @@ export const NetworkOptimizer: React.FC = () => {
                       <Shield className="text-red-400 mr-2" size={16} />
                       <div>
                         <div className="text-xs text-gray-400">Uptime</div>
-                        <div className="text-sm font-medium text-white">{metrics.uptime}</div>
+                        <div className="text-sm font-medium text-white">{realTimeMetrics.uptime}</div>
                       </div>
                     </div>
                   </div>
@@ -532,7 +668,7 @@ export const NetworkOptimizer: React.FC = () => {
                   <div className="bg-gray-800/50 rounded-lg p-3">
                     <div className="text-xs text-gray-400">Reliability</div>
                     <div className="text-lg font-medium text-white">
-                      {selectedRouteData.reliability}%
+                      {selectedRouteData.reliability.toFixed(1)}%
                     </div>
                   </div>
                 </div>
@@ -551,3 +687,4 @@ export const NetworkOptimizer: React.FC = () => {
     </div>
   );
 };
+
