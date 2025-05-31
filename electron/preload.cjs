@@ -218,7 +218,29 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Outros
   validateGameFiles: (id) => ipcRenderer.invoke('validate-game-files', id),
   launchGame: (id) => ipcRenderer.invoke('launch-game', id),
-  optimizeGame: (id, profile) => ipcRenderer.invoke('optimize-game', id, profile)
+  optimizeGame: (id, profile) => ipcRenderer.invoke('optimize-game', id, profile),
+
+  // Tray API
+  tray: {
+    updateGames: (games) => {
+      try {
+        console.log('[Preload] Tray update games:', games);
+        return { success: true };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+  },
+
+  // Sistema de eventos
+  events: {
+    on: (event, callback) => {
+      ipcRenderer.on(event, (_, data) => callback(data));
+    },
+    removeAll: (event) => {
+      ipcRenderer.removeAllListeners(event);
+    }
+  }
 });
 
 console.log('[Preload] ✅ API exposta com sucesso!');

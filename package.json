@@ -57,15 +57,27 @@
             "public/icons/**/*"
         ],
         "files": [
-            "dist/**/*",
-            "electron/**/*",
-            "package.json"
+        "dist/**/*",
+        "electron/**/*",
+        "package.json",
+        "!dist/**/*.map"
         ],
         "extraResources": [
-            {
-                "from": "public",
-                "to": "public"
-            }
+        {
+        "from": "public",
+        "to": "public",
+        "filter": ["**/*", "!**/*.map"]
+        }
+        ],
+        "asarUnpack": [
+        "node_modules/registry-js/**/*",
+        "node_modules/systeminformation/**/*",
+        "node_modules/find-process/**/*",
+        "node_modules/ping/**/*",
+        "node_modules/tcp-ping/**/*",
+        "node_modules/**/*.node",
+        "public/icons/**/*",
+        "public/locales/**/*"
         ],
         "win": {
             "target": [
