@@ -8,6 +8,25 @@ import './i18n';
 import App from './App';
 import './index.css';
 
+// Importar e inicializar o Electron Bridge ANTES de tudo
+import { initializeElectronAPI } from './utils/electronBridge';
+
+// Inicializar API do Electron se disponível
+console.log('Verificando ambiente Electron...');
+const isElectronEnv = typeof window !== 'undefined' && (window.require || navigator.userAgent.includes('Electron'));
+console.log('Ambiente Electron detectado:', isElectronEnv);
+
+if (isElectronEnv) {
+  console.log('Inicializando Electron API...');
+  const apiInitialized = initializeElectronAPI();
+  console.log('API do Electron inicializada:', apiInitialized);
+  
+  // Se a API foi inicializada com sucesso, aguardar um momento para garantir
+  if (apiInitialized) {
+    console.log('✅ Electron API pronta para uso');
+  }
+}
+
 // Logs para depuração
 console.log('main.tsx carregado');
 const rootElement = document.getElementById('root');

@@ -1,4 +1,4 @@
-// src/lib/networkAI/core/NetworkAnalyzer.ts
+﻿// src/lib/networkAI/core/NetworkAnalyzer.ts
 
 import { NetworkAnalysis, ServerInfo, NetworkDiagnostics, NetworkIssue, NetworkRegion } from '../models/types';
 
@@ -11,7 +11,7 @@ export class NetworkAnalyzer {
     if (cached) return cached;
 
     const latency = await this.measureLatency({ testUrl: targetServer } as NetworkRegion);
-    
+
     const analysis: NetworkAnalysis = {
       latency,
       jitter: 0,
@@ -74,46 +74,83 @@ export class NetworkAnalyzer {
 
   async measureLatency(region: NetworkRegion): Promise<number> {
     try {
+      // Use Electron API if available
+      if (typeof window !== 'undefined' && window.electronAPI?.ping) {
+        const testHost = region.testUrl ? 
+          region.testUrl.replace(/^https?:\/\//, '').split('/')[0] : 
+          '8.8.8.8';
+        
+        const samples = 5;
+        let results: number[] = [];
+
+        for (let i = 0; i < samples; i++) {
+          try {
+            const latency = await window.electronAPI.ping(testHost);
+            results.push(latency);
+          } catch (error) {
+            results.push(999);
+          }
+
+          if (i < samples - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        }
+
+        if (!Array.isArray(results) || results.length === 0) {
+          return 999;
+        }
+
+        const sorted = [...results].sort((a, b) => a - b);
+        const trimmed = sorted.slice(1, -1);
+
+        if (trimmed.length === 0) {
+          return sorted[0] || 999;
+        }
+
+        return Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
+      }
+      
+      // Fallback for development
       const testUrl = region.testUrl || 'https://www.google.com';
       const samples = 5;
       let results: number[] = [];
-      
+
       for (let i = 0; i < samples; i++) {
         const start = Date.now();
         try {
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
-          
+
           await fetch(testUrl, {
             method: 'HEAD',
             mode: 'no-cors',
             cache: 'no-cache',
             signal: controller.signal
           });
-          
+
           clearTimeout(timeoutId);
           const latency = Date.now() - start;
           results.push(latency);
         } catch (error) {
           results.push(999);
         }
-        
+
         if (i < samples - 1) {
           await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
-      
+
       if (!Array.isArray(results) || results.length === 0) {
         return 999;
       }
-      
+
       const sorted = [...results].sort((a, b) => a - b);
       const trimmed = sorted.slice(1, -1);
-      
+
       if (trimmed.length === 0) {
         return sorted[0] || 999;
       }
-      
+
       return Math.round(trimmed.reduce((a, b) => a + b, 0) / trimmed.length);
     } catch (error) {
       console.error('Error measuring latency:', error);
